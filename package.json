@@ -1,0 +1,43 @@
+{
+  "name": "opencore-taurians",
+  "version": "0.1.0",
+  "description": "Desktop app integrating frontier AI with editor, chat, and terminal modes for a unified developer workflow.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bengidev/opencore-taurians.git"
+  },
+  "keywords": [
+    "tauri",
+    "sveltekit",
+    "desktop",
+    "ai",
+    "editor",
+    "chat",
+    "terminal"
+  ],
+  "author": "Bengi",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "tauri": "tauri"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.6",
+    "@sveltejs/kit": "^2.9.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.3",
+    "@tauri-apps/cli": "^2"
+  }
+}
