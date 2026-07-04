@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
 @import "../design-system/tokens.css";
 
 @custom-variant dark (&:is(.dark *));
@@ -70,7 +72,7 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50 select-none;
+    @apply border-border outline-ring/50;
   }
   html,
   body,

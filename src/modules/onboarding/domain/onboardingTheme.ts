@@ -5,14 +5,15 @@ export type ForegroundToken = "primary" | "secondary" | "muted" | "accent";
 export type BorderToken = "default" | "strong";
 export type ActionToken = "strong" | "strongText";
 
-export interface RgbaColor {
+/** Normalized RGBA (0–1 channels). Canvas palette mirrors design-system/tokens.css. */
+export interface Rgba {
   r: number;
   g: number;
   b: number;
   a: number;
 }
 
-function rgb(r: number, g: number, b: number, a = 1): RgbaColor {
+function rgb(r: number, g: number, b: number, a = 1): Rgba {
   return { r, g, b, a };
 }
 
@@ -27,7 +28,7 @@ const GRAY_700 = rgb(64 / 255, 64 / 255, 64 / 255);
 const GRAY_200 = rgb(229 / 255, 229 / 255, 229 / 255);
 const GRAY_300 = rgb(212 / 255, 212 / 255, 212 / 255);
 
-const FOREGROUND: Record<ThemeMode, Record<ForegroundToken, RgbaColor>> = {
+const FOREGROUND: Record<ThemeMode, Record<ForegroundToken, Rgba>> = {
   light: {
     primary: INK_DEEP,
     secondary: GRAY_600,
@@ -42,7 +43,7 @@ const FOREGROUND: Record<ThemeMode, Record<ForegroundToken, RgbaColor>> = {
   },
 };
 
-const SURFACE: Record<ThemeMode, Record<BackgroundToken, RgbaColor>> = {
+const SURFACE: Record<ThemeMode, Record<BackgroundToken, Rgba>> = {
   light: {
     primary: PAPER,
     secondary: PAPER_MUTED,
@@ -55,7 +56,7 @@ const SURFACE: Record<ThemeMode, Record<BackgroundToken, RgbaColor>> = {
   },
 };
 
-const BORDER: Record<ThemeMode, Record<BorderToken, RgbaColor>> = {
+const BORDER: Record<ThemeMode, Record<BorderToken, Rgba>> = {
   light: {
     default: GRAY_200,
     strong: GRAY_300,
@@ -66,7 +67,7 @@ const BORDER: Record<ThemeMode, Record<BorderToken, RgbaColor>> = {
   },
 };
 
-const ACTION: Record<ThemeMode, Record<ActionToken, RgbaColor>> = {
+const ACTION: Record<ThemeMode, Record<ActionToken, Rgba>> = {
   light: {
     strong: INK_DEEP,
     strongText: PAPER,
@@ -77,22 +78,21 @@ const ACTION: Record<ThemeMode, Record<ActionToken, RgbaColor>> = {
   },
 };
 
-export const CONTROL_RADIUS = 8;
 export const DEFAULT_THEME_MODE: ThemeMode = "dark";
 
-export function foreground(mode: ThemeMode, token: ForegroundToken): RgbaColor {
+export function foreground(mode: ThemeMode, token: ForegroundToken): Rgba {
   return FOREGROUND[mode][token];
 }
 
-export function surface(mode: ThemeMode, token: BackgroundToken): RgbaColor {
+export function surface(mode: ThemeMode, token: BackgroundToken): Rgba {
   return SURFACE[mode][token];
 }
 
-export function borderToken(mode: ThemeMode, token: BorderToken): RgbaColor {
+export function borderToken(mode: ThemeMode, token: BorderToken): Rgba {
   return BORDER[mode][token];
 }
 
-export function action(mode: ThemeMode, token: ActionToken): RgbaColor {
+export function action(mode: ThemeMode, token: ActionToken): Rgba {
   return ACTION[mode][token];
 }
 
@@ -100,35 +100,16 @@ export function nextThemeMode(mode: ThemeMode): ThemeMode {
   return mode === "dark" ? "light" : "dark";
 }
 
-function toCss({ r, g, b, a }: RgbaColor): string {
+export function rgbaToCss({ r, g, b, a }: Rgba): string {
   const ri = Math.round(r * 255);
   const gi = Math.round(g * 255);
   const bi = Math.round(b * 255);
   return a < 1 ? `rgba(${ri}, ${gi}, ${bi}, ${a})` : `rgb(${ri}, ${gi}, ${bi})`;
 }
 
-function cssVarName(
-  category: "fg" | "bg" | "border" | "action",
-  token: string,
-): string {
-  return `--oc-${category}-${token}`;
-}
-
+/** Applies Tailwind/shadcn dark-mode class before React hydrates theme state. */
 export function applyThemeToDocument(mode: ThemeMode): void {
   const root = document.documentElement;
   root.dataset.theme = mode;
   root.classList.toggle("dark", mode === "dark");
-
-  for (const [token, color] of Object.entries(FOREGROUND[mode])) {
-    root.style.setProperty(cssVarName("fg", token), toCss(color));
-  }
-  for (const [token, color] of Object.entries(SURFACE[mode])) {
-    root.style.setProperty(cssVarName("bg", token), toCss(color));
-  }
-  for (const [token, color] of Object.entries(BORDER[mode])) {
-    root.style.setProperty(cssVarName("border", token), toCss(color));
-  }
-  for (const [token, color] of Object.entries(ACTION[mode])) {
-    root.style.setProperty(cssVarName("action", token), toCss(color));
-  }
 }

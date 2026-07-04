@@ -1,9 +1,6 @@
-export interface Rgba {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
-}
+import type { Rgba } from "../domain/onboardingTheme";
+export type { Rgba } from "../domain/onboardingTheme";
+export { rgbaToCss } from "../domain/onboardingTheme";
 
 export const WHITE: Rgba = { r: 1, g: 1, b: 1, a: 1 };
 

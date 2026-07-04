@@ -8,6 +8,14 @@ export interface OnboardingScreenProps {
   onEnter?: () => void;
 }
 
+function isInteractiveKeyboardTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.closest("button, input, textarea, select, a[href], [role='button']") !==
+    null
+  );
+}
+
 export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
   const handleEnter = useCallback(() => {
     onEnter?.();
@@ -15,14 +23,11 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key === "Enter" &&
-        !event.repeat &&
-        !event.metaKey &&
-        !event.ctrlKey
-      ) {
-        handleEnter();
-      }
+      if (event.key !== "Enter" || event.repeat || event.isComposing) return;
+      if (event.metaKey || event.ctrlKey) return;
+      if (isInteractiveKeyboardTarget(event.target)) return;
+
+      handleEnter();
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -30,10 +35,7 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
   }, [handleEnter]);
 
   return (
-    <div
-      className="relative min-h-dvh overflow-hidden bg-background text-foreground"
-      tabIndex={-1}
-    >
+    <div className="onboarding-screen relative min-h-dvh overflow-hidden bg-background text-foreground">
       <SceneBackdrop />
 
       <div className="relative z-1 flex min-h-dvh flex-col px-4 py-5">
@@ -53,7 +55,7 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
           className="mx-auto mt-4 flex w-full max-w-[600px] flex-col items-center"
           aria-labelledby="onboarding-headline"
         >
-          <div className="h-[300px] w-full cursor-pointer">
+          <div className="h-[300px] w-full">
             <GalaxyOrbCanvas />
           </div>
 

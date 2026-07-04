@@ -1,11 +1,13 @@
 import { DEFAULT_THEME_MODE, type ThemeMode } from "../domain/onboardingTheme";
+import { THEME_STORAGE_KEY } from "./onboardingThemeConstants";
+
+export type { ThemeMode };
+export { THEME_STORAGE_KEY };
 
 export interface ThemeRepository {
   load(): ThemeMode;
   save(mode: ThemeMode): void;
 }
-
-export const THEME_STORAGE_KEY = "opencore-theme";
 
 export class LocalStorageThemeRepository implements ThemeRepository {
   constructor(private readonly storageKey = THEME_STORAGE_KEY) {}

@@ -35,17 +35,44 @@ export function useOrbDynamics() {
   return { tick, press, release };
 }
 
-export function useAnimationFrame(callback: () => void) {
-  useEffect(() => {
-    let frame = 0;
+type FrameCallback = () => void;
 
-    const loop = () => {
+const frameSubscribers = new Set<FrameCallback>();
+let frameId = 0;
+let frameLoopActive = false;
+
+function runFrameLoop(): void {
+  if (!document.hidden) {
+    for (const callback of frameSubscribers) {
       callback();
-      frame = requestAnimationFrame(loop);
-    };
+    }
+  }
+  frameId = requestAnimationFrame(runFrameLoop);
+}
 
-    frame = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(frame);
+function ensureFrameLoop(): void {
+  if (!frameLoopActive && frameSubscribers.size > 0) {
+    frameLoopActive = true;
+    frameId = requestAnimationFrame(runFrameLoop);
+  }
+}
+
+function stopFrameLoopIfIdle(): void {
+  if (frameLoopActive && frameSubscribers.size === 0) {
+    cancelAnimationFrame(frameId);
+    frameLoopActive = false;
+  }
+}
+
+/** Shared rAF bus for onboarding canvases — one loop, pauses when tab is hidden. */
+export function useAnimationFrame(callback: () => void): void {
+  useEffect(() => {
+    frameSubscribers.add(callback);
+    ensureFrameLoop();
+    return () => {
+      frameSubscribers.delete(callback);
+      stopFrameLoopIfIdle();
+    };
   }, [callback]);
 }
 

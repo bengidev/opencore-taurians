@@ -8,21 +8,8 @@
       name="description"
       content="OpenCore — your local AI command workspace. Chat, terminal, editing, and Rust-native performance in one permissioned desktop environment."
     />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
     <title>OpenCore</title>
-    <script>
-      (function () {
-        var stored = localStorage.getItem("opencore-theme");
-        var mode = stored === "light" || stored === "dark" ? stored : "dark";
-        document.documentElement.dataset.theme = mode;
-        document.documentElement.classList.toggle("dark", mode === "dark");
-      })();
-    </script>
+    <script src="/theme-boot.js"></script>
   </head>
 
   <body>
