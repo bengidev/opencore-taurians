@@ -12,9 +12,10 @@
   "app": {
     "windows": [
       {
-        "title": "OpenCore Taurians",
-        "width": 800,
-        "height": 600
+        "title": "OpenCore",
+        "width": 960,
+        "height": 720,
+        "resizable": true
       }
     ],
     "security": {
