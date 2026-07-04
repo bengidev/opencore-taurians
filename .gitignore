@@ -48,3 +48,6 @@ src-tauri/gen/schemas
 
 # Test / coverage
 coverage/
+
+# Design-system extraction artifacts
+.extract-design-system/

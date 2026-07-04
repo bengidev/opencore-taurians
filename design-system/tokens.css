@@ -1,0 +1,134 @@
+/**
+ * OpenCore design tokens — monochrome palette.
+ */
+
+:root {
+  /* Primitive palette */
+  --ds-ink: #1f1f1f;
+  --ds-ink-deep: #101010;
+  --ds-paper: #ffffff;
+  --ds-paper-muted: #fafafa;
+  --ds-gray-200: #e5e5e5;
+  --ds-gray-300: #d4d4d4;
+  --ds-gray-400: #a3a3a3;
+  --ds-gray-500: #737373;
+  --ds-gray-600: #525252;
+  --ds-gray-700: #404040;
+
+  /* Typography */
+  --ds-font-heading: "Geist Variable", Geist, sans-serif;
+  --ds-font-body: "Geist Variable", Geist, sans-serif;
+  --ds-font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+
+  /* Spacing scale */
+  --ds-space-1: 2px;
+  --ds-space-2: 4px;
+  --ds-space-3: 6px;
+  --ds-space-4: 8px;
+  --ds-space-5: 10px;
+  --ds-space-6: 12px;
+  --ds-space-7: 14px;
+  --ds-space-8: 16px;
+  --ds-space-9: 20px;
+  --ds-space-10: 24px;
+  --ds-space-11: 28px;
+  --ds-space-12: 32px;
+  --ds-space-13: 40px;
+  --ds-space-14: 48px;
+  --ds-space-15: 56px;
+  --ds-space-16: 64px;
+  --ds-space-17: 80px;
+  --ds-space-18: 96px;
+  --ds-space-19: 120px;
+
+  /* Radius */
+  --ds-radius: 0.5rem;
+
+  /* Semantic — light */
+  --ds-background: var(--ds-paper);
+  --ds-foreground: var(--ds-ink-deep);
+  --ds-muted: var(--ds-paper-muted);
+  --ds-muted-foreground: var(--ds-gray-500);
+  --ds-border: var(--ds-gray-200);
+  --ds-border-strong: var(--ds-gray-300);
+  --ds-action: var(--ds-ink-deep);
+  --ds-action-foreground: var(--ds-paper);
+
+  /* Shadcn semantic tokens (monochrome oklch) */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.168 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.168 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.168 0 0);
+  --primary: oklch(0.168 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.22 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.22 0 0);
+  --destructive: oklch(0.577 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: var(--ds-radius);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.168 0 0);
+  --sidebar-primary: oklch(0.22 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.22 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  /* Semantic — dark */
+  --ds-background: var(--ds-ink-deep);
+  --ds-foreground: var(--ds-paper);
+  --ds-muted: var(--ds-gray-700);
+  --ds-muted-foreground: var(--ds-gray-400);
+  --ds-border: oklch(1 0 0 / 12%);
+  --ds-border-strong: oklch(1 0 0 / 20%);
+  --ds-action: var(--ds-paper);
+  --ds-action-foreground: var(--ds-ink-deep);
+
+  --background: oklch(0.168 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.22 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.22 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.168 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.22 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.985 0 0);
+  --sidebar-primary-foreground: oklch(0.168 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
