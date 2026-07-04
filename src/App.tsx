@@ -3,7 +3,6 @@ import {
   OnboardingScreen,
   ThemeProvider,
 } from "./modules/onboarding";
-import "./App.css";
 
 function App() {
   const [entered, setEntered] = useState(false);
@@ -11,9 +10,9 @@ function App() {
   return (
     <ThemeProvider>
       {entered ? (
-        <main className="workspace-placeholder">
-          <p className="workspace-placeholder__label">OpenCore workspace</p>
-          <p className="workspace-placeholder__hint">
+        <main className="flex min-h-dvh flex-col items-center justify-center gap-2 bg-background p-6 text-center text-foreground">
+          <p className="m-0 text-lg font-semibold">OpenCore workspace</p>
+          <p className="m-0 text-sm text-muted-foreground">
             Main workspace shell will connect here.
           </p>
         </main>

@@ -1,7 +1,8 @@
 import { useCallback, useEffect } from "react";
-import { GalaxyOrbCanvas } from "./GalaxyOrbCanvas";
-import { SceneBackdrop } from "./SceneBackdrop";
-import { ThemeToggle } from "./ThemeToggle";
+import { Button } from "@/components/ui/button";
+import { GalaxyOrbCanvas } from "./onboardingGalaxyOrbCanvas";
+import { SceneBackdrop } from "./onboardingSceneBackdrop";
+import { ThemeToggle } from "./onboardingThemeToggle";
 
 export interface OnboardingScreenProps {
   onEnter?: () => void;
@@ -29,31 +30,41 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
   }, [handleEnter]);
 
   return (
-    <div className="onboarding" tabIndex={-1}>
+    <div
+      className="relative min-h-dvh overflow-hidden bg-background text-foreground"
+      tabIndex={-1}
+    >
       <SceneBackdrop />
 
-      <div className="onboarding__content">
-        <header className="onboarding__header">
-          <div className="onboarding__brand">
-            <span className="onboarding__title">OpenCore</span>
-            <span className="onboarding__tagline">LOCAL AI WORKSPACE</span>
+      <div className="relative z-1 flex min-h-dvh flex-col px-4 py-5">
+        <header className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[13px] font-semibold tracking-tight leading-[1.15]">
+              OpenCore
+            </span>
+            <span className="text-[9px] font-medium tracking-[0.14em] text-muted-foreground">
+              LOCAL AI WORKSPACE
+            </span>
           </div>
           <ThemeToggle />
         </header>
 
         <section
-          className="onboarding__hero"
+          className="mx-auto mt-4 flex w-full max-w-[600px] flex-col items-center"
           aria-labelledby="onboarding-headline"
         >
-          <div className="onboarding__orb-shell">
+          <div className="h-[300px] w-full cursor-pointer">
             <GalaxyOrbCanvas />
           </div>
 
-          <h1 id="onboarding-headline" className="onboarding__headline">
+          <h1
+            id="onboarding-headline"
+            className="mt-7 max-w-[600px] text-center text-[clamp(1.75rem,4vw,2rem)] font-semibold tracking-tight leading-[1.12] text-balance"
+          >
             Your local AI command workspace
           </h1>
 
-          <p className="onboarding__description">
+          <p className="mt-2.5 max-w-[38rem] text-center font-mono text-xs leading-[1.2] text-muted-foreground text-pretty">
             OpenCore combines chat, terminal, editing, and Rust-native performance
             in one permissioned desktop environment. To leave the crowded cloud,
             polluted by leaks and unconsciousness, to return to a workspace that
@@ -61,14 +72,15 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
           </p>
         </section>
 
-        <footer className="onboarding__footer">
-          <button
+        <footer className="mt-auto flex justify-center pb-2 pt-6">
+          <Button
             type="button"
-            className="onboarding__cta"
+            size="lg"
+            className="px-7 py-5"
             onClick={handleEnter}
           >
             Enter OpenCore
-          </button>
+          </Button>
         </footer>
       </div>
     </div>

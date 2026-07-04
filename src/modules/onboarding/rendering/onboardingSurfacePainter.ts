@@ -1,4 +1,4 @@
-import type { Point2, Rgba, Size2 } from "./color";
+import type { Point2, Rgba, Size2 } from "./onboardingColor";
 
 /** Port for any pixel surface the onboarding renderer can target. */
 export interface SurfacePainter {

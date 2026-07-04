@@ -1,11 +1,11 @@
-import type { ThemeMode } from "../domain/theme";
+import type { ThemeMode } from "../domain/onboardingTheme";
 import {
   foreground,
   surface,
   type BackgroundToken,
   type ForegroundToken,
-} from "../domain/theme";
-import { MAX_ZOOM, SPEED_CLAMP } from "../domain/orbDynamics";
+} from "../domain/onboardingTheme";
+import { MAX_ZOOM, SPEED_CLAMP } from "../domain/onboardingOrbDynamics";
 import {
   blend,
   Point2,
@@ -13,8 +13,8 @@ import {
   Size2,
   WHITE,
   withAlpha,
-} from "./color";
-import type { SurfacePainter } from "./surfacePainter";
+} from "./onboardingColor";
+import type { SurfacePainter } from "./onboardingSurfacePainter";
 
 const LOGICAL_SIZE: Size2 = { width: 520, height: 340 };
 

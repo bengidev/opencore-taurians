@@ -1,11 +1,11 @@
 import { useCallback, useRef } from "react";
-import { Canvas2DPainter } from "../rendering/canvas2dPainter";
+import { Canvas2DPainter } from "../rendering/onboardingCanvas2dPainter";
 import {
   backdropElapsedSeconds,
   paintSceneBackdrop,
-} from "../rendering/sceneBackdrop";
-import { useTheme } from "./ThemeProvider";
-import { fitCanvasToElement, useAnimationFrame } from "./hooks/canvasRuntime";
+} from "../rendering/onboardingSceneBackdrop";
+import { useTheme } from "./onboardingThemeContext";
+import { fitCanvasToElement, useAnimationFrame } from "./hooks/onboardingCanvasRuntime";
 
 export function SceneBackdrop() {
   const canvasRef = useRef<HTMLCanvasElement>(null);

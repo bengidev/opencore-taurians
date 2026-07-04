@@ -3,7 +3,7 @@ import {
   initialOrbDynamicsState,
   reduceOrbDynamics,
   type OrbDynamicsState,
-} from "../../domain/orbDynamics";
+} from "../../domain/onboardingOrbDynamics";
 
 export function useOrbDynamics() {
   const stateRef = useRef<OrbDynamicsState>(initialOrbDynamicsState());

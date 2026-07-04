@@ -1,5 +1,5 @@
-import type { Point2, Rgba, Size2 } from "./color";
-import type { SurfacePainter } from "./surfacePainter";
+import type { Point2, Rgba, Size2 } from "./onboardingColor";
+import type { SurfacePainter } from "./onboardingSurfacePainter";
 
 function rgbaToCss(color: Rgba): string {
   const r = Math.round(color.r * 255);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LocalStorageThemeRepository } from "./themeRepository";
+import { LocalStorageThemeRepository } from "./onboardingThemeRepository";
 
 describe("LocalStorageThemeRepository", () => {
   it("returns dark when nothing is stored", () => {

@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { OnboardingScreen } from "./OnboardingScreen";
-import { ThemeProvider } from "./ThemeProvider";
-import { LocalStorageThemeRepository } from "../infrastructure/themeRepository";
+import { OnboardingScreen } from "./onboardingScreen";
+import { ThemeProvider } from "./onboardingThemeProvider";
+import { LocalStorageThemeRepository } from "../infrastructure/onboardingThemeRepository";
 
 vi.stubGlobal("requestAnimationFrame", () => 1);
 vi.stubGlobal("cancelAnimationFrame", () => {});

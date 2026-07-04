@@ -1,4 +1,4 @@
-import { DEFAULT_THEME_MODE, type ThemeMode } from "../domain/theme";
+import { DEFAULT_THEME_MODE, type ThemeMode } from "../domain/onboardingTheme";
 
 export interface ThemeRepository {
   load(): ThemeMode;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { Point2, Rgba, Size2 } from "./color";
-import { paintGalaxyOrb } from "./galaxyOrb";
-import type { SurfacePainter } from "./surfacePainter";
+import type { Point2, Rgba, Size2 } from "./onboardingColor";
+import { paintGalaxyOrb } from "./onboardingGalaxyOrb";
+import type { SurfacePainter } from "./onboardingSurfacePainter";
 
 class RecordingPainter implements SurfacePainter {
   readonly rectangles: Array<{

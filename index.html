@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <title>OpenCore</title>
@@ -20,6 +20,7 @@
         var stored = localStorage.getItem("opencore-theme");
         var mode = stored === "light" || stored === "dark" ? stored : "dark";
         document.documentElement.dataset.theme = mode;
+        document.documentElement.classList.toggle("dark", mode === "dark");
       })();
     </script>
   </head>

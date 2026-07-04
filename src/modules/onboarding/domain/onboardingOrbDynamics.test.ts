@@ -5,7 +5,7 @@ import {
   initialOrbDynamicsState,
   motionForProgress,
   reduceOrbDynamics,
-} from "./orbDynamics";
+} from "./onboardingOrbDynamics";
 
 describe("motionForProgress", () => {
   it("returns baseline motion at zero hold progress", () => {

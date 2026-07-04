@@ -1,24 +1,16 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
-import { applyThemeToDocument, nextThemeMode, type ThemeMode } from "../domain/theme";
+import { applyThemeToDocument, nextThemeMode, type ThemeMode } from "../domain/onboardingTheme";
 import {
   defaultThemeRepository,
   type ThemeRepository,
-} from "../infrastructure/themeRepository";
-
-interface ThemeContextValue {
-  mode: ThemeMode;
-  toggle: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextValue | null>(null);
+} from "../infrastructure/onboardingThemeRepository";
+import { ThemeContext } from "./onboardingThemeContext";
 
 interface ThemeProviderProps {
   children: ReactNode;
@@ -45,12 +37,4 @@ export function ThemeProvider({
   return (
     <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
   );
-}
-
-export function useTheme(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) {
-    throw new Error("useTheme must be used within ThemeProvider");
-  }
-  return ctx;
 }

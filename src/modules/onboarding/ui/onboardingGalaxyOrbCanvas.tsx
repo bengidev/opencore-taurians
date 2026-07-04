@@ -1,12 +1,12 @@
 import { useCallback, useRef } from "react";
-import { Canvas2DPainter } from "../rendering/canvas2dPainter";
-import { paintGalaxyOrb } from "../rendering/galaxyOrb";
-import { useTheme } from "./ThemeProvider";
+import { Canvas2DPainter } from "../rendering/onboardingCanvas2dPainter";
+import { paintGalaxyOrb } from "../rendering/onboardingGalaxyOrb";
+import { useTheme } from "./onboardingThemeContext";
 import {
   fitCanvasToElement,
   useAnimationFrame,
   useOrbDynamics,
-} from "./hooks/canvasRuntime";
+} from "./hooks/onboardingCanvasRuntime";
 
 export function GalaxyOrbCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);

@@ -1,7 +1,7 @@
-import type { ThemeMode } from "../domain/theme";
-import { foreground } from "../domain/theme";
-import { Point2, Size2, withAlpha } from "./color";
-import type { SurfacePainter } from "./surfacePainter";
+import type { ThemeMode } from "../domain/onboardingTheme";
+import { foreground } from "../domain/onboardingTheme";
+import { Point2, Size2, withAlpha } from "./onboardingColor";
+import type { SurfacePainter } from "./onboardingSurfacePainter";
 
 export function paintSceneBackdrop(
   painter: SurfacePainter,
