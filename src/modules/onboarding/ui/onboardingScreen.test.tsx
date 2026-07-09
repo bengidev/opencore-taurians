@@ -1,9 +1,10 @@
-import { describe, expect, it, vi, afterEach } from "vitest";
+import { beforeEach, describe, expect, it, vi, afterEach } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { OnboardingScreen } from "./onboardingScreen";
 import { ThemeProvider } from "./onboardingThemeProvider";
-import { LocalStorageThemeRepository } from "../infrastructure/onboardingThemeRepository";
+import { useThemeStore } from "../state/onboardingThemeStore";
 
 vi.stubGlobal("requestAnimationFrame", () => 1);
 vi.stubGlobal("cancelAnimationFrame", () => {});
@@ -31,13 +32,19 @@ HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
   setTransform: vi.fn(),
 })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 
+beforeEach(() => {
+  useMemoryPersistStorage();
+  localStorage.clear();
+  useThemeStore.setState({ mode: "dark" });
+});
+
 afterEach(() => {
   cleanup();
 });
 
 function renderScreen(onEnter = vi.fn()) {
   render(
-    <ThemeProvider repository={new LocalStorageThemeRepository("test-ui-theme")}>
+    <ThemeProvider>
       <OnboardingScreen onEnter={onEnter} />
     </ThemeProvider>,
   );
