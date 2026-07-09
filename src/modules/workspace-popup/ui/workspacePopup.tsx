@@ -32,6 +32,7 @@ export function WorkspacePopup({
   const setWorkspace = useWorkspaceStore((s) => s.setWorkspace);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setMounted(true));
@@ -39,6 +40,8 @@ export function WorkspacePopup({
   }, []);
 
   const handleOpenProject = async () => {
+    if (picking) return;
+    setPicking(true);
     setError(null);
     try {
       const path = await folderPicker.pickFolder();
@@ -48,6 +51,8 @@ export function WorkspacePopup({
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(`[ERROR: ${message}]`);
+    } finally {
+      setPicking(false);
     }
   };
 
@@ -101,8 +106,9 @@ export function WorkspacePopup({
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full justify-start font-mono text-[11px] uppercase tracking-[0.08em]"
+                    className="w-full justify-start font-mono text-[11px] uppercase tracking-[0.08em] aria-disabled:pointer-events-none aria-disabled:opacity-50"
                     aria-disabled={action.enabled ? undefined : "true"}
+                    disabled={action.id === "open-project" && picking}
                     onClick={
                       action.enabled ? handleOpenProject : undefined
                     }
