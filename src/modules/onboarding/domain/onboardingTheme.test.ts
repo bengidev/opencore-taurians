@@ -24,9 +24,9 @@ describe("nextThemeMode", () => {
 describe("theme tokens", () => {
   it("uses ink-deep as the dark primary surface", () => {
     expect(surface(DEFAULT_THEME_MODE, "primary")).toEqual({
-      r: 16 / 255,
-      g: 16 / 255,
-      b: 16 / 255,
+      r: 0,
+      g: 0,
+      b: 0,
       a: 1,
     });
   });

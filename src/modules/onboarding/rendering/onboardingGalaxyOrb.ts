@@ -18,8 +18,10 @@ import type { SurfacePainter } from "./onboardingSurfacePainter";
 
 const LOGICAL_SIZE: Size2 = { width: 520, height: 340 };
 
+/** Classic tilted disc POV; contain-fit with a slight base zoom. */
 const DISC_RADIUS = 148;
 const DISC_TILT = 0.4;
+const BASE_ZOOM = 1.18;
 const ARM_COUNT = 2;
 const ARM_PITCH = 0.42;
 const ARM_WIDTH = 0.55;
@@ -116,11 +118,12 @@ export function paintGalaxyOrb(
   const { width, height } = bounds.size;
   const { x: originX, y: originY } = bounds.origin;
 
+  // Contain-fit with a slight base zoom; hold-to-zoom still scales further.
   const fitScale = Math.min(
     width / LOGICAL_SIZE.width,
     height / LOGICAL_SIZE.height,
   );
-  const scale = fitScale * zoom;
+  const scale = fitScale * BASE_ZOOM * zoom;
   const translate: Point2 = {
     x: originX + (width - LOGICAL_SIZE.width * scale) * 0.5,
     y: originY + (height - LOGICAL_SIZE.height * scale) * 0.5,

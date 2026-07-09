@@ -39,6 +39,7 @@ bun run tauri dev
 | Command | Description |
 |---------|-------------|
 | `bun run dev` | Frontend only (Vite dev server) |
+| `bun run test` | Run Vitest unit/UI tests |
 | `bun run build` | Build the React frontend |
 | `bun run tauri build` | Production desktop bundle |
 
@@ -59,6 +60,8 @@ Early development. The three-mode workspace (editor, chat, terminal) and AI inte
 ## Contributing
 
 Contributions are welcome. Please open an issue to discuss larger changes before submitting a pull request.
+
+Pull requests run GitHub Actions CI (`bun install --frozen-lockfile`, `bun run test`, `bun run build`). Desktop bundling (`bun run tauri build`) stays local.
 
 ## License
 

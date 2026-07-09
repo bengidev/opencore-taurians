@@ -32,7 +32,7 @@ Multi-context layout for this repo:
 
 | Context | When to read |
 | ------- | ------------ |
-| **onboarding** | Onboarding screen, theme system, canvas rendering, orb dynamics |
+| **onboarding** | Onboarding Screen, Theme Mode, Galaxy Orb, Scene Backdrop, Enter action |
 | **app** | `App.tsx`, routing, shared components, design system integration |
 | **desktop** | Tauri config, Rust commands, window management, native plugins |
 

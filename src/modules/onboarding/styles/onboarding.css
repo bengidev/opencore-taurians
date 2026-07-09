@@ -4,6 +4,115 @@
   user-select: none;
 }
 
+.onboarding-screen {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  font-family: var(--ds-font-body);
+  /* Instant bg — prevents a seam against the native title bar. */
+  transition: color 220ms var(--ease-out);
+}
+
+/* Flash sits below the title-bar junction (2px) so it never paints a top seam. */
+.onboarding-theme-flash {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  pointer-events: none;
+  background: var(--foreground);
+  opacity: 0;
+}
+
+.onboarding-theme-flash[data-active="true"] {
+  animation: onboarding-theme-flash 260ms var(--ease-out);
+}
+
+@keyframes onboarding-theme-flash {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.onboarding-screen.onboarding-theme-pulse .onboarding-brand,
+.onboarding-screen.onboarding-theme-pulse .onboarding-label,
+.onboarding-screen.onboarding-theme-pulse .onboarding-label-copy,
+.onboarding-screen.onboarding-theme-pulse .onboarding-galaxy-orb {
+  animation: onboarding-theme-tick 240ms var(--ease-out);
+}
+
+@keyframes onboarding-theme-tick {
+  0% {
+    opacity: 1;
+  }
+  28% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Three sizes only: brand (large), body (16px), label/cta (11px). */
+.onboarding-brand {
+  font-family: var(--ds-font-heading);
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.onboarding-body {
+  font-family: var(--ds-font-body);
+  font-size: 16px;
+}
+
+.onboarding-label {
+  font-family: var(--ds-font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* Label voice at readable size for multi-line supporting copy. */
+.onboarding-label-copy {
+  font-family: var(--ds-font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  line-height: 1.55;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* Reserved for a future Doto hero moment; orb is the current single break. */
+.onboarding-display {
+  font-family: var(--ds-font-display);
+  font-weight: 400;
+  color: var(--foreground);
+}
+
+.onboarding-cta {
+  font-family: var(--ds-font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 6px !important;
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 180ms var(--ease-out),
+    color 180ms var(--ease-out),
+    border-color 180ms var(--ease-out);
+}
+
 .onboarding-scene-backdrop {
   position: absolute;
   inset: 0;
@@ -18,4 +127,80 @@
   height: 100%;
   touch-action: none;
   cursor: pointer;
+  transition: opacity 220ms var(--ease-out);
+}
+
+.onboarding-theme-toggle {
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 180ms var(--ease-out),
+    color 180ms var(--ease-out),
+    border-color 180ms var(--ease-out);
+}
+
+.onboarding-screen.onboarding-theme-pulse .onboarding-theme-toggle {
+  animation: onboarding-theme-toggle-tick 240ms var(--ease-out);
+}
+
+@keyframes onboarding-theme-toggle-tick {
+  0% {
+    border-color: var(--foreground);
+  }
+  100% {
+    border-color: var(--ds-border-strong, #333);
+  }
+}
+
+/* First-enter stagger — onboarding is rare, so a short cascade is appropriate. */
+.onboarding-enter {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 280ms var(--ease-out),
+    transform 280ms var(--ease-out);
+}
+
+.onboarding-screen[data-ready="true"] .onboarding-enter {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.onboarding-screen[data-ready="true"] .onboarding-enter-1 {
+  transition-delay: 40ms;
+}
+
+.onboarding-screen[data-ready="true"] .onboarding-enter-2 {
+  transition-delay: 80ms;
+}
+
+.onboarding-screen[data-ready="true"] .onboarding-enter-3 {
+  transition-delay: 120ms;
+}
+
+.onboarding-screen[data-ready="true"] .onboarding-enter-4 {
+  transition-delay: 160ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-screen {
+    transition: none;
+  }
+
+  .onboarding-enter,
+  .onboarding-cta,
+  .onboarding-theme-toggle,
+  .onboarding-galaxy-orb {
+    transition: none;
+    transform: none;
+    opacity: 1;
+  }
+
+  .onboarding-screen.onboarding-theme-pulse .onboarding-brand,
+  .onboarding-screen.onboarding-theme-pulse .onboarding-label,
+  .onboarding-screen.onboarding-theme-pulse .onboarding-label-copy,
+  .onboarding-screen.onboarding-theme-pulse .onboarding-galaxy-orb,
+  .onboarding-screen.onboarding-theme-pulse .onboarding-theme-toggle,
+  .onboarding-theme-flash[data-active="true"] {
+    animation: none;
+  }
 }

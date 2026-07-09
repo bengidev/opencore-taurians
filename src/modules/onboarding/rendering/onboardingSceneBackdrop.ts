@@ -24,8 +24,8 @@ function drawDotGrid(
   color: { r: number; g: number; b: number; a: number },
   t: number,
 ): void {
-  const spacing = 28;
-  const drift = Math.sin(t * 0.08) * 2;
+  const spacing = 16;
+  const drift = Math.sin(t * 0.08) * 1.5;
   const cols = Math.ceil(size.width / spacing) + 1;
   const rows = Math.ceil(size.height / spacing) + 1;
 
