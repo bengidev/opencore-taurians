@@ -51,3 +51,6 @@ coverage/
 
 # Design-system extraction artifacts
 .extract-design-system/
+
+# Git worktrees
+.worktrees/
