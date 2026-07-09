@@ -57,6 +57,19 @@ describe("SessionRoot", () => {
     expect(screen.getByText(/welcome back to/i)).toBeInTheDocument();
   });
 
+  it("applies shell window size for returning users", async () => {
+    useSessionStore.setState({ onboardingCompleted: true, hasHydrated: true });
+    useWorkspaceStore.setState({ workspacePath: "/tmp/x" });
+    render(
+      <ThemeProvider>
+        <SessionRoot windowController={windowController} skipPersistBoot />
+      </ThemeProvider>,
+    );
+    await waitFor(() => {
+      expect(windowController.lastSize).toEqual({ width: 1280, height: 800 });
+    });
+  });
+
   it("reset returns to onboarding and onboarding window size", async () => {
     const user = userEvent.setup();
     useSessionStore.setState({ onboardingCompleted: true, hasHydrated: true });

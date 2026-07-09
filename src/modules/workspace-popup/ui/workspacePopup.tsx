@@ -69,7 +69,7 @@ export function WorkspacePopup({
           "w-full max-w-[420px] rounded-[6px] border border-border bg-background px-8 py-10",
           "origin-center transition-[transform,opacity] duration-[220ms] ease-[cubic-bezier(0.23,1,0.32,1)]",
           mounted ? "scale-100 opacity-100" : "scale-[0.95] opacity-0",
-          "motion-reduce:scale-100 motion-reduce:transition-opacity",
+          "motion-reduce:scale-100 motion-reduce:opacity-100 motion-reduce:transition-none",
         )}
       >
         <div className="flex flex-col items-center gap-6 text-center">
