@@ -17,29 +17,38 @@ function rgb(r: number, g: number, b: number, a = 1): Rgba {
   return { r, g, b, a };
 }
 
-const INK = rgb(31 / 255, 31 / 255, 31 / 255);
-const INK_DEEP = rgb(16 / 255, 16 / 255, 16 / 255);
-const PAPER = rgb(1, 1, 1);
-const PAPER_MUTED = rgb(250 / 255, 250 / 255, 250 / 255);
-const GRAY_400 = rgb(163 / 255, 163 / 255, 163 / 255);
-const GRAY_500 = rgb(115 / 255, 115 / 255, 115 / 255);
-const GRAY_600 = rgb(82 / 255, 82 / 255, 82 / 255);
-const GRAY_700 = rgb(64 / 255, 64 / 255, 64 / 255);
-const GRAY_200 = rgb(229 / 255, 229 / 255, 229 / 255);
-const GRAY_300 = rgb(212 / 255, 212 / 255, 212 / 255);
+const INK = rgb(0, 0, 0);
+const INK_DEEP = rgb(0, 0, 0);
+const PAPER = rgb(245 / 255, 245 / 255, 245 / 255);
+const PAPER_MUTED = rgb(1, 1, 1);
+const SURFACE_RAISED_LIGHT = rgb(240 / 255, 240 / 255, 240 / 255);
+const SURFACE_DARK = rgb(17 / 255, 17 / 255, 17 / 255);
+const SURFACE_RAISED_DARK = rgb(26 / 255, 26 / 255, 26 / 255);
+const TEXT_DISPLAY_DARK = rgb(1, 1, 1);
+const TEXT_PRIMARY_DARK = rgb(232 / 255, 232 / 255, 232 / 255);
+const TEXT_DISPLAY_LIGHT = rgb(0, 0, 0);
+const TEXT_PRIMARY_LIGHT = rgb(26 / 255, 26 / 255, 26 / 255);
+const TEXT_SECONDARY_DARK = rgb(153 / 255, 153 / 255, 153 / 255);
+const TEXT_SECONDARY_LIGHT = rgb(102 / 255, 102 / 255, 102 / 255);
+const TEXT_DISABLED_DARK = rgb(102 / 255, 102 / 255, 102 / 255);
+const TEXT_DISABLED_LIGHT = rgb(153 / 255, 153 / 255, 153 / 255);
+const BORDER_LIGHT = rgb(232 / 255, 232 / 255, 232 / 255);
+const BORDER_LIGHT_STRONG = rgb(204 / 255, 204 / 255, 204 / 255);
+const BORDER_DARK = rgb(34 / 255, 34 / 255, 34 / 255);
+const BORDER_DARK_STRONG = rgb(51 / 255, 51 / 255, 51 / 255);
 
 const FOREGROUND: Record<ThemeMode, Record<ForegroundToken, Rgba>> = {
   light: {
-    primary: INK_DEEP,
-    secondary: GRAY_600,
-    muted: GRAY_500,
-    accent: INK,
+    primary: TEXT_PRIMARY_LIGHT,
+    secondary: TEXT_SECONDARY_LIGHT,
+    muted: TEXT_DISABLED_LIGHT,
+    accent: TEXT_DISPLAY_LIGHT,
   },
   dark: {
-    primary: PAPER,
-    secondary: GRAY_400,
-    muted: GRAY_500,
-    accent: PAPER_MUTED,
+    primary: TEXT_PRIMARY_DARK,
+    secondary: TEXT_SECONDARY_DARK,
+    muted: TEXT_DISABLED_DARK,
+    accent: TEXT_DISPLAY_DARK,
   },
 };
 
@@ -47,34 +56,34 @@ const SURFACE: Record<ThemeMode, Record<BackgroundToken, Rgba>> = {
   light: {
     primary: PAPER,
     secondary: PAPER_MUTED,
-    tertiary: GRAY_200,
+    tertiary: SURFACE_RAISED_LIGHT,
   },
   dark: {
     primary: INK_DEEP,
-    secondary: INK,
-    tertiary: GRAY_700,
+    secondary: SURFACE_DARK,
+    tertiary: SURFACE_RAISED_DARK,
   },
 };
 
 const BORDER: Record<ThemeMode, Record<BorderToken, Rgba>> = {
   light: {
-    default: GRAY_200,
-    strong: GRAY_300,
+    default: BORDER_LIGHT,
+    strong: BORDER_LIGHT_STRONG,
   },
   dark: {
-    default: GRAY_700,
-    strong: GRAY_600,
+    default: BORDER_DARK,
+    strong: BORDER_DARK_STRONG,
   },
 };
 
 const ACTION: Record<ThemeMode, Record<ActionToken, Rgba>> = {
   light: {
-    strong: INK_DEEP,
-    strongText: PAPER,
+    strong: INK,
+    strongText: PAPER_MUTED,
   },
   dark: {
-    strong: PAPER,
-    strongText: INK_DEEP,
+    strong: TEXT_DISPLAY_DARK,
+    strongText: INK,
   },
 };
 
