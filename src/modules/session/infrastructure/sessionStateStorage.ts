@@ -34,7 +34,7 @@ export function createTauriStateStorage(
   loadStore: () => Promise<{
     get: (key: string) => Promise<unknown>;
     set: (key: string, value: unknown) => Promise<void>;
-    delete: (key: string) => Promise<void>;
+    delete: (key: string) => Promise<void | boolean>;
     save: () => Promise<void>;
   }>,
 ): SessionStateStorage {
