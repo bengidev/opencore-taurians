@@ -41,13 +41,17 @@ export function SessionRoot({
     let cancelled = false;
 
     void (async () => {
-      await useTauriPersistStorage();
-      await Promise.all([
-        useSessionStore.persist.rehydrate(),
-        useWorkspaceStore.persist.rehydrate(),
-        useShellStore.persist.rehydrate(),
-        useThemeStore.persist.rehydrate(),
-      ]);
+      try {
+        await useTauriPersistStorage();
+        await Promise.all([
+          useSessionStore.persist.rehydrate(),
+          useWorkspaceStore.persist.rehydrate(),
+          useShellStore.persist.rehydrate(),
+          useThemeStore.persist.rehydrate(),
+        ]);
+      } catch {
+        useSessionStore.getState().setHasHydrated(true);
+      }
       if (!cancelled) {
         setPersistReady(true);
       }
@@ -61,8 +65,12 @@ export function SessionRoot({
   const ready = hasHydrated && persistReady;
 
   useEffect(() => {
-    if (!ready || onboardingCompleted) return;
-    void windowController.applyOnboardingSize();
+    if (!ready) return;
+    if (onboardingCompleted) {
+      void windowController.applyShellSize();
+    } else {
+      void windowController.applyOnboardingSize();
+    }
   }, [ready, onboardingCompleted, windowController]);
 
   const handleEnter = () => {
