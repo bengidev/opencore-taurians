@@ -20,7 +20,8 @@ function isInteractiveKeyboardTarget(target: EventTarget | null): boolean {
 export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
   const { mode } = useTheme();
   const [themePulse, setThemePulse] = useState(false);
-  const mountedRef = useRef(false);
+  const [ready, setReady] = useState(false);
+  const themeMountedRef = useRef(false);
 
   const handleEnter = useCallback(() => {
     onEnter?.();
@@ -32,6 +33,7 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
       if (event.metaKey || event.ctrlKey) return;
       if (isInteractiveKeyboardTarget(event.target)) return;
 
+      // Keyboard-driven enter stays instant — no animation.
       handleEnter();
     };
 
@@ -40,13 +42,18 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
   }, [handleEnter]);
 
   useEffect(() => {
-    if (!mountedRef.current) {
-      mountedRef.current = true;
+    const frame = window.requestAnimationFrame(() => setReady(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (!themeMountedRef.current) {
+      themeMountedRef.current = true;
       return;
     }
 
     setThemePulse(true);
-    const timer = window.setTimeout(() => setThemePulse(false), 420);
+    const timer = window.setTimeout(() => setThemePulse(false), 280);
     return () => window.clearTimeout(timer);
   }, [mode]);
 
@@ -56,6 +63,7 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
         themePulse ? " onboarding-theme-pulse" : ""
       }`}
       data-theme-mode={mode}
+      data-ready={ready ? "true" : "false"}
     >
       <SceneBackdrop />
       <div
@@ -65,7 +73,7 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
       />
 
       <div className="relative z-1 mx-auto grid min-h-dvh w-full max-w-[960px] grid-rows-[auto_1fr_auto] px-8 py-7 md:px-12 md:py-9">
-        <header className="flex items-start justify-between gap-8">
+        <header className="onboarding-enter onboarding-enter-1 flex items-start justify-between gap-8">
           <div className="flex flex-col gap-1.5">
             <span className="onboarding-brand text-[2.5rem] leading-none tracking-[-0.03em]">
               OpenCore
@@ -79,11 +87,11 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
           className="grid items-center gap-10 py-10 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:gap-14 md:py-12"
           aria-labelledby="onboarding-headline"
         >
-          <div className="h-[260px] w-full max-w-[480px] justify-self-start md:h-[300px]">
+          <div className="onboarding-enter onboarding-enter-2 h-[260px] w-full max-w-[480px] justify-self-start md:h-[300px]">
             <GalaxyOrbCanvas />
           </div>
 
-          <div className="flex max-w-lg flex-col gap-5 justify-self-start md:pt-2">
+          <div className="onboarding-enter onboarding-enter-3 flex max-w-lg flex-col gap-5 justify-self-start md:pt-2">
             <h1
               id="onboarding-headline"
               className="onboarding-brand text-[clamp(1.5rem,2.5vw,1.875rem)] leading-[1.15] tracking-[-0.02em] text-balance"
@@ -100,7 +108,7 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
           </div>
         </section>
 
-        <footer className="flex items-center justify-between gap-6 border-t border-[color:var(--ds-border)] pt-6">
+        <footer className="onboarding-enter onboarding-enter-4 flex items-center justify-between gap-6 border-t border-[color:var(--ds-border)] pt-6">
           <span className="onboarding-label">Press Enter</span>
           <Button
             type="button"

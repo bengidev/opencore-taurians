@@ -4,20 +4,21 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-[6px] border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-[background-color,color,border-color] duration-200 ease-out outline-none select-none focus-visible:border-foreground focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-[6px] border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-[transform,background-color,color,border-color] duration-160 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none focus-visible:border-foreground focus-visible:ring-0 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        default:
+          "bg-primary text-primary-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:bg-primary/80",
         outline:
-          "border-[color:var(--ds-border-strong,#333)] bg-transparent hover:border-foreground hover:text-foreground aria-expanded:border-foreground aria-expanded:text-foreground",
+          "border-[color:var(--ds-border-strong,#333)] bg-transparent aria-expanded:border-foreground aria-expanded:text-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:border-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:text-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-secondary text-secondary-foreground aria-expanded:bg-secondary aria-expanded:text-secondary-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)]",
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+          "aria-expanded:bg-muted aria-expanded:text-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:bg-muted [@media(hover:hover)_and_(pointer:fine)]:hover:text-foreground dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-muted/50",
         destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive dark:bg-destructive/20 dark:hover:bg-destructive/30",
-        link: "rounded-none text-primary underline-offset-4 hover:underline",
+          "bg-destructive/10 text-destructive focus-visible:border-destructive [@media(hover:hover)_and_(pointer:fine)]:hover:bg-destructive/20 dark:bg-destructive/20 dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-destructive/30",
+        link: "rounded-none text-primary underline-offset-4 active:scale-100 [@media(hover:hover)_and_(pointer:fine)]:hover:underline",
       },
       size: {
         default:
