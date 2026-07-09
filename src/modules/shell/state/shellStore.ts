@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
-import { getSessionStateStorage } from "../../session/infrastructure/sessionPersistStorage";
+import { persist } from "zustand/middleware";
+import { createSessionPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { SESSION_PERSIST_KEYS } from "../../session/infrastructure/sessionPersistKeys";
 
 export type ShellMainCard = "chat" | "terminal" | "editor";
@@ -32,7 +32,7 @@ export const useShellStore = create<ShellState>()(
     }),
     {
       name: SESSION_PERSIST_KEYS.shell,
-      storage: createJSONStorage(() => getSessionStateStorage()),
+      storage: createSessionPersistStorage(),
       partialize: (state) => ({
         activeMainCard: state.activeMainCard,
         leftVisible: state.leftVisible,

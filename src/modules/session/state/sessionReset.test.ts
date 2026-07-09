@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { useMemoryPersistStorage, getSessionStateStorage } from "../infrastructure/sessionPersistStorage";
+import {
+  useMemoryPersistStorage,
+  getSessionStateStorage,
+} from "../infrastructure/sessionPersistStorage";
 import { SESSION_PERSIST_KEYS } from "../infrastructure/sessionPersistKeys";
 import { useSessionStore } from "./sessionStore";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
@@ -9,19 +12,21 @@ import { THEME_STORAGE_KEY } from "../../onboarding/infrastructure/onboardingThe
 import { resetAllPersistedSession } from "./sessionReset";
 
 describe("resetAllPersistedSession", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     useMemoryPersistStorage();
-    useSessionStore.setState({ onboardingCompleted: true });
-    useWorkspaceStore.setState({ workspacePath: "/tmp/x" });
-    useShellStore.setState({
-      activeMainCard: "editor",
-      leftVisible: false,
-      rightVisible: false,
-    });
+    useSessionStore.getState().completeOnboarding();
+    useWorkspaceStore.getState().setWorkspace("/tmp/x");
+    useShellStore.getState().setActiveMainCard("editor");
+    useShellStore.setState({ leftVisible: false, rightVisible: false });
     useThemeStore.getState().setMode("light");
+    await Promise.resolve();
   });
 
   it("clears stores, storage keys, and theme localStorage", async () => {
+    await expect(
+      getSessionStateStorage().getItem(SESSION_PERSIST_KEYS.session),
+    ).resolves.not.toBeNull();
+
     await resetAllPersistedSession();
     expect(useSessionStore.getState().onboardingCompleted).toBe(false);
     expect(useWorkspaceStore.getState().workspacePath).toBeNull();
