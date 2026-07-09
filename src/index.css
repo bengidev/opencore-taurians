@@ -1,14 +1,17 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
-@import "@fontsource/ibm-plex-mono/400.css";
-@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/doto/400.css";
+@import "@fontsource/doto/700.css";
+@import "@fontsource-variable/space-grotesk";
+@import "@fontsource/space-mono/400.css";
+@import "@fontsource/space-mono/700.css";
 @import "../design-system/tokens.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+    --font-display: var(--ds-font-display);
     --font-heading: var(--ds-font-heading);
     --font-sans: var(--ds-font-body);
     --color-sidebar-ring: var(--sidebar-ring);
@@ -78,9 +81,12 @@
   body,
   #root {
     @apply min-h-dvh;
+    /* Keep window chrome and web content on the same opaque fill — no top seam. */
+    background-color: var(--background);
   }
   body {
-    @apply cursor-default bg-background text-foreground;
+    @apply cursor-default text-foreground;
+    margin: 0;
     -webkit-tap-highlight-color: transparent;
   }
   html {
@@ -88,5 +94,8 @@
   }
   .font-mono {
     font-family: var(--ds-font-mono);
+  }
+  .font-display {
+    font-family: var(--ds-font-display);
   }
 }
