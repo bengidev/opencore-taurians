@@ -1,0 +1,3 @@
+# Adopt Nothing-inspired design for onboarding
+
+Onboarding is the product’s first visual impression. We adopted a Nothing-inspired system (Space Grotesk + Space Mono, Doto reserved for display moments, OLED black + paper light, monochrome hierarchy with accent red as interrupt only) so the screen reads as an instrument panel rather than a generic marketing welcome. Controls use a technical 6px rounded rectangle (not capsules). The Galaxy Orb is the single compositional break on the Onboarding Screen. Canvas theme tokens in `onboardingTheme.ts` stay mirrored to `design-system/tokens.css`; the public module seam (`index.ts`) and rendering ports are unchanged.
