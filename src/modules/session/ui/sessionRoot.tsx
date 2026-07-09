@@ -1,6 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { OnboardingScreen } from "../../onboarding";
+import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
 import { ShellScreen } from "../../shell";
+import { useShellStore } from "../../shell/state/shellStore";
 import { WorkspacePopup } from "../../workspace-popup";
 import type { FolderPicker } from "../../workspace-popup/infrastructure/workspaceFolderPicker";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
@@ -20,12 +22,15 @@ export interface SessionRootProps {
   skipPersistBoot?: boolean;
 }
 
+const defaultWindowController = createTauriWindowController();
+
 export function SessionRoot({
-  windowController = createTauriWindowController(),
+  windowController = defaultWindowController,
   folderPicker,
   skipPersistBoot = false,
 }: SessionRootProps = {}) {
   const hasHydrated = useSessionStore((s) => s.hasHydrated);
+  const [persistReady, setPersistReady] = useState(skipPersistBoot);
   const onboardingCompleted = useSessionStore((s) => s.onboardingCompleted);
   const completeOnboarding = useSessionStore((s) => s.completeOnboarding);
   const workspacePath = useWorkspaceStore((s) => s.workspacePath);
@@ -37,9 +42,15 @@ export function SessionRoot({
 
     void (async () => {
       await useTauriPersistStorage();
-      await useSessionStore.persist.rehydrate();
-      if (cancelled) return;
-      await useWorkspaceStore.persist.rehydrate();
+      await Promise.all([
+        useSessionStore.persist.rehydrate(),
+        useWorkspaceStore.persist.rehydrate(),
+        useShellStore.persist.rehydrate(),
+        useThemeStore.persist.rehydrate(),
+      ]);
+      if (!cancelled) {
+        setPersistReady(true);
+      }
     })();
 
     return () => {
@@ -47,10 +58,12 @@ export function SessionRoot({
     };
   }, [skipPersistBoot]);
 
+  const ready = hasHydrated && persistReady;
+
   useEffect(() => {
-    if (!hasHydrated || onboardingCompleted) return;
+    if (!ready || onboardingCompleted) return;
     void windowController.applyOnboardingSize();
-  }, [hasHydrated, onboardingCompleted, windowController]);
+  }, [ready, onboardingCompleted, windowController]);
 
   const handleEnter = () => {
     completeOnboarding();
@@ -62,11 +75,14 @@ export function SessionRoot({
     await windowController.applyOnboardingSize();
   };
 
-  if (!hasHydrated) {
+  if (!ready) {
     return (
-      <p className="flex min-h-dvh items-center justify-center font-mono text-sm uppercase tracking-[0.08em] text-muted-foreground">
-        [LOADING...]
-      </p>
+      <>
+        <p className="flex min-h-dvh items-center justify-center font-mono text-sm uppercase tracking-[0.08em] text-muted-foreground">
+          [LOADING...]
+        </p>
+        <SessionDebugResetButton onReset={handleReset} />
+      </>
     );
   }
 
