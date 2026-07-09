@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 import {
   applyThemeToDocument,
   DEFAULT_THEME_MODE,
@@ -7,7 +7,7 @@ import {
   type ThemeMode,
 } from "../domain/onboardingTheme";
 import { THEME_STORAGE_KEY } from "../infrastructure/onboardingThemeConstants";
-import { getSessionStateStorage } from "../../session/infrastructure/sessionPersistStorage";
+import { createSessionPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { SESSION_PERSIST_KEYS } from "../../session/infrastructure/sessionPersistKeys";
 
 function mirrorLocalStorage(mode: ThemeMode): void {
@@ -42,7 +42,7 @@ export const useThemeStore = create<ThemeState>()(
     }),
     {
       name: SESSION_PERSIST_KEYS.theme,
-      storage: createJSONStorage(() => getSessionStateStorage()),
+      storage: createSessionPersistStorage(),
       partialize: (state) => ({ mode: state.mode }),
       onRehydrateStorage: () => (state) => {
         if (state) mirrorLocalStorage(state.mode);

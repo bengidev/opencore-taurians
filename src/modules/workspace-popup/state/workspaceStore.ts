@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
-import { getSessionStateStorage } from "../../session/infrastructure/sessionPersistStorage";
+import { persist } from "zustand/middleware";
+import { createSessionPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { SESSION_PERSIST_KEYS } from "../../session/infrastructure/sessionPersistKeys";
 
 export interface WorkspaceState {
@@ -18,7 +18,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }),
     {
       name: SESSION_PERSIST_KEYS.workspace,
-      storage: createJSONStorage(() => getSessionStateStorage()),
+      storage: createSessionPersistStorage(),
       partialize: (state) => ({ workspacePath: state.workspacePath }),
     },
   ),

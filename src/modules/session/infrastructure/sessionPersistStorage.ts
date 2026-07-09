@@ -1,4 +1,8 @@
-import { createJSONStorage, type PersistStorage } from "zustand/middleware";
+import {
+  createJSONStorage,
+  type PersistStorage,
+  type StateStorage,
+} from "zustand/middleware";
 import {
   createMemoryStateStorage,
   createTauriStateStorage,
@@ -7,6 +11,12 @@ import {
 import { SESSION_TAURI_STORE_FILE } from "./sessionPersistKeys";
 
 let activeStorage: SessionStateStorage = createMemoryStateStorage();
+
+const delegatingStorage: StateStorage = {
+  getItem: (name) => activeStorage.getItem(name),
+  setItem: (name, value) => activeStorage.setItem(name, value),
+  removeItem: (name) => activeStorage.removeItem(name),
+};
 
 /** Test / boot override. Production boot calls `useTauriPersistStorage()`. */
 export function setSessionStateStorage(storage: SessionStateStorage): void {
@@ -18,7 +28,7 @@ export function getSessionStateStorage(): SessionStateStorage {
 }
 
 export function createSessionPersistStorage<T>(): PersistStorage<T> | undefined {
-  return createJSONStorage(() => activeStorage);
+  return createJSONStorage(() => delegatingStorage);
 }
 
 export async function useTauriPersistStorage(): Promise<SessionStateStorage> {

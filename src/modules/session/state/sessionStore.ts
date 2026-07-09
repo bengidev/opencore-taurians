@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
-import { getSessionStateStorage } from "../infrastructure/sessionPersistStorage";
+import { persist } from "zustand/middleware";
+import { createSessionPersistStorage } from "../infrastructure/sessionPersistStorage";
 import { SESSION_PERSIST_KEYS } from "../infrastructure/sessionPersistKeys";
 
 export interface SessionState {
@@ -22,7 +22,7 @@ export const useSessionStore = create<SessionState>()(
     }),
     {
       name: SESSION_PERSIST_KEYS.session,
-      storage: createJSONStorage(() => getSessionStateStorage()),
+      storage: createSessionPersistStorage(),
       partialize: (state) => ({
         onboardingCompleted: state.onboardingCompleted,
       }),

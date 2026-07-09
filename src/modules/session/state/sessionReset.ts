@@ -6,10 +6,10 @@ import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
 import { THEME_STORAGE_KEY } from "../../onboarding/infrastructure/onboardingThemeConstants";
 
 export async function resetAllPersistedSession(): Promise<void> {
-  await getSessionStateStorage().clearAll();
   localStorage.removeItem(THEME_STORAGE_KEY);
   useSessionStore.getState().resetSessionFlags();
   useWorkspaceStore.getState().clearWorkspace();
   useShellStore.getState().resetShellUi();
   useThemeStore.getState().resetTheme();
+  await getSessionStateStorage().clearAll();
 }
