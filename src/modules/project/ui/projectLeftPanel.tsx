@@ -19,7 +19,7 @@ import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { projectBuildAutoGroups } from "../domain/projectAutoGroup";
 import type { Project } from "../domain/projectTypes";
 import { projectMergeSearchResults } from "../domain/projectSearch";
-import { projectActivateChunk } from "../state/projectActivation";
+import { projectActivateChunk, projectOpenFolder } from "../state/projectActivation";
 import { useProjectStore } from "../state/projectStore";
 import { ProjectChunkTree } from "./projectChunkTree";
 import {
@@ -349,6 +349,16 @@ export function ProjectLeftPanel({
     .filter((project) => !project.manualGroupId && !autoGroupedIds.has(project.id))
     .map((project) => project.id);
 
+  const handleOpenProject = async () => {
+    if (onRequestOpenProject) {
+      onRequestOpenProject();
+      return;
+    }
+    const path = await folderPicker.pickFolder();
+    if (path === null) return;
+    projectOpenFolder(path);
+  };
+
   const handleRelinkFolder = async (projectId: string) => {
     const path = await folderPicker.pickFolder();
     if (path === null) return;
@@ -400,7 +410,7 @@ export function ProjectLeftPanel({
             type="button"
             variant="outline"
             className="w-full font-mono text-[11px] uppercase tracking-[0.08em]"
-            onClick={onRequestOpenProject}
+            onClick={() => void handleOpenProject()}
           >
             Open project
           </Button>

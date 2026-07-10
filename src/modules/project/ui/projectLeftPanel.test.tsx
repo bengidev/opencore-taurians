@@ -51,6 +51,17 @@ describe("ProjectLeftPanel", () => {
     expect(onOpenProject).toHaveBeenCalledOnce();
   });
 
+  it("opens folder via folder picker when empty CTA has no onRequestOpenProject", async () => {
+    const user = userEvent.setup();
+    render(<ProjectLeftPanel folderPicker={createMemoryFolderPicker("/work/new-app")} />);
+    await user.click(screen.getByRole("button", { name: /open project/i }));
+    await waitFor(() => {
+      expect(useProjectStore.getState().projects).toHaveLength(1);
+    });
+    expect(useProjectStore.getState().projects[0]?.folderPath).toBe("/work/new-app");
+    expect(useWorkspaceStore.getState().workspacePath).toBe("/work/new-app");
+  });
+
   it("selects a chunk on click", async () => {
     const user = userEvent.setup();
     const { chunk } = useProjectStore.getState().createProjectWithRootChunk({
