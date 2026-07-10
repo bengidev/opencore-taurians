@@ -1,4 +1,12 @@
-import { ChevronDown, ChevronRight, FolderSync, Pin, Plus } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  FolderInput,
+  FolderSync,
+  FolderX,
+  Pin,
+  Plus,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -8,6 +16,8 @@ import {
   type FolderPicker,
 } from "../../workspace-popup/infrastructure/workspaceFolderPicker";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
+import { projectBuildAutoGroups } from "../domain/projectAutoGroup";
+import type { Project } from "../domain/projectTypes";
 import { projectMergeSearchResults } from "../domain/projectSearch";
 import { projectActivateChunk } from "../state/projectActivation";
 import { useProjectStore } from "../state/projectStore";
@@ -23,6 +33,206 @@ const NEW_CHUNK_TITLE = "New chunk";
 export interface ProjectLeftPanelProps {
   onRequestOpenProject?: () => void;
   folderPicker?: FolderPicker;
+}
+
+function ProjectRow({
+  project,
+  chunks,
+  activeChunkId,
+  expanded,
+  visibleChunkIds,
+  onToggleExpanded,
+  onRelinkFolder,
+}: {
+  project: Project;
+  chunks: ReturnType<typeof useProjectStore.getState>["chunks"];
+  activeChunkId: string | null;
+  expanded: boolean;
+  visibleChunkIds: Set<string> | undefined;
+  onToggleExpanded: () => void;
+  onRelinkFolder: () => void;
+}) {
+  const handleMoveToGroup = () => {
+    const label = window.prompt("Group name");
+    if (!label?.trim()) return;
+    const store = useProjectStore.getState();
+    const trimmed = label.trim();
+    const existing = store.groups.find((g) => g.label === trimmed);
+    const group = existing ?? store.createManualGroup(trimmed);
+    store.assignProjectToGroup(project.id, group.id);
+  };
+
+  const handleRemoveFromGroup = () => {
+    useProjectStore.getState().assignProjectToGroup(project.id, null);
+  };
+
+  return (
+    <li>
+      <div className="flex w-full items-center gap-0.5">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-1 rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-foreground hover:bg-muted/60",
+          )}
+          onClick={onToggleExpanded}
+        >
+          {expanded ? (
+            <ChevronDown className="size-3 shrink-0" aria-hidden />
+          ) : (
+            <ChevronRight className="size-3 shrink-0" aria-hidden />
+          )}
+          {project.name}
+        </button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={
+            project.pinned ? `Unpin project ${project.name}` : `Pin project ${project.name}`
+          }
+          className="shrink-0 text-muted-foreground"
+          onClick={(event) => {
+            event.stopPropagation();
+            useProjectStore.getState().setProjectPinned(project.id, !project.pinned);
+          }}
+        >
+          <Pin className="size-3" aria-hidden />
+        </Button>
+        {project.manualGroupId ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={`Remove ${project.name} from group`}
+            className="shrink-0 text-muted-foreground"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleRemoveFromGroup();
+            }}
+          >
+            <FolderX className="size-3" aria-hidden />
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={`Move ${project.name} to group`}
+            className="shrink-0 text-muted-foreground"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleMoveToGroup();
+            }}
+          >
+            <FolderInput className="size-3" aria-hidden />
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label="Add root chunk"
+          className="shrink-0 text-muted-foreground"
+          onClick={(event) => {
+            event.stopPropagation();
+            const chunk = useProjectStore.getState().addRootChunk({
+              projectId: project.id,
+              title: NEW_CHUNK_TITLE,
+              nowIso: new Date().toISOString(),
+            });
+            if (chunk) projectActivateChunk(chunk.id);
+          }}
+        >
+          <Plus className="size-3" aria-hidden />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label="Relink folder"
+          className="shrink-0 text-muted-foreground"
+          onClick={(event) => {
+            event.stopPropagation();
+            void onRelinkFolder();
+          }}
+        >
+          <FolderSync className="size-3" aria-hidden />
+        </Button>
+      </div>
+      {expanded ? (
+        <ProjectChunkTree
+          projectId={project.id}
+          chunks={chunks}
+          activeChunkId={activeChunkId}
+          visibleChunkIds={visibleChunkIds}
+        />
+      ) : null}
+    </li>
+  );
+}
+
+function ProjectSection({
+  label,
+  projectIds,
+  projectsById,
+  chunks,
+  activeChunkId,
+  expandedProjectIds,
+  visibleChunkIds,
+  isSearching,
+  searchQuery,
+  onRelinkFolder,
+}: {
+  label: string;
+  projectIds: string[];
+  projectsById: Map<string, Project>;
+  chunks: ReturnType<typeof useProjectStore.getState>["chunks"];
+  activeChunkId: string | null;
+  expandedProjectIds: string[];
+  visibleChunkIds: Set<string> | undefined;
+  isSearching: boolean;
+  searchQuery: string;
+  onRelinkFolder: (projectId: string) => void;
+}) {
+  const q = searchQuery.trim().toLowerCase();
+  const rows = projectIds
+    .map((id) => projectsById.get(id))
+    .filter((project): project is Project => project !== undefined);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <li className="space-y-1">
+      <p className="px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+        {label}
+      </p>
+      <ul className="list-none space-y-1">
+        {rows.map((project) => {
+          const hasVisibleChunks =
+            visibleChunkIds !== undefined &&
+            projectProjectHasVisibleChunks(project.id, chunks, visibleChunkIds);
+          const expanded = isSearching
+            ? project.name.toLowerCase().includes(q) || hasVisibleChunks
+            : expandedProjectIds.includes(project.id);
+          return (
+            <ProjectRow
+              key={project.id}
+              project={project}
+              chunks={chunks}
+              activeChunkId={activeChunkId}
+              expanded={expanded}
+              visibleChunkIds={visibleChunkIds}
+              onToggleExpanded={() =>
+                useProjectStore.getState().toggleProjectExpanded(project.id)
+              }
+              onRelinkFolder={() => onRelinkFolder(project.id)}
+            />
+          );
+        })}
+      </ul>
+    </li>
+  );
 }
 
 export function ProjectLeftPanel({
@@ -52,6 +262,11 @@ export function ProjectLeftPanel({
     return projectExpandChunkAncestors(chunks, hitIds);
   }, [isSearching, q, chunks, projects, groups, messagesByChunkId]);
 
+  const projectsById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project])),
+    [projects],
+  );
+
   const sortedProjects = [...projects].sort((a, b) => a.listOrder - b.listOrder);
 
   const displayedProjects = isSearching
@@ -63,6 +278,29 @@ export function ProjectLeftPanel({
       )
     : sortedProjects;
 
+  const unpinnedProjects = displayedProjects.filter((project) => !project.pinned);
+  const pinnedProjects = displayedProjects.filter((project) => project.pinned);
+
+  const manualGroups = [...groups]
+    .sort((a, b) => a.order - b.order)
+    .map((group) => ({
+      id: group.id,
+      label: group.label,
+      projectIds: group.projectIds.filter((id) => {
+        const project = projectsById.get(id);
+        return project !== undefined && !project.pinned;
+      }),
+    }))
+    .filter((group) => group.projectIds.length > 0);
+
+  const autoGroups = projectBuildAutoGroups(unpinnedProjects).filter(
+    (group) => group.projectIds.length > 0,
+  );
+  const autoGroupedIds = new Set(autoGroups.flatMap((group) => group.projectIds));
+  const ungroupedProjectIds = unpinnedProjects
+    .filter((project) => !project.manualGroupId && !autoGroupedIds.has(project.id))
+    .map((project) => project.id);
+
   const handleRelinkFolder = async (projectId: string) => {
     const path = await folderPicker.pickFolder();
     if (path === null) return;
@@ -70,6 +308,27 @@ export function ProjectLeftPanel({
     if (useProjectStore.getState().activeProjectId === projectId) {
       useWorkspaceStore.getState().setWorkspace(path);
     }
+  };
+
+  const renderProjectRow = (project: Project) => {
+    const hasVisibleChunks =
+      visibleChunkIds !== undefined &&
+      projectProjectHasVisibleChunks(project.id, chunks, visibleChunkIds);
+    const expanded = isSearching
+      ? project.name.toLowerCase().includes(q) || hasVisibleChunks
+      : expandedProjectIds.includes(project.id);
+    return (
+      <ProjectRow
+        key={project.id}
+        project={project}
+        chunks={chunks}
+        activeChunkId={activeChunkId}
+        expanded={expanded}
+        visibleChunkIds={visibleChunkIds}
+        onToggleExpanded={() => toggleProjectExpanded(project.id)}
+        onRelinkFolder={() => void handleRelinkFolder(project.id)}
+      />
+    );
   };
 
   return (
@@ -97,95 +356,68 @@ export function ProjectLeftPanel({
           >
             Open project
           </Button>
+        ) : isSearching ? (
+          <ul className="list-none space-y-1">{displayedProjects.map(renderProjectRow)}</ul>
         ) : (
-          <ul className="list-none space-y-1">
-            {displayedProjects.map((project) => {
-              const hasVisibleChunks =
-                visibleChunkIds !== undefined &&
-                projectProjectHasVisibleChunks(project.id, chunks, visibleChunkIds);
-              const expanded = isSearching
-                ? project.name.toLowerCase().includes(q) || hasVisibleChunks
-                : expandedProjectIds.includes(project.id);
-              return (
-                <li key={project.id}>
-                  <div className="flex w-full items-center gap-0.5">
-                    <button
-                      type="button"
-                      aria-expanded={expanded}
-                      className={cn(
-                        "flex min-w-0 flex-1 items-center gap-1 rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-foreground hover:bg-muted/60",
-                      )}
-                      onClick={() => toggleProjectExpanded(project.id)}
-                    >
-                      {expanded ? (
-                        <ChevronDown className="size-3 shrink-0" aria-hidden />
-                      ) : (
-                        <ChevronRight className="size-3 shrink-0" aria-hidden />
-                      )}
-                      {project.name}
-                    </button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label={
-                        project.pinned
-                          ? `Unpin project ${project.name}`
-                          : `Pin project ${project.name}`
-                      }
-                      className="shrink-0 text-muted-foreground"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        useProjectStore
-                          .getState()
-                          .setProjectPinned(project.id, !project.pinned);
-                      }}
-                    >
-                      <Pin className="size-3" aria-hidden />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label="Add root chunk"
-                      className="shrink-0 text-muted-foreground"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        const chunk = useProjectStore.getState().addRootChunk({
-                          projectId: project.id,
-                          title: NEW_CHUNK_TITLE,
-                          nowIso: new Date().toISOString(),
-                        });
-                        if (chunk) projectActivateChunk(chunk.id);
-                      }}
-                    >
-                      <Plus className="size-3" aria-hidden />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label="Relink folder"
-                      className="shrink-0 text-muted-foreground"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void handleRelinkFolder(project.id);
-                      }}
-                    >
-                      <FolderSync className="size-3" aria-hidden />
-                    </Button>
-                  </div>
-                  {expanded ? (
-                    <ProjectChunkTree
-                      projectId={project.id}
-                      chunks={chunks}
-                      activeChunkId={activeChunkId}
-                      visibleChunkIds={visibleChunkIds}
-                    />
-                  ) : null}
-                </li>
-              );
-            })}
+          <ul className="list-none space-y-2">
+            {pinnedProjects.length > 0 ? (
+              <ProjectSection
+                label="Pinned"
+                projectIds={pinnedProjects.map((p) => p.id)}
+                projectsById={projectsById}
+                chunks={chunks}
+                activeChunkId={activeChunkId}
+                expandedProjectIds={expandedProjectIds}
+                visibleChunkIds={visibleChunkIds}
+                isSearching={isSearching}
+                searchQuery={searchQuery}
+                onRelinkFolder={(projectId) => void handleRelinkFolder(projectId)}
+              />
+            ) : null}
+            {manualGroups.map((group) => (
+              <ProjectSection
+                key={group.id}
+                label={group.label}
+                projectIds={group.projectIds}
+                projectsById={projectsById}
+                chunks={chunks}
+                activeChunkId={activeChunkId}
+                expandedProjectIds={expandedProjectIds}
+                visibleChunkIds={visibleChunkIds}
+                isSearching={isSearching}
+                searchQuery={searchQuery}
+                onRelinkFolder={(projectId) => void handleRelinkFolder(projectId)}
+              />
+            ))}
+            {autoGroups.map((group) => (
+              <ProjectSection
+                key={group.key}
+                label={group.label}
+                projectIds={group.projectIds}
+                projectsById={projectsById}
+                chunks={chunks}
+                activeChunkId={activeChunkId}
+                expandedProjectIds={expandedProjectIds}
+                visibleChunkIds={visibleChunkIds}
+                isSearching={isSearching}
+                searchQuery={searchQuery}
+                onRelinkFolder={(projectId) => void handleRelinkFolder(projectId)}
+              />
+            ))}
+            {ungroupedProjectIds.length > 0 ? (
+              <ProjectSection
+                label="Ungrouped"
+                projectIds={ungroupedProjectIds}
+                projectsById={projectsById}
+                chunks={chunks}
+                activeChunkId={activeChunkId}
+                expandedProjectIds={expandedProjectIds}
+                visibleChunkIds={visibleChunkIds}
+                isSearching={isSearching}
+                searchQuery={searchQuery}
+                onRelinkFolder={(projectId) => void handleRelinkFolder(projectId)}
+              />
+            ) : null}
           </ul>
         )}
       </div>

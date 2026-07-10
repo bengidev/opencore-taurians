@@ -173,6 +173,31 @@ describe("ProjectLeftPanel", () => {
     expect(screen.getByRole("button", { name: /^Main$/i })).toBeInTheDocument();
   });
 
+  it("renders auto groups and moves project to manual group", async () => {
+    const user = userEvent.setup();
+    useProjectStore.getState().createProjectWithRootChunk({
+      folderPath: "/work/apps/alpha",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    useProjectStore.getState().createProjectWithRootChunk({
+      folderPath: "/work/apps/beta",
+      nowIso: "2026-07-10T00:00:01.000Z",
+    });
+    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("Favorites");
+    render(<ProjectLeftPanel />);
+    expect(screen.getByText("apps")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "alpha", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "beta", exact: true })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /move alpha to group/i }));
+    expect(screen.getByText("Favorites")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "beta", exact: true })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /move alpha to group/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /remove alpha from group/i }),
+    ).toBeInTheDocument();
+    promptSpy.mockRestore();
+  });
+
   it("relinks folder and updates workspace when project is active", async () => {
     const user = userEvent.setup();
     const { project } = useProjectStore.getState().createProjectWithRootChunk({
