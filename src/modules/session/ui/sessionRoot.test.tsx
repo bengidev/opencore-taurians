@@ -116,6 +116,40 @@ describe("SessionRoot", () => {
     });
   });
 
+  it("reset during enter transition aborts commit and restores onboarding size", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(
+      <ThemeProvider>
+        <SessionRoot
+          windowController={windowController}
+          skipPersistBoot
+        />
+      </ThemeProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "Enter OpenCore" }));
+    expect(windowController.lastSize).toEqual({ width: 1280, height: 800 });
+    expect(
+      screen.getByRole("button", { name: "Enter OpenCore" }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /reset persisted data/i }),
+    );
+
+    await waitFor(() => {
+      expect(useSessionStore.getState().onboardingCompleted).toBe(false);
+      expect(windowController.lastSize).toEqual({ width: 960, height: 680 });
+    });
+
+    await vi.advanceTimersByTimeAsync(280);
+    expect(useSessionStore.getState().onboardingCompleted).toBe(false);
+    expect(
+      screen.getByRole("button", { name: "Enter OpenCore" }),
+    ).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
   it("resizes to shell window size when enter transition begins", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

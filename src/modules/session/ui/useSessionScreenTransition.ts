@@ -11,7 +11,7 @@ export function useSessionScreenTransition({
   onCommitOnboarding,
 }: UseSessionScreenTransitionOptions) {
   const enteredShellRef = useRef(onboardingCompleted);
-  const commitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const commitTimeoutRef = useRef<number | null>(null);
   const [shellInstant] = useState(() => onboardingCompleted);
   const [showOnboarding, setShowOnboarding] = useState(!onboardingCompleted);
   const [showShell, setShowShell] = useState(onboardingCompleted);
