@@ -1,0 +1,42 @@
+.session-screen-transition {
+  --session-transition-duration: 280ms;
+  --session-transition-ease: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.session-onboarding-layer {
+  transition:
+    opacity var(--session-transition-duration) var(--session-transition-ease),
+    transform var(--session-transition-duration) var(--session-transition-ease);
+}
+
+.session-onboarding-layer[data-exiting="true"] {
+  opacity: 0;
+  transform: scale(0.98);
+  pointer-events: none;
+}
+
+.session-shell-layer {
+  opacity: 0;
+  transform: scale(0.98);
+  transition:
+    opacity var(--session-transition-duration) var(--session-transition-ease),
+    transform var(--session-transition-duration) var(--session-transition-ease);
+}
+
+.session-shell-layer[data-visible="true"] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.session-shell-layer[data-instant="true"] {
+  transition: none;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-onboarding-layer,
+  .session-shell-layer {
+    transition: none;
+    transform: none;
+  }
+}
