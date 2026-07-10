@@ -1,7 +1,8 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
+import { DEFAULT_SHELL_PANEL_WIDTH } from "../state/shellPanelSizing";
 import { useShellStore } from "../state/shellStore";
 import { ShellScreen } from "./shellScreen";
 
@@ -16,6 +17,8 @@ describe("ShellScreen", () => {
       activeMainCard: "chat",
       leftVisible: true,
       rightVisible: true,
+      leftPanelWidth: DEFAULT_SHELL_PANEL_WIDTH,
+      rightPanelWidth: DEFAULT_SHELL_PANEL_WIDTH,
     });
   });
 
@@ -36,5 +39,29 @@ describe("ShellScreen", () => {
     await user.click(screen.getByRole("button", { name: /toggle left/i }));
     expect(screen.queryByLabelText("left panel")).not.toBeInTheDocument();
     expect(screen.getByLabelText("right panel")).toBeInTheDocument();
+  });
+
+  it("resizes the left panel from its right border", () => {
+    render(<ShellScreen />);
+    const handle = screen.getByRole("separator", { name: /resize left panel/i });
+
+    fireEvent.pointerDown(handle, { clientX: 100, pointerId: 1, button: 0 });
+    fireEvent.pointerMove(handle, { clientX: 150, pointerId: 1 });
+    fireEvent.pointerUp(handle, { pointerId: 1 });
+
+    expect(useShellStore.getState().leftPanelWidth).toBe(258);
+  });
+
+  it("resizes the right panel from its left border", () => {
+    render(<ShellScreen />);
+    const handle = screen.getByRole("separator", {
+      name: /resize right panel/i,
+    });
+
+    fireEvent.pointerDown(handle, { clientX: 200, pointerId: 2, button: 0 });
+    fireEvent.pointerMove(handle, { clientX: 150, pointerId: 2 });
+    fireEvent.pointerUp(handle, { pointerId: 2 });
+
+    expect(useShellStore.getState().rightPanelWidth).toBe(258);
   });
 });

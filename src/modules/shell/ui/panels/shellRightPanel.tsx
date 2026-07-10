@@ -1,9 +1,20 @@
+import { useShellStore } from "../../state/shellStore";
+import { ShellPanelResizeHandle } from "../shellPanelResizeHandle";
+
 export function ShellRightPanel() {
+  const setRightPanelWidth = useShellStore((s) => s.setRightPanelWidth);
+
   return (
     <aside
       aria-label="right panel"
-      className="flex min-h-0 w-52 flex-col border-l border-border bg-background"
+      className="relative flex min-h-0 min-w-0 flex-col border-l border-border bg-background"
     >
+      <ShellPanelResizeHandle
+        edge="start"
+        ariaLabel="Resize right panel"
+        getWidth={() => useShellStore.getState().rightPanelWidth}
+        onResize={setRightPanelWidth}
+      />
       <p className="border-b border-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
         Right Panel
       </p>
