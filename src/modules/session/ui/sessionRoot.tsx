@@ -44,6 +44,7 @@ export function SessionRoot({
   };
 
   const {
+    abortEnterTransition,
     beginEnter,
     showOnboarding,
     showShell,
@@ -87,22 +88,27 @@ export function SessionRoot({
 
   useEffect(() => {
     if (!ready) return;
-    if (onboardingCompleted) {
+    if (isTransitioning || (onboardingCompleted && showShell)) {
       void windowController.applyShellSize();
     } else {
       void windowController.applyOnboardingSize();
     }
-  }, [ready, onboardingCompleted, windowController]);
+  }, [
+    ready,
+    isTransitioning,
+    onboardingCompleted,
+    showShell,
+    windowController,
+  ]);
 
   const handleEnter = () => {
-    void windowController.applyShellSize();
     beginEnter();
   };
 
   const handleReset = async () => {
+    abortEnterTransition();
     await resetAllPersistedSession();
     setWorkspacePopupOpen(true);
-    await windowController.applyOnboardingSize();
   };
 
   if (!ready) {
@@ -117,7 +123,10 @@ export function SessionRoot({
   }
 
   return (
-    <div className="session-screen-transition relative min-h-dvh overflow-hidden">
+    <div
+      className="session-screen-transition relative min-h-dvh overflow-hidden"
+      data-transitioning={isTransitioning ? "true" : "false"}
+    >
       {showShell ? (
         <div
           className="session-shell-layer min-h-dvh"
