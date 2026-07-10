@@ -4,6 +4,8 @@ export const SESSION_PERSIST_KEYS = {
   workspace: "opencore-workspace",
   shell: "opencore-shell",
   theme: "opencore-theme",
+  project: "opencore-project",
+  chat: "opencore-chat",
 } as const;
 
 export type SessionPersistKey =
