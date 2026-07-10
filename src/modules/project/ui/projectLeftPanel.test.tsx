@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useChatStore } from "../../chat/state/chatStore";
@@ -7,6 +7,26 @@ import { createMemoryFolderPicker } from "../../workspace-popup/infrastructure/w
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { useProjectStore } from "../state/projectStore";
 import { ProjectLeftPanel } from "./projectLeftPanel";
+
+function createDataTransfer() {
+  const store = new Map<string, string>();
+  return {
+    effectAllowed: "none" as DataTransfer["effectAllowed"],
+    dropEffect: "none" as DataTransfer["dropEffect"],
+    files: [] as unknown as FileList,
+    items: [] as unknown as DataTransferItemList,
+    types: [] as readonly string[],
+    clearData: (format?: string) => {
+      if (format) store.delete(format);
+      else store.clear();
+    },
+    getData: (format: string) => store.get(format) ?? "",
+    setData: (format: string, data: string) => {
+      store.set(format, data);
+    },
+    setDragImage: vi.fn(),
+  };
+}
 
 describe("ProjectLeftPanel", () => {
   afterEach(() => cleanup());
@@ -196,6 +216,36 @@ describe("ProjectLeftPanel", () => {
       screen.getByRole("button", { name: /remove alpha from group/i }),
     ).toBeInTheDocument();
     promptSpy.mockRestore();
+  });
+
+  it("reorders sibling chunks via HTML5 drag and drop", () => {
+    const { chunk: root } = useProjectStore.getState().createProjectWithRootChunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    const a = useProjectStore.getState().addChildChunk({
+      parentChunkId: root.id,
+      title: "ChunkA",
+      nowIso: "2026-07-10T00:00:01.000Z",
+    })!;
+    const b = useProjectStore.getState().addChildChunk({
+      parentChunkId: root.id,
+      title: "ChunkB",
+      nowIso: "2026-07-10T00:00:02.000Z",
+    })!;
+    render(<ProjectLeftPanel />);
+    const buttonA = screen.getByRole("button", { name: /^ChunkA$/i });
+    const buttonB = screen.getByRole("button", { name: /^ChunkB$/i });
+    const dataTransfer = createDataTransfer();
+    fireEvent.dragStart(buttonB, { dataTransfer });
+    fireEvent.dragOver(buttonA, { dataTransfer });
+    fireEvent.drop(buttonA, { dataTransfer });
+    const ordered = useProjectStore
+      .getState()
+      .chunks.filter((c) => c.parentChunkId === root.id)
+      .sort((x, y) => x.siblingOrder - y.siblingOrder)
+      .map((c) => c.id);
+    expect(ordered).toEqual([b.id, a.id]);
   });
 
   it("relinks folder and updates workspace when project is active", async () => {

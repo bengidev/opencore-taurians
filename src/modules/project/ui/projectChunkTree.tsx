@@ -15,6 +15,26 @@ export interface ProjectChunkTreeProps {
 
 const NEW_CHUNK_TITLE = "New chunk";
 const DELETE_CONFIRM = "Delete this chunk and its children?";
+const CHUNK_DRAG_ID_MIME = "application/x-project-chunk-id";
+const CHUNK_DRAG_PARENT_MIME = "application/x-project-chunk-parent-id";
+
+function reorderChunkSiblings(
+  chunks: readonly ProjectChunk[],
+  parentChunkId: string | null,
+  sourceId: string,
+  targetId: string,
+) {
+  if (sourceId === targetId) return;
+  const siblings = projectListChildChunks(chunks, parentChunkId);
+  const ids = siblings.map((chunk) => chunk.id);
+  const sourceIndex = ids.indexOf(sourceId);
+  const targetIndex = ids.indexOf(targetId);
+  if (sourceIndex === -1 || targetIndex === -1) return;
+  const reordered = [...ids];
+  reordered.splice(sourceIndex, 1);
+  reordered.splice(targetIndex, 0, sourceId);
+  useProjectStore.getState().reorderSiblingChunks(parentChunkId, reordered);
+}
 
 interface ChunkNodesProps {
   chunks: readonly ProjectChunk[];
@@ -45,6 +65,7 @@ function ChunkNodes({
           >
             <button
               type="button"
+              draggable
               aria-current={activeChunkId === chunk.id ? "true" : undefined}
               className={cn(
                 "min-w-0 flex-1 rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em]",
@@ -53,6 +74,25 @@ function ChunkNodes({
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
               )}
               onClick={() => projectActivateChunk(chunk.id)}
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData(CHUNK_DRAG_ID_MIME, chunk.id);
+                event.dataTransfer.setData(
+                  CHUNK_DRAG_PARENT_MIME,
+                  chunk.parentChunkId ?? "",
+                );
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const sourceId = event.dataTransfer.getData(CHUNK_DRAG_ID_MIME);
+                const sourceParentRaw = event.dataTransfer.getData(CHUNK_DRAG_PARENT_MIME);
+                const sourceParentId = sourceParentRaw === "" ? null : sourceParentRaw;
+                if (sourceParentId !== chunk.parentChunkId) return;
+                reorderChunkSiblings(chunks, chunk.parentChunkId, sourceId, chunk.id);
+              }}
             >
               {chunk.title}
             </button>
