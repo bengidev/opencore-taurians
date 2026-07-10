@@ -1,15 +1,21 @@
 import { ChevronDown, ChevronRight, FolderSync, Pin, Plus } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useChatStore } from "../../chat/state/chatStore";
 import {
   createTauriFolderPicker,
   type FolderPicker,
 } from "../../workspace-popup/infrastructure/workspaceFolderPicker";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
+import { projectMergeSearchResults } from "../domain/projectSearch";
 import { projectActivateChunk } from "../state/projectActivation";
 import { useProjectStore } from "../state/projectStore";
 import { ProjectChunkTree } from "./projectChunkTree";
+import {
+  projectProjectHasVisibleChunks,
+  projectSearchTitleChunkIds,
+} from "./projectPanelSearch";
 
 const NEW_CHUNK_TITLE = "New chunk";
 
@@ -24,12 +30,37 @@ export function ProjectLeftPanel({
 }: ProjectLeftPanelProps) {
   const projects = useProjectStore((s) => s.projects);
   const chunks = useProjectStore((s) => s.chunks);
+  const groups = useProjectStore((s) => s.groups);
   const expandedProjectIds = useProjectStore((s) => s.expandedProjectIds);
   const activeChunkId = useProjectStore((s) => s.activeChunkId);
   const toggleProjectExpanded = useProjectStore((s) => s.toggleProjectExpanded);
+  const messagesByChunkId = useChatStore((s) => s.messagesByChunkId);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const q = searchQuery.trim().toLowerCase();
+  const isSearching = q.length > 0;
+
+  const visibleChunkIds = useMemo(() => {
+    if (!isSearching) return undefined;
+    const titleChunkIds = projectSearchTitleChunkIds(chunks, projects, groups, q);
+    const messageChunkIds = useChatStore
+      .getState()
+      .searchMessages(q)
+      .map((hit) => hit.chunkId);
+    const hitIds = projectMergeSearchResults({ titleChunkIds, messageChunkIds });
+    return new Set(hitIds);
+  }, [isSearching, q, chunks, projects, groups, messagesByChunkId]);
+
   const sortedProjects = [...projects].sort((a, b) => a.listOrder - b.listOrder);
+
+  const displayedProjects = isSearching
+    ? sortedProjects.filter(
+        (project) =>
+          project.name.toLowerCase().includes(q) ||
+          (visibleChunkIds !== undefined &&
+            projectProjectHasVisibleChunks(project.id, chunks, visibleChunkIds)),
+      )
+    : sortedProjects;
 
   const handleRelinkFolder = async (projectId: string) => {
     const path = await folderPicker.pickFolder();
@@ -67,8 +98,13 @@ export function ProjectLeftPanel({
           </Button>
         ) : (
           <ul className="list-none space-y-1">
-            {sortedProjects.map((project) => {
-              const expanded = expandedProjectIds.includes(project.id);
+            {displayedProjects.map((project) => {
+              const hasVisibleChunks =
+                visibleChunkIds !== undefined &&
+                projectProjectHasVisibleChunks(project.id, chunks, visibleChunkIds);
+              const expanded = isSearching
+                ? project.name.toLowerCase().includes(q) || hasVisibleChunks
+                : expandedProjectIds.includes(project.id);
               return (
                 <li key={project.id}>
                   <div className="flex w-full items-center gap-0.5">
@@ -143,6 +179,7 @@ export function ProjectLeftPanel({
                       projectId={project.id}
                       chunks={chunks}
                       activeChunkId={activeChunkId}
+                      visibleChunkIds={visibleChunkIds}
                     />
                   ) : null}
                 </li>
