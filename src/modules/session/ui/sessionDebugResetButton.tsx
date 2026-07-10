@@ -187,7 +187,6 @@ export function SessionDebugResetButton({
       onPointerMove={handlePointerMove}
       onPointerUp={finishPointerInteraction}
       onPointerCancel={finishPointerInteraction}
-      onSelectStart={(event) => event.preventDefault()}
       onDragStart={(event) => event.preventDefault()}
     >
       <Button
