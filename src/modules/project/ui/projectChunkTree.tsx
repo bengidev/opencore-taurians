@@ -31,94 +31,90 @@ function ChunkNodes({
   depth,
   visibleChunkIds,
 }: ChunkNodesProps) {
-  const nodes = projectListChildChunks(chunks, parentChunkId);
+  const nodes = projectListChildChunks(chunks, parentChunkId).filter(
+    (chunk) => !visibleChunkIds || visibleChunkIds.has(chunk.id),
+  );
 
   return (
     <>
-      {nodes.flatMap((chunk) => {
-        const descendants = (
-          <ChunkNodes
-            chunks={chunks}
-            parentChunkId={chunk.id}
-            activeChunkId={activeChunkId}
-            depth={depth + 1}
-            visibleChunkIds={visibleChunkIds}
-          />
-        );
-        if (visibleChunkIds && !visibleChunkIds.has(chunk.id)) {
-          return descendants;
-        }
-        return (
-          <li key={chunk.id}>
-            <div
-              className="flex w-full items-center gap-0.5"
-              style={{ paddingLeft: `${depth * 12 + 8}px` }}
+      {nodes.map((chunk) => (
+        <li key={chunk.id}>
+          <div
+            className="flex w-full items-center gap-0.5"
+            style={{ paddingLeft: `${depth * 12 + 8}px` }}
+          >
+            <button
+              type="button"
+              aria-current={activeChunkId === chunk.id ? "true" : undefined}
+              className={cn(
+                "min-w-0 flex-1 rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em]",
+                activeChunkId === chunk.id
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+              )}
+              onClick={() => projectActivateChunk(chunk.id)}
             >
-              <button
-                type="button"
-                aria-current={activeChunkId === chunk.id ? "true" : undefined}
-                className={cn(
-                  "min-w-0 flex-1 rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em]",
-                  activeChunkId === chunk.id
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                )}
-                onClick={() => projectActivateChunk(chunk.id)}
-              >
-                {chunk.title}
-              </button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label={
-                  chunk.pinned ? `Unpin chunk ${chunk.title}` : `Pin chunk ${chunk.title}`
-                }
-                className="shrink-0 text-muted-foreground"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  useProjectStore.getState().setChunkPinned(chunk.id, !chunk.pinned);
-                }}
-              >
-                <Pin className="size-3" aria-hidden />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Add child chunk"
-                className="shrink-0 text-muted-foreground"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  const child = useProjectStore.getState().addChildChunk({
-                    parentChunkId: chunk.id,
-                    title: NEW_CHUNK_TITLE,
-                    nowIso: new Date().toISOString(),
-                  });
-                  if (child) projectActivateChunk(child.id);
-                }}
-              >
-                <Plus className="size-3" aria-hidden />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label={`Delete chunk ${chunk.title}`}
-                className="shrink-0 text-muted-foreground"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (!window.confirm(DELETE_CONFIRM)) return;
-                  useProjectStore.getState().deleteChunkCascade(chunk.id);
-                }}
-              >
-                <Trash2 className="size-3" aria-hidden />
-              </Button>
-            </div>
-            <ul className="list-none">{descendants}</ul>
-          </li>
-        );
-      })}
+              {chunk.title}
+            </button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label={
+                chunk.pinned ? `Unpin chunk ${chunk.title}` : `Pin chunk ${chunk.title}`
+              }
+              className="shrink-0 text-muted-foreground"
+              onClick={(event) => {
+                event.stopPropagation();
+                useProjectStore.getState().setChunkPinned(chunk.id, !chunk.pinned);
+              }}
+            >
+              <Pin className="size-3" aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Add child chunk"
+              className="shrink-0 text-muted-foreground"
+              onClick={(event) => {
+                event.stopPropagation();
+                const child = useProjectStore.getState().addChildChunk({
+                  parentChunkId: chunk.id,
+                  title: NEW_CHUNK_TITLE,
+                  nowIso: new Date().toISOString(),
+                });
+                if (child) projectActivateChunk(child.id);
+              }}
+            >
+              <Plus className="size-3" aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label={`Delete chunk ${chunk.title}`}
+              className="shrink-0 text-muted-foreground"
+              onClick={(event) => {
+                event.stopPropagation();
+                if (!window.confirm(DELETE_CONFIRM)) return;
+                useProjectStore.getState().deleteChunkCascade(chunk.id);
+              }}
+            >
+              <Trash2 className="size-3" aria-hidden />
+            </Button>
+          </div>
+          <ul className="list-none">
+            <ChunkNodes
+              chunks={chunks}
+              parentChunkId={chunk.id}
+              activeChunkId={activeChunkId}
+              depth={depth + 1}
+              visibleChunkIds={visibleChunkIds}
+            />
+          </ul>
+        </li>
+      ))}
     </>
   );
 }

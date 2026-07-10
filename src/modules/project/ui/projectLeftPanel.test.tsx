@@ -144,6 +144,11 @@ describe("ProjectLeftPanel", () => {
       title: "Other",
       nowIso: "2026-07-10T00:00:01.000Z",
     })!;
+    useProjectStore.getState().addChildChunk({
+      parentChunkId: root.id,
+      title: "Notes",
+      nowIso: "2026-07-10T00:00:01.500Z",
+    });
     useChatStore.getState().appendMessage({
       chunkId: other.id,
       role: "user",
@@ -153,7 +158,8 @@ describe("ProjectLeftPanel", () => {
     render(<ProjectLeftPanel />);
     await user.type(screen.getByRole("searchbox", { name: /search projects/i }), "zebra");
     expect(screen.getByRole("button", { name: /^Other$/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Main$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Main$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Notes$/i })).not.toBeInTheDocument();
   });
 
   it("filters by chunk title", async () => {

@@ -13,6 +13,7 @@ import { projectActivateChunk } from "../state/projectActivation";
 import { useProjectStore } from "../state/projectStore";
 import { ProjectChunkTree } from "./projectChunkTree";
 import {
+  projectExpandChunkAncestors,
   projectProjectHasVisibleChunks,
   projectSearchTitleChunkIds,
 } from "./projectPanelSearch";
@@ -48,7 +49,7 @@ export function ProjectLeftPanel({
       .searchMessages(q)
       .map((hit) => hit.chunkId);
     const hitIds = projectMergeSearchResults({ titleChunkIds, messageChunkIds });
-    return new Set(hitIds);
+    return projectExpandChunkAncestors(chunks, hitIds);
   }, [isSearching, q, chunks, projects, groups, messagesByChunkId]);
 
   const sortedProjects = [...projects].sort((a, b) => a.listOrder - b.listOrder);
