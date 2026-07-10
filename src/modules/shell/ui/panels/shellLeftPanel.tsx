@@ -1,9 +1,9 @@
+import { ProjectLeftPanel } from "../../../project";
 import { useShellStore } from "../../state/shellStore";
 import { ShellPanelResizeHandle } from "../shellPanelResizeHandle";
 
 export function ShellLeftPanel() {
   const setLeftPanelWidth = useShellStore((s) => s.setLeftPanelWidth);
-
   return (
     <aside
       aria-label="left panel"
@@ -15,10 +15,7 @@ export function ShellLeftPanel() {
         getWidth={() => useShellStore.getState().leftPanelWidth}
         onResize={setLeftPanelWidth}
       />
-      <p className="border-b border-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-        Left Panel
-      </p>
-      <div className="min-h-0 flex-1 p-3" />
+      <ProjectLeftPanel />
     </aside>
   );
 }
