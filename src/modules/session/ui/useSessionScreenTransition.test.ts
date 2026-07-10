@@ -59,4 +59,31 @@ describe("useSessionScreenTransition", () => {
     expect(result.current.showOnboarding).toBe(false);
     expect(result.current.shellInstant).toBe(true);
   });
+
+  it("cancels pending commit when enter transition is aborted", () => {
+    const onCommitOnboarding = vi.fn();
+    const { result } = renderHook(() =>
+      useSessionScreenTransition({
+        onboardingCompleted: false,
+        onCommitOnboarding,
+      }),
+    );
+
+    act(() => {
+      result.current.beginEnter();
+    });
+
+    act(() => {
+      result.current.abortEnterTransition();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(280);
+    });
+
+    expect(onCommitOnboarding).not.toHaveBeenCalled();
+    expect(result.current.showOnboarding).toBe(true);
+    expect(result.current.showShell).toBe(false);
+    expect(result.current.isTransitioning).toBe(false);
+  });
 });
