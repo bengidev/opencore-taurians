@@ -57,4 +57,52 @@ describe("WorkspacePopup", () => {
       "true",
     );
   });
+
+  it("calls onClose when the close button is clicked", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(
+      <ThemeProvider>
+        <WorkspacePopup
+          folderPicker={createMemoryFolderPicker(null)}
+          onClose={onClose}
+        />
+      </ThemeProvider>,
+    );
+    await user.click(
+      screen.getByRole("button", { name: /close workspace popup/i }),
+    );
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("calls onClose when Escape is pressed", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(
+      <ThemeProvider>
+        <WorkspacePopup
+          folderPicker={createMemoryFolderPicker(null)}
+          onClose={onClose}
+        />
+      </ThemeProvider>,
+    );
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("calls onClose when the backdrop is clicked", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const { container } = render(
+      <ThemeProvider>
+        <WorkspacePopup
+          folderPicker={createMemoryFolderPicker(null)}
+          onClose={onClose}
+        />
+      </ThemeProvider>,
+    );
+    const backdrop = container.firstElementChild as HTMLElement;
+    await user.click(backdrop);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 });
