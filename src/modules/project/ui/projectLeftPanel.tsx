@@ -29,6 +29,26 @@ import {
 } from "./projectPanelSearch";
 
 const NEW_CHUNK_TITLE = "New chunk";
+const PROJECT_DRAG_ID_MIME = "application/x-project-id";
+const PROJECT_DRAG_GROUP_MIME = "application/x-project-group-id";
+
+function reorderProjectsInManualGroup(
+  groupId: string,
+  sourceProjectId: string,
+  targetProjectId: string,
+) {
+  if (sourceProjectId === targetProjectId) return;
+  const group = useProjectStore.getState().groups.find((g) => g.id === groupId);
+  if (!group) return;
+  const ids = [...group.projectIds];
+  const sourceIndex = ids.indexOf(sourceProjectId);
+  const targetIndex = ids.indexOf(targetProjectId);
+  if (sourceIndex === -1 || targetIndex === -1) return;
+  const reordered = [...ids];
+  reordered.splice(sourceIndex, 1);
+  reordered.splice(targetIndex, 0, sourceProjectId);
+  useProjectStore.getState().reorderProjectsInGroup(groupId, reordered);
+}
 
 export interface ProjectLeftPanelProps {
   onRequestOpenProject?: () => void;
@@ -71,11 +91,39 @@ function ProjectRow({
       <div className="flex w-full items-center gap-0.5">
         <button
           type="button"
+          draggable={Boolean(project.manualGroupId)}
           aria-expanded={expanded}
           className={cn(
             "flex min-w-0 flex-1 items-center gap-1 rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-foreground hover:bg-muted/60",
           )}
           onClick={onToggleExpanded}
+          onDragStart={
+            project.manualGroupId
+              ? (event) => {
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData(PROJECT_DRAG_ID_MIME, project.id);
+                  event.dataTransfer.setData(PROJECT_DRAG_GROUP_MIME, project.manualGroupId!);
+                }
+              : undefined
+          }
+          onDragOver={
+            project.manualGroupId
+              ? (event) => {
+                  event.preventDefault();
+                }
+              : undefined
+          }
+          onDrop={
+            project.manualGroupId
+              ? (event) => {
+                  event.preventDefault();
+                  const sourceId = event.dataTransfer.getData(PROJECT_DRAG_ID_MIME);
+                  const groupId = event.dataTransfer.getData(PROJECT_DRAG_GROUP_MIME);
+                  if (groupId !== project.manualGroupId) return;
+                  reorderProjectsInManualGroup(groupId, sourceId, project.id);
+                }
+              : undefined
+          }
         >
           {expanded ? (
             <ChevronDown className="size-3 shrink-0" aria-hidden />
