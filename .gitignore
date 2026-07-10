@@ -52,5 +52,8 @@ coverage/
 # Design-system extraction artifacts
 .extract-design-system/
 
+# Local planning docs
+docs/superpowers/
+
 # Git worktrees
 .worktrees/
