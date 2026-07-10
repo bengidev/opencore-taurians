@@ -1,3 +1,4 @@
+import { XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,7 @@ import { useWorkspaceStore } from "../state/workspaceStore";
 
 export interface WorkspacePopupProps {
   folderPicker?: FolderPicker;
+  onClose?: () => void;
   onWorkspaceOpened?: () => void;
 }
 
@@ -26,6 +28,7 @@ const GET_STARTED_ACTIONS = [
 
 export function WorkspacePopup({
   folderPicker = createTauriFolderPicker(),
+  onClose,
   onWorkspaceOpened,
 }: WorkspacePopupProps) {
   const { mode } = useTheme();
@@ -38,6 +41,22 @@ export function WorkspacePopup({
     const frame = window.requestAnimationFrame(() => setMounted(true));
     return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    if (!onClose) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.repeat) return;
+      onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const handleBackdropClick = () => {
+    onClose?.();
+  };
 
   const handleOpenProject = async () => {
     if (picking) return;
@@ -60,18 +79,32 @@ export function WorkspacePopup({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       role="presentation"
+      onClick={onClose ? handleBackdropClick : undefined}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="workspace-popup-title"
         className={cn(
-          "w-full max-w-[420px] rounded-[6px] border border-border bg-background px-8 py-10",
+          "relative w-full max-w-[420px] rounded-[6px] border border-border bg-background px-8 py-10",
           "origin-center transition-[transform,opacity] duration-[220ms] ease-[cubic-bezier(0.23,1,0.32,1)]",
           mounted ? "scale-100 opacity-100" : "scale-[0.95] opacity-0",
           "motion-reduce:scale-100 motion-reduce:opacity-100 motion-reduce:transition-none",
         )}
+        onClick={(event) => event.stopPropagation()}
       >
+        {onClose ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="absolute right-3 top-3"
+            aria-label="Close workspace popup"
+            onClick={onClose}
+          >
+            <XIcon className="stroke-[1.5]" />
+          </Button>
+        ) : null}
         <div className="flex flex-col items-center gap-6 text-center">
           <img
             src={
