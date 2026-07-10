@@ -1,6 +1,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useChatStore } from "../../chat/state/chatStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { createMemoryFolderPicker } from "../../workspace-popup/infrastructure/workspaceFolderPicker";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
@@ -13,6 +14,7 @@ describe("ProjectLeftPanel", () => {
     useMemoryPersistStorage();
     useWorkspaceStore.setState({ workspacePath: null });
     useProjectStore.getState().resetProjectState();
+    useChatStore.getState().resetChat();
   });
 
   it("shows empty CTA when no projects", () => {
@@ -129,6 +131,40 @@ describe("ProjectLeftPanel", () => {
       .chunks.filter((c) => c.projectId === project.id && c.parentChunkId === null);
     expect(roots.length).toBe(beforeCount + 1);
     expect(useProjectStore.getState().activeChunkId).toBe(roots[roots.length - 1]?.id);
+  });
+
+  it("filters by chunk title and chat message body", async () => {
+    const user = userEvent.setup();
+    const { chunk: root } = useProjectStore.getState().createProjectWithRootChunk({
+      folderPath: "/work/Alpha",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    const other = useProjectStore.getState().addChildChunk({
+      parentChunkId: root.id,
+      title: "Other",
+      nowIso: "2026-07-10T00:00:01.000Z",
+    })!;
+    useChatStore.getState().appendMessage({
+      chunkId: other.id,
+      role: "user",
+      content: "unique-zebra-token",
+      createdAt: "2026-07-10T00:00:02.000Z",
+    });
+    render(<ProjectLeftPanel />);
+    await user.type(screen.getByRole("searchbox", { name: /search projects/i }), "zebra");
+    expect(screen.getByRole("button", { name: /^Other$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Main$/i })).not.toBeInTheDocument();
+  });
+
+  it("filters by chunk title", async () => {
+    const user = userEvent.setup();
+    useProjectStore.getState().createProjectWithRootChunk({
+      folderPath: "/work/Alpha",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    render(<ProjectLeftPanel />);
+    await user.type(screen.getByRole("searchbox", { name: /search projects/i }), "main");
+    expect(screen.getByRole("button", { name: /^Main$/i })).toBeInTheDocument();
   });
 
   it("relinks folder and updates workspace when project is active", async () => {
