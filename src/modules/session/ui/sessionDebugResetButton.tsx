@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 const DRAG_THRESHOLD_PX = 5;
@@ -38,6 +38,26 @@ function unlockDocumentSelection(): void {
   body.style.removeProperty("-webkit-user-select");
 }
 
+function clampToViewport(
+  el: HTMLElement,
+  left: number,
+  top: number,
+): { left: number; top: number } {
+  const maxLeft = Math.max(
+    VIEWPORT_MARGIN_PX,
+    window.innerWidth - el.offsetWidth - VIEWPORT_MARGIN_PX,
+  );
+  const maxTop = Math.max(
+    VIEWPORT_MARGIN_PX,
+    window.innerHeight - el.offsetHeight - VIEWPORT_MARGIN_PX,
+  );
+
+  return {
+    left: Math.min(Math.max(VIEWPORT_MARGIN_PX, left), maxLeft),
+    top: Math.min(Math.max(VIEWPORT_MARGIN_PX, top), maxTop),
+  };
+}
+
 export function SessionDebugResetButton({
   onReset,
 }: SessionDebugResetButtonProps) {
@@ -50,6 +70,12 @@ export function SessionDebugResetButton({
   );
   const [isDragging, setIsDragging] = useState(false);
 
+  const clampPosition = useCallback((left: number, top: number) => {
+    const el = containerRef.current;
+    if (!el) return { left, top };
+    return clampToViewport(el, left, top);
+  }, []);
+
   useEffect(() => {
     return () => {
       if (selectionLockedRef.current) {
@@ -59,24 +85,27 @@ export function SessionDebugResetButton({
     };
   }, []);
 
-  const clampPosition = (left: number, top: number) => {
-    const el = containerRef.current;
-    if (!el) return { left, top };
+  useLayoutEffect(() => {
+    if (position === null) return;
 
-    const maxLeft = Math.max(
-      VIEWPORT_MARGIN_PX,
-      window.innerWidth - el.offsetWidth - VIEWPORT_MARGIN_PX,
-    );
-    const maxTop = Math.max(
-      VIEWPORT_MARGIN_PX,
-      window.innerHeight - el.offsetHeight - VIEWPORT_MARGIN_PX,
-    );
+    const reclamp = () => {
+      const el = containerRef.current;
+      if (!el) return;
 
-    return {
-      left: Math.min(Math.max(VIEWPORT_MARGIN_PX, left), maxLeft),
-      top: Math.min(Math.max(VIEWPORT_MARGIN_PX, top), maxTop),
+      setPosition((current) => {
+        if (!current) return current;
+        const next = clampToViewport(el, current.left, current.top);
+        if (next.left === current.left && next.top === current.top) {
+          return current;
+        }
+        return next;
+      });
     };
-  };
+
+    reclamp();
+    window.addEventListener("resize", reclamp);
+    return () => window.removeEventListener("resize", reclamp);
+  }, [position]);
 
   const readPosition = () => {
     const el = containerRef.current;
