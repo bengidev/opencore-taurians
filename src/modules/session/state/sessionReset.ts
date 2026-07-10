@@ -4,6 +4,8 @@ import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { useShellStore } from "../../shell/state/shellStore";
 import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
 import { THEME_STORAGE_KEY } from "../../onboarding/infrastructure/onboardingThemeConstants";
+import { useChatStore } from "../../chat/state/chatStore";
+import { useProjectStore } from "../../project/state/projectStore";
 
 async function flushPersistWrites(): Promise<void> {
   await new Promise<void>((resolve) => {
@@ -17,6 +19,8 @@ export async function resetAllPersistedSession(): Promise<void> {
   useWorkspaceStore.getState().clearWorkspace();
   useShellStore.getState().resetShellUi();
   useThemeStore.getState().resetTheme();
+  useProjectStore.getState().resetProjectState();
+  useChatStore.getState().resetChat();
 
   const storage = getSessionStateStorage();
   await storage.clearAll();
