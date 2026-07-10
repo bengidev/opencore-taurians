@@ -85,9 +85,14 @@
     background-color: var(--background);
   }
   body {
-    @apply cursor-default text-foreground;
+    @apply cursor-default select-none text-foreground;
     margin: 0;
     -webkit-tap-highlight-color: transparent;
+  }
+  input,
+  textarea,
+  [contenteditable="true"] {
+    @apply select-text;
   }
   html {
     @apply font-sans;
