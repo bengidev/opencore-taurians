@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { getSessionScreenTransitionMs } from "./sessionScreenTransition";
 
 interface UseSessionScreenTransitionOptions {
@@ -11,6 +11,7 @@ export function useSessionScreenTransition({
   onCommitOnboarding,
 }: UseSessionScreenTransitionOptions) {
   const enteredShellRef = useRef(onboardingCompleted);
+  const commitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shellInstant] = useState(() => onboardingCompleted);
   const [showOnboarding, setShowOnboarding] = useState(!onboardingCompleted);
   const [showShell, setShowShell] = useState(onboardingCompleted);
@@ -18,16 +19,39 @@ export function useSessionScreenTransition({
   const [onboardingExiting, setOnboardingExiting] = useState(false);
   const [shellVisible, setShellVisible] = useState(onboardingCompleted);
 
-  useEffect(() => {
-    if (onboardingCompleted) return;
+  const clearCommitTimeout = useCallback(() => {
+    if (commitTimeoutRef.current === null) return;
+    window.clearTimeout(commitTimeoutRef.current);
+    commitTimeoutRef.current = null;
+  }, []);
 
+  const abortEnterTransition = useCallback(() => {
+    clearCommitTimeout();
     enteredShellRef.current = false;
     setShowOnboarding(true);
     setShowShell(false);
     setIsTransitioning(false);
     setOnboardingExiting(false);
     setShellVisible(false);
-  }, [onboardingCompleted]);
+  }, [clearCommitTimeout]);
+
+  useLayoutEffect(() => {
+    if (onboardingCompleted) return;
+
+    abortEnterTransition();
+  }, [abortEnterTransition, onboardingCompleted]);
+
+  useLayoutEffect(() => {
+    if (!isTransitioning || shellVisible || !showShell) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      setShellVisible(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [isTransitioning, shellVisible, showShell]);
+
+  useEffect(() => clearCommitTimeout, [clearCommitTimeout]);
 
   const beginEnter = useCallback(() => {
     if (enteredShellRef.current || onboardingCompleted) {
@@ -40,24 +64,24 @@ export function useSessionScreenTransition({
     }
 
     const transitionMs = getSessionScreenTransitionMs();
+    clearCommitTimeout();
     enteredShellRef.current = true;
     setIsTransitioning(true);
     setShowShell(true);
     setOnboardingExiting(true);
+    setShellVisible(false);
 
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => setShellVisible(true));
-    });
-
-    window.setTimeout(() => {
+    commitTimeoutRef.current = window.setTimeout(() => {
+      commitTimeoutRef.current = null;
       onCommitOnboarding();
       setShowOnboarding(false);
       setOnboardingExiting(false);
       setIsTransitioning(false);
     }, transitionMs);
-  }, [onboardingCompleted, onCommitOnboarding]);
+  }, [clearCommitTimeout, onboardingCompleted, onCommitOnboarding]);
 
   return {
+    abortEnterTransition,
     beginEnter,
     showOnboarding,
     showShell,
