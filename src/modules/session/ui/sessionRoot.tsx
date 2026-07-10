@@ -14,6 +14,8 @@ import {
 import { resetAllPersistedSession } from "../state/sessionReset";
 import { useSessionStore } from "../state/sessionStore";
 import { SessionDebugResetButton } from "./sessionDebugResetButton";
+import "./sessionScreenTransition.css";
+import { useSessionScreenTransition } from "./useSessionScreenTransition";
 
 export interface SessionRootProps {
   windowController?: WindowController;
@@ -31,9 +33,28 @@ export function SessionRoot({
 }: SessionRootProps = {}) {
   const hasHydrated = useSessionStore((s) => s.hasHydrated);
   const [persistReady, setPersistReady] = useState(skipPersistBoot);
+  const [workspacePopupOpen, setWorkspacePopupOpen] = useState(true);
   const onboardingCompleted = useSessionStore((s) => s.onboardingCompleted);
   const completeOnboarding = useSessionStore((s) => s.completeOnboarding);
   const workspacePath = useWorkspaceStore((s) => s.workspacePath);
+
+  const commitOnboarding = () => {
+    completeOnboarding();
+    setWorkspacePopupOpen(true);
+  };
+
+  const {
+    beginEnter,
+    showOnboarding,
+    showShell,
+    isTransitioning,
+    onboardingExiting,
+    shellVisible,
+    shellInstant,
+  } = useSessionScreenTransition({
+    onboardingCompleted,
+    onCommitOnboarding: commitOnboarding,
+  });
 
   useEffect(() => {
     if (skipPersistBoot) return;
@@ -74,12 +95,13 @@ export function SessionRoot({
   }, [ready, onboardingCompleted, windowController]);
 
   const handleEnter = () => {
-    completeOnboarding();
     void windowController.applyShellSize();
+    beginEnter();
   };
 
   const handleReset = async () => {
     await resetAllPersistedSession();
+    setWorkspacePopupOpen(true);
     await windowController.applyOnboardingSize();
   };
 
@@ -95,18 +117,34 @@ export function SessionRoot({
   }
 
   return (
-    <>
-      {!onboardingCompleted ? (
-        <OnboardingScreen onEnter={handleEnter} />
-      ) : (
-        <>
+    <div className="session-screen-transition relative min-h-dvh overflow-hidden">
+      {showShell ? (
+        <div
+          className="session-shell-layer min-h-dvh"
+          data-visible={shellVisible ? "true" : "false"}
+          data-instant={shellInstant ? "true" : "false"}
+        >
           <ShellScreen />
-          {!workspacePath ? (
-            <WorkspacePopup folderPicker={folderPicker} />
+          {onboardingCompleted &&
+          !isTransitioning &&
+          !workspacePath &&
+          workspacePopupOpen ? (
+            <WorkspacePopup
+              folderPicker={folderPicker}
+              onClose={() => setWorkspacePopupOpen(false)}
+            />
           ) : null}
-        </>
-      )}
+        </div>
+      ) : null}
+      {showOnboarding ? (
+        <div
+          className="session-onboarding-layer absolute inset-0 z-10"
+          data-exiting={onboardingExiting ? "true" : "false"}
+        >
+          <OnboardingScreen onEnter={handleEnter} />
+        </div>
+      ) : null}
       <SessionDebugResetButton onReset={handleReset} />
-    </>
+    </div>
   );
 }

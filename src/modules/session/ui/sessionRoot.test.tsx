@@ -54,7 +54,30 @@ describe("SessionRoot", () => {
     await waitFor(() => {
       expect(windowController.lastSize).toEqual({ width: 1280, height: 800 });
     });
-    expect(screen.getByText(/welcome back to/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/welcome back to/i)).toBeInTheDocument();
+    });
+  });
+
+  it("hides workspace popup after close without selecting a workspace", async () => {
+    const user = userEvent.setup();
+    render(
+      <ThemeProvider>
+        <SessionRoot
+          windowController={windowController}
+          skipPersistBoot
+        />
+      </ThemeProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "Enter OpenCore" }));
+    await waitFor(() => {
+      expect(screen.getByText(/welcome back to/i)).toBeInTheDocument();
+    });
+    await user.click(
+      screen.getByRole("button", { name: /close workspace popup/i }),
+    );
+    expect(screen.queryByText(/welcome back to/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/left panel/i)).toBeInTheDocument();
   });
 
   it("applies shell window size for returning users", async () => {
