@@ -8,11 +8,13 @@ import { ShellModeBar } from "./shellModeBar";
 export function ShellScreen() {
   const leftVisible = useShellStore((s) => s.leftVisible);
   const rightVisible = useShellStore((s) => s.rightVisible);
+  const leftPanelWidth = useShellStore((s) => s.leftPanelWidth);
+  const rightPanelWidth = useShellStore((s) => s.rightPanelWidth);
 
   const columns = [
-    leftVisible ? "auto" : null,
+    leftVisible ? `${leftPanelWidth}px` : null,
     "minmax(0, 1fr)",
-    rightVisible ? "auto" : null,
+    rightVisible ? `${rightPanelWidth}px` : null,
   ]
     .filter(Boolean)
     .join(" ");
