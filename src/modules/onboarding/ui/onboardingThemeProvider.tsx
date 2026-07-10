@@ -1,40 +1,19 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
-import { applyThemeToDocument, nextThemeMode, type ThemeMode } from "../domain/onboardingTheme";
-import {
-  defaultThemeRepository,
-  type ThemeRepository,
-} from "../infrastructure/onboardingThemeRepository";
+import { useEffect, type ReactNode } from "react";
+import { applyThemeToDocument } from "../domain/onboardingTheme";
 import { ThemeContext } from "./onboardingThemeContext";
+import { useThemeStore } from "../state/onboardingThemeStore";
 
-interface ThemeProviderProps {
-  children: ReactNode;
-  repository?: ThemeRepository;
-}
-
-export function ThemeProvider({
-  children,
-  repository = defaultThemeRepository,
-}: ThemeProviderProps) {
-  const [mode, setMode] = useState<ThemeMode>(() => repository.load());
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const mode = useThemeStore((s) => s.mode);
+  const toggle = useThemeStore((s) => s.toggle);
 
   useEffect(() => {
     applyThemeToDocument(mode);
-    repository.save(mode);
-  }, [mode, repository]);
-
-  const toggle = useCallback(() => {
-    setMode((current) => nextThemeMode(current));
-  }, []);
-
-  const value = useMemo(() => ({ mode, toggle }), [mode, toggle]);
+  }, [mode]);
 
   return (
-    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+    <ThemeContext.Provider value={{ mode, toggle }}>
+      {children}
+    </ThemeContext.Provider>
   );
 }
