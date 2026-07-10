@@ -25,11 +25,12 @@ describe("ShellScreen", () => {
   it("keeps inactive main cards mounted while swapping", async () => {
     const user = userEvent.setup();
     render(<ShellScreen />);
-    const chatInput = screen.getByLabelText("chat-dummy-note");
-    await user.type(chatInput, "kept");
+    const terminalInput = screen.getByLabelText("terminal-dummy-note");
+    await user.type(terminalInput, "kept");
     await user.click(screen.getByRole("button", { name: /terminal/i }));
-    await user.click(screen.getByRole("button", { name: /chat/i }));
-    expect(chatInput).toHaveValue("kept");
+    await user.click(screen.getByRole("button", { name: /editor/i }));
+    await user.click(screen.getByRole("button", { name: /terminal/i }));
+    expect(terminalInput).toHaveValue("kept");
   });
 
   it("hides left and right panels independently", async () => {
