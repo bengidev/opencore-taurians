@@ -1,17 +1,17 @@
-# Project left panel (t3code-like) — Design
+# Project left panel — Design
 
 Date: 2026-07-10  
 Status: Approved for implementation planning
 
 ## Goal
 
-Replace the shell left-panel placeholder with a t3code-like project navigator: opened-project history, nested work units, chat history, organization (pin/group/search), retention, and per-work-unit restore of the last main card (chat / terminal / editor).
+Replace the shell left-panel placeholder with a project navigator: opened-project history, nested work units, chat history, organization (pin/group/search), retention, and per-work-unit restore of the last main card (chat / terminal / editor).
 
 ## Decisions (locked)
 
 | Topic | Choice |
 | --- | --- |
-| Scope | Near-parity with t3code sidebar (pin, groups, nested children, search, drag-reorder, status where real signals exist) |
+| Scope | Full left-panel navigator (pin, groups, nested children, search, drag-reorder; status only when real signals exist) |
 | Work unit name | `ProjectChunk` (nested tree under a project) |
 | Project ↔ workspace | Project wraps folder path + history; `workspacePath` is derived from the active Project |
 | Child chunks | True nesting via `parentChunkId` |
@@ -187,9 +187,9 @@ Reuse the existing session persist storage adapter (Tauri store in production, m
 ## Out of scope (v1)
 
 - Separate archive store (delete is permanent from the product model)
-- Fake t3code provider/agent status pills without real runtime signals
+- Agent/provider status pills without real runtime signals in this app
 - Extracting chat UI beyond what restore + history require (composer richness can stay thin if messages persist)
-- Remote/multi-environment project grouping (t3code env presence) — local folder projects only
+- Remote or multi-environment project grouping — local folder projects only
 - Git remote–based auto-grouping (parent-directory auto-group only in v1)
 
 ## Success criteria
