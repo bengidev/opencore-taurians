@@ -76,7 +76,7 @@ describe("SessionRoot", () => {
       screen.getByRole("button", { name: /close workspace popup/i }),
     );
     expect(screen.queryByText(/welcome back to/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/left panel/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("left panel")).toBeInTheDocument();
   });
 
   it("applies shell window size for returning users", async () => {

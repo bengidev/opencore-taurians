@@ -59,7 +59,7 @@ describe("ProjectLeftPanel", () => {
     });
     useProjectStore.getState().setActiveIds(null, null);
     render(<ProjectLeftPanel />);
-    await user.click(screen.getByRole("button", { name: "Main", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Main" }));
     expect(useProjectStore.getState().activeChunkId).toBe(chunk.id);
   });
 
@@ -70,13 +70,13 @@ describe("ProjectLeftPanel", () => {
       nowIso: "2026-07-10T00:00:00.000Z",
     });
     render(<ProjectLeftPanel />);
-    expect(screen.getByRole("button", { name: "Main", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Main" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "app", exact: true }));
-    expect(screen.queryByRole("button", { name: "Main", exact: true })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "app" }));
+    expect(screen.queryByRole("button", { name: "Main" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "app", exact: true }));
-    expect(screen.getByRole("button", { name: "Main", exact: true })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "app" }));
+    expect(screen.getByRole("button", { name: "Main" })).toBeInTheDocument();
   });
 
   it("pins a project via the pin button", async () => {
@@ -111,7 +111,7 @@ describe("ProjectLeftPanel", () => {
     const child = after.chunks.find((c) => c.parentChunkId === chunk.id);
     expect(child).toBeDefined();
     expect(after.activeChunkId).toBe(child?.id);
-    expect(screen.getByRole("button", { name: "New chunk", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New chunk" })).toBeInTheDocument();
   });
 
   it("deletes a chunk when confirm is accepted", async () => {
@@ -130,7 +130,7 @@ describe("ProjectLeftPanel", () => {
     await user.click(screen.getByRole("button", { name: "Delete chunk Main" }));
     expect(confirmSpy).toHaveBeenCalledWith("Delete this chunk and its children?");
     expect(useProjectStore.getState().chunks.find((c) => c.id === root.id)).toBeUndefined();
-    expect(screen.queryByRole("button", { name: "Main", exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Main" })).not.toBeInTheDocument();
     confirmSpy.mockRestore();
   });
 
@@ -206,11 +206,11 @@ describe("ProjectLeftPanel", () => {
     const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("Favorites");
     render(<ProjectLeftPanel />);
     expect(screen.getByText("apps")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "alpha", exact: true })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "beta", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "alpha" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "beta" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /move alpha to group/i }));
     expect(screen.getByText("Favorites")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "beta", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "beta" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /move alpha to group/i })).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /remove alpha from group/i }),
