@@ -61,10 +61,11 @@ export function projectBootMigrateAndSweep(input: {
     nowMs: input.nowMs,
     retentionDays: input.retentionDays ?? 30,
   });
-  if (state.activeChunkId) {
-    projectActivateChunk(state.activeChunkId, input.nowIso);
+  const fresh = useProjectStore.getState();
+  if (fresh.activeChunkId) {
+    projectActivateChunk(fresh.activeChunkId, input.nowIso);
   } else if (input.workspacePath) {
-    const project = state.findProjectByFolderPath(input.workspacePath);
+    const project = fresh.findProjectByFolderPath(input.workspacePath);
     if (project) projectActivateProject(project.id, input.nowIso);
   }
 }

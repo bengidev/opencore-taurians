@@ -5,6 +5,7 @@ import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { useProjectStore } from "./projectStore";
 import {
   projectActivateChunk,
+  projectBootMigrateAndSweep,
   projectOpenFolder,
   projectSyncRestoreFromShell,
 } from "./projectActivation";
@@ -47,5 +48,32 @@ describe("projectActivation", () => {
     const second = projectOpenFolder("/work/app", "2026-07-10T00:00:01.000Z");
     expect(first.project.id).toBe(second.project.id);
     expect(useProjectStore.getState().projects).toHaveLength(1);
+  });
+
+  it("boot sweep uses fresh state after retention deletes active chunk", () => {
+    const stale = useProjectStore.getState().createProjectWithRootChunk({
+      folderPath: "/work/stale",
+      nowIso: "2026-05-01T00:00:00.000Z",
+    });
+    const fresh = useProjectStore.getState().createProjectWithRootChunk({
+      folderPath: "/work/current",
+      nowIso: "2026-07-01T00:00:00.000Z",
+    });
+    useProjectStore.getState().setActiveIds(stale.project.id, stale.chunk.id);
+
+    projectBootMigrateAndSweep({
+      workspacePath: "/work/current",
+      nowIso: "2026-07-10T00:00:00.000Z",
+      nowMs: Date.parse("2026-07-10T00:00:00.000Z"),
+      retentionDays: 30,
+    });
+
+    expect(useProjectStore.getState().projects).toHaveLength(1);
+    expect(useProjectStore.getState().projects[0]?.folderPath).toBe("/work/current");
+    expect(useProjectStore.getState().activeChunkId).toBe(fresh.chunk.id);
+    expect(useWorkspaceStore.getState().workspacePath).toBe("/work/current");
+    expect(
+      useProjectStore.getState().chunks.some((c) => c.id === stale.chunk.id),
+    ).toBe(false);
   });
 });
