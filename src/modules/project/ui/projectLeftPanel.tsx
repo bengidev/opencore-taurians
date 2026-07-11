@@ -87,14 +87,15 @@ function ProjectRow({
   };
 
   return (
-    <li>
-      <div className="flex w-full items-center gap-0.5">
+    <li className="min-w-0">
+      <div className="flex min-w-0 w-full items-center gap-0.5">
         <button
           type="button"
           draggable={Boolean(project.manualGroupId)}
           aria-expanded={expanded}
+          title={project.name}
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-1 rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-foreground hover:bg-muted/60",
+            "flex min-w-0 flex-1 items-center gap-1 overflow-hidden rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-foreground hover:bg-muted/60",
           )}
           onClick={onToggleExpanded}
           onDragStart={
@@ -130,7 +131,7 @@ function ProjectRow({
           ) : (
             <ChevronRight className="size-3 shrink-0" aria-hidden />
           )}
-          {project.name}
+          <span className="truncate">{project.name}</span>
         </button>
         <Button
           type="button"
@@ -251,8 +252,11 @@ function ProjectSection({
   if (rows.length === 0) return null;
 
   return (
-    <li className="space-y-1">
-      <p className="px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+    <li className="min-w-0 space-y-1">
+      <p
+        className="truncate px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground"
+        title={label}
+      >
         {label}
       </p>
       <ul className="list-none space-y-1">
@@ -404,7 +408,7 @@ export function ProjectLeftPanel({
           className="w-full border border-border bg-background px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em] text-foreground placeholder:text-muted-foreground"
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-auto p-2">
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto p-2">
         {projects.length === 0 ? (
           <Button
             type="button"
