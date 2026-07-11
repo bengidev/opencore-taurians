@@ -76,4 +76,22 @@ describe("projectActivation", () => {
       useProjectStore.getState().chunks.some((c) => c.id === stale.chunk.id),
     ).toBe(false);
   });
+
+  it("boot does not recreate a project after the user deleted every project", () => {
+    const { project } = useProjectStore.getState().createProjectWithRootChunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    useWorkspaceStore.getState().setWorkspace("/work/app");
+    useProjectStore.getState().deleteProjectCascade(project.id);
+
+    projectBootMigrateAndSweep({
+      workspacePath: useWorkspaceStore.getState().workspacePath,
+      nowIso: "2026-07-10T00:00:01.000Z",
+      nowMs: Date.parse("2026-07-10T00:00:01.000Z"),
+    });
+
+    expect(useProjectStore.getState().projects).toEqual([]);
+    expect(useWorkspaceStore.getState().workspacePath).toBeNull();
+  });
 });

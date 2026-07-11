@@ -1,3 +1,4 @@
+import { projectCollectSubtreeChunkIds } from "./projectChunkTree";
 import type { Project, ProjectChunk } from "./projectTypes";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -31,15 +32,31 @@ export function projectSelectExpired(input: {
   // If any chunk in a project is pinned, retain all chunks in that project for v1 simplicity
   // consistent with "ancestor project retained while pinned chunk exists".
   const retainAllChunksForProjects = pinnedChunkProjectIds;
+  const retainedChunkIds = new Set(
+    input.chunks
+      .filter((c) => c.pinned || !isStale(c.lastOpenedAt))
+      .map((c) => c.id),
+  );
   const chunkIds = expiredChunkIds.filter((id) => {
     const chunk = input.chunks.find((c) => c.id === id);
-    return chunk ? !retainAllChunksForProjects.has(chunk.projectId) : false;
+    if (!chunk || retainAllChunksForProjects.has(chunk.projectId)) return false;
+    const subtree = projectCollectSubtreeChunkIds(input.chunks, id);
+    return !subtree.some(
+      (descendantId) =>
+        descendantId !== id && retainedChunkIds.has(descendantId),
+    );
   });
 
   const projectIds = input.projects
     .filter((p) => !p.pinned)
     .filter((p) => isStale(p.lastOpenedAt))
     .filter((p) => !pinnedChunkProjectIds.has(p.id))
+    .filter(
+      (p) =>
+        !input.chunks.some(
+          (c) => c.projectId === p.id && retainedChunkIds.has(c.id),
+        ),
+    )
     .map((p) => p.id);
 
   return { projectIds, chunkIds };

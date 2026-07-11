@@ -78,4 +78,23 @@ describe("projectSelectExpired", () => {
     expect(result.projectIds).toEqual([]);
     expect(result.chunkIds).toEqual([]);
   });
+
+  it("does not expire a stale ancestor when a descendant was used recently", () => {
+    const result = projectSelectExpired({
+      nowMs: NOW,
+      retentionDays: 30,
+      projects: [p({ id: "p1" })],
+      chunks: [
+        c({ id: "root", projectId: "p1", lastOpenedAt: OLD }),
+        c({
+          id: "child",
+          projectId: "p1",
+          parentChunkId: "root",
+          lastOpenedAt: RECENT,
+        }),
+      ],
+    });
+    expect(result.chunkIds).toEqual([]);
+    expect(result.projectIds).toEqual([]);
+  });
 });

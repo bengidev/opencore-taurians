@@ -2,6 +2,10 @@ function normalizeSeparators(path: string): string {
   return path.replaceAll("\\", "/").replace(/\/+$/, "");
 }
 
+export function projectNormalizeFolderPath(folderPath: string): string {
+  return normalizeSeparators(folderPath);
+}
+
 export function projectFolderBasename(folderPath: string): string {
   const normalized = normalizeSeparators(folderPath);
   const parts = normalized.split("/").filter(Boolean);
