@@ -5,6 +5,7 @@ import type { ProjectChunk } from "../domain/projectTypes";
 import { projectActivateChunk } from "../state/projectActivation";
 import { useProjectStore } from "../state/projectStore";
 import { PanelToolButton } from "./panelToolButton";
+import { PanelTooltip } from "./panelTooltip";
 
 export interface ProjectChunkTreeProps {
   projectId: string;
@@ -63,40 +64,41 @@ function ChunkNodes({
             className="flex min-w-0 w-full items-center gap-0.5"
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
           >
-            <button
-              type="button"
-              draggable
-              aria-current={activeChunkId === chunk.id ? "true" : undefined}
-              title={chunk.title}
-              className={cn(
-                "min-w-0 flex-1 overflow-hidden rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em]",
-                activeChunkId === chunk.id
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-              )}
-              onClick={() => projectActivateChunk(chunk.id)}
-              onDragStart={(event) => {
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData(CHUNK_DRAG_ID_MIME, chunk.id);
-                event.dataTransfer.setData(
-                  CHUNK_DRAG_PARENT_MIME,
-                  chunk.parentChunkId ?? "",
-                );
-              }}
-              onDragOver={(event) => {
-                event.preventDefault();
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                const sourceId = event.dataTransfer.getData(CHUNK_DRAG_ID_MIME);
-                const sourceParentRaw = event.dataTransfer.getData(CHUNK_DRAG_PARENT_MIME);
-                const sourceParentId = sourceParentRaw === "" ? null : sourceParentRaw;
-                if (sourceParentId !== chunk.parentChunkId) return;
-                reorderChunkSiblings(chunks, chunk.parentChunkId, sourceId, chunk.id);
-              }}
-            >
-              <span className="block truncate">{chunk.title}</span>
-            </button>
+            <PanelTooltip label={chunk.title}>
+              <button
+                type="button"
+                draggable
+                aria-current={activeChunkId === chunk.id ? "true" : undefined}
+                className={cn(
+                  "min-w-0 flex-1 overflow-hidden rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em]",
+                  activeChunkId === chunk.id
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                )}
+                onClick={() => projectActivateChunk(chunk.id)}
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData(CHUNK_DRAG_ID_MIME, chunk.id);
+                  event.dataTransfer.setData(
+                    CHUNK_DRAG_PARENT_MIME,
+                    chunk.parentChunkId ?? "",
+                  );
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const sourceId = event.dataTransfer.getData(CHUNK_DRAG_ID_MIME);
+                  const sourceParentRaw = event.dataTransfer.getData(CHUNK_DRAG_PARENT_MIME);
+                  const sourceParentId = sourceParentRaw === "" ? null : sourceParentRaw;
+                  if (sourceParentId !== chunk.parentChunkId) return;
+                  reorderChunkSiblings(chunks, chunk.parentChunkId, sourceId, chunk.id);
+                }}
+              >
+                <span className="block truncate">{chunk.title}</span>
+              </button>
+            </PanelTooltip>
             <PanelToolButton
               label={
                 chunk.pinned ? `Unpin chunk ${chunk.title}` : `Pin chunk ${chunk.title}`
