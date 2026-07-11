@@ -23,6 +23,7 @@ import { projectMergeSearchResults } from "../domain/projectSearch";
 import { projectActivateChunk, projectOpenFolder } from "../state/projectActivation";
 import { useProjectStore } from "../state/projectStore";
 import { PanelToolButton } from "./panelToolButton";
+import { PanelTooltip } from "./panelTooltip";
 import { ProjectChunkTree } from "./projectChunkTree";
 import {
   projectExpandChunkAncestors,
@@ -91,50 +92,51 @@ function ProjectRow({
   return (
     <li className="min-w-0">
       <div className="flex min-w-0 w-full items-center gap-0.5">
-        <button
-          type="button"
-          draggable={Boolean(project.manualGroupId)}
-          aria-expanded={expanded}
-          title={project.name}
-          className={cn(
-            "flex min-w-0 flex-1 items-center gap-1 overflow-hidden rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-foreground hover:bg-muted/60",
-          )}
-          onClick={onToggleExpanded}
-          onDragStart={
-            project.manualGroupId
-              ? (event) => {
-                  event.dataTransfer.effectAllowed = "move";
-                  event.dataTransfer.setData(PROJECT_DRAG_ID_MIME, project.id);
-                  event.dataTransfer.setData(PROJECT_DRAG_GROUP_MIME, project.manualGroupId!);
-                }
-              : undefined
-          }
-          onDragOver={
-            project.manualGroupId
-              ? (event) => {
-                  event.preventDefault();
-                }
-              : undefined
-          }
-          onDrop={
-            project.manualGroupId
-              ? (event) => {
-                  event.preventDefault();
-                  const sourceId = event.dataTransfer.getData(PROJECT_DRAG_ID_MIME);
-                  const groupId = event.dataTransfer.getData(PROJECT_DRAG_GROUP_MIME);
-                  if (groupId !== project.manualGroupId) return;
-                  reorderProjectsInManualGroup(groupId, sourceId, project.id);
-                }
-              : undefined
-          }
-        >
-          {expanded ? (
-            <ChevronDown className="size-3 shrink-0" aria-hidden />
-          ) : (
-            <ChevronRight className="size-3 shrink-0" aria-hidden />
-          )}
-          <span className="truncate">{project.name}</span>
-        </button>
+        <PanelTooltip label={project.name}>
+          <button
+            type="button"
+            draggable={Boolean(project.manualGroupId)}
+            aria-expanded={expanded}
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-1 overflow-hidden rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-foreground hover:bg-muted/60",
+            )}
+            onClick={onToggleExpanded}
+            onDragStart={
+              project.manualGroupId
+                ? (event) => {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData(PROJECT_DRAG_ID_MIME, project.id);
+                    event.dataTransfer.setData(PROJECT_DRAG_GROUP_MIME, project.manualGroupId!);
+                  }
+                : undefined
+            }
+            onDragOver={
+              project.manualGroupId
+                ? (event) => {
+                    event.preventDefault();
+                  }
+                : undefined
+            }
+            onDrop={
+              project.manualGroupId
+                ? (event) => {
+                    event.preventDefault();
+                    const sourceId = event.dataTransfer.getData(PROJECT_DRAG_ID_MIME);
+                    const groupId = event.dataTransfer.getData(PROJECT_DRAG_GROUP_MIME);
+                    if (groupId !== project.manualGroupId) return;
+                    reorderProjectsInManualGroup(groupId, sourceId, project.id);
+                  }
+                : undefined
+            }
+          >
+            {expanded ? (
+              <ChevronDown className="size-3 shrink-0" aria-hidden />
+            ) : (
+              <ChevronRight className="size-3 shrink-0" aria-hidden />
+            )}
+            <span className="truncate">{project.name}</span>
+          </button>
+        </PanelTooltip>
         <PanelToolButton
           label={
             project.pinned ? `Unpin project ${project.name}` : `Pin project ${project.name}`
