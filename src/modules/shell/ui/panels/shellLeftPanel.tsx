@@ -1,22 +1,11 @@
 import { ProjectLeftPanel } from "../../../project";
-import { useShellStore } from "../../state/shellStore";
-import { ShellPanelResizeHandle } from "../shellPanelResizeHandle";
-import { ShellLeftPanelHeader } from "./shellLeftPanelHeader";
 
 export function ShellLeftPanel() {
-  const setLeftPanelWidth = useShellStore((s) => s.setLeftPanelWidth);
   return (
     <aside
       aria-label="left panel"
-      className="relative flex min-h-0 min-w-0 flex-col border-r border-border bg-background"
+      className="flex h-full min-h-0 min-w-0 flex-col bg-background"
     >
-      <ShellPanelResizeHandle
-        edge="end"
-        ariaLabel="Resize left panel"
-        getWidth={() => useShellStore.getState().leftPanelWidth}
-        onResize={setLeftPanelWidth}
-      />
-      <ShellLeftPanelHeader />
       <ProjectLeftPanel />
     </aside>
   );
