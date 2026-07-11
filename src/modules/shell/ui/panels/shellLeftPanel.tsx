@@ -1,6 +1,7 @@
 import { ProjectLeftPanel } from "../../../project";
 import { useShellStore } from "../../state/shellStore";
 import { ShellPanelResizeHandle } from "../shellPanelResizeHandle";
+import { ShellLeftPanelHeader } from "./shellLeftPanelHeader";
 
 export function ShellLeftPanel() {
   const setLeftPanelWidth = useShellStore((s) => s.setLeftPanelWidth);
@@ -15,6 +16,7 @@ export function ShellLeftPanel() {
         getWidth={() => useShellStore.getState().leftPanelWidth}
         onResize={setLeftPanelWidth}
       />
+      <ShellLeftPanelHeader />
       <ProjectLeftPanel />
     </aside>
   );
