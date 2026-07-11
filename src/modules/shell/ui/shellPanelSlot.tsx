@@ -10,7 +10,9 @@ export function ShellPanelSlot({ visible, width, children }: ShellPanelSlotProps
   const [mounted, setMounted] = useState(visible);
 
   useEffect(() => {
-    if (visible) setMounted(true);
+    if (visible) {
+      setMounted(true);
+    }
   }, [visible]);
 
   if (!mounted) return null;

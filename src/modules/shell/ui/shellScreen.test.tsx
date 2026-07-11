@@ -6,6 +6,15 @@ import { DEFAULT_SHELL_PANEL_WIDTH } from "../state/shellPanelSizing";
 import { useShellStore } from "../state/shellStore";
 import { ShellScreen } from "./shellScreen";
 
+function dismissPanelSlot(panelLabel: string) {
+  const panel = screen.getByLabelText(panelLabel);
+  const slot = panel.parentElement?.parentElement;
+  if (!slot) {
+    throw new Error(`Could not find animated slot wrapper for ${panelLabel}`);
+  }
+  fireEvent.transitionEnd(slot, { propertyName: "width" });
+}
+
 describe("ShellScreen", () => {
   afterEach(() => {
     cleanup();
@@ -38,10 +47,12 @@ describe("ShellScreen", () => {
     render(<ShellScreen />);
     expect(screen.getByLabelText("left panel")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Hide left panel" }));
+    dismissPanelSlot("left panel");
     expect(screen.queryByLabelText("left panel")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show left panel" })).toBeInTheDocument();
     expect(screen.getByLabelText("right panel")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Hide right panel" }));
+    dismissPanelSlot("right panel");
     expect(screen.queryByLabelText("right panel")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show right panel" })).toBeInTheDocument();
   });
