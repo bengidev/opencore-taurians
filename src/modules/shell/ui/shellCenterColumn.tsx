@@ -1,13 +1,20 @@
+import { useShellStore } from "../state/shellStore";
 import { ShellBottomPanel } from "./panels/shellBottomPanel";
 import { ShellMainPanel } from "./panels/shellMainPanel";
-import { ShellMainCardTabs } from "./shellMainCardTabs";
 
 export function ShellCenterColumn() {
+  const bottomVisible = useShellStore((s) => s.bottomVisible);
+
   return (
-    <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_1fr_auto]">
-      <ShellMainCardTabs />
+    <div
+      className={
+        bottomVisible
+          ? "grid min-h-0 min-w-0 flex-1 grid-rows-[1fr_auto]"
+          : "grid min-h-0 min-w-0 flex-1 grid-rows-[1fr]"
+      }
+    >
       <ShellMainPanel />
-      <ShellBottomPanel />
+      {bottomVisible ? <ShellBottomPanel /> : null}
     </div>
   );
 }

@@ -6,7 +6,7 @@ export function ShellRightPanelHeader() {
   if (!rightVisible) return null;
 
   return (
-    <header className="flex h-9 shrink-0 items-center justify-end border-b border-border px-2">
+    <header className="flex h-9 shrink-0 items-center justify-end bg-background px-2">
       <ShellPanelToggle side="right" />
     </header>
   );
