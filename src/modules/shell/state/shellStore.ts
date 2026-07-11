@@ -18,8 +18,11 @@ export interface ShellState {
   setActiveMainCard: (card: ShellMainCard) => void;
   toggleLeft: () => void;
   toggleRight: () => void;
+  setLeftVisible: (visible: boolean) => void;
+  setRightVisible: (visible: boolean) => void;
   setLeftPanelWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
+  resetPanelWidths: () => void;
   resetShellUi: () => void;
 }
 
@@ -38,10 +41,17 @@ export const useShellStore = create<ShellState>()(
       setActiveMainCard: (card) => set({ activeMainCard: card }),
       toggleLeft: () => set((s) => ({ leftVisible: !s.leftVisible })),
       toggleRight: () => set((s) => ({ rightVisible: !s.rightVisible })),
+      setLeftVisible: (visible) => set({ leftVisible: visible }),
+      setRightVisible: (visible) => set({ rightVisible: visible }),
       setLeftPanelWidth: (width) =>
         set({ leftPanelWidth: clampShellPanelWidth(width) }),
       setRightPanelWidth: (width) =>
         set({ rightPanelWidth: clampShellPanelWidth(width) }),
+      resetPanelWidths: () =>
+        set({
+          leftPanelWidth: DEFAULT_SHELL_PANEL_WIDTH,
+          rightPanelWidth: DEFAULT_SHELL_PANEL_WIDTH,
+        }),
       resetShellUi: () => set({ ...DEFAULT_SHELL_UI }),
     }),
     {
