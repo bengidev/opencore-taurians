@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import { clampShellPanelWidth } from "../state/shellPanelSizing";
 
@@ -13,6 +13,8 @@ export interface ShellPanelResizeHandleProps {
   ariaLabel: string;
   getWidth: () => number;
   onResize: (width: number) => void;
+  className?: string;
+  style?: CSSProperties;
 }
 
 export function ShellPanelResizeHandle({
@@ -20,6 +22,8 @@ export function ShellPanelResizeHandle({
   ariaLabel,
   getWidth,
   onResize,
+  className,
+  style,
 }: ShellPanelResizeHandleProps) {
   const dragRef = useRef<DragState | null>(null);
 
@@ -32,17 +36,22 @@ export function ShellPanelResizeHandle({
     document.body.style.removeProperty("cursor");
   };
 
+  const usesShellGutter = style?.left !== undefined || style?.right !== undefined;
+
   return (
     <div
       role="separator"
       aria-orientation="vertical"
       aria-label={ariaLabel}
       className={cn(
-        "absolute top-0 bottom-0 z-10 w-2 touch-none",
-        edge === "end"
-          ? "-right-1 cursor-col-resize"
-          : "-left-1 cursor-col-resize",
+        usesShellGutter
+          ? "relative z-20 h-full w-full touch-none cursor-col-resize"
+          : "absolute top-0 bottom-0 z-20 w-2 touch-none cursor-col-resize",
+        !usesShellGutter && edge === "end" ? "-right-1" : null,
+        !usesShellGutter && edge === "start" ? "-left-1" : null,
+        className,
       )}
+      style={style}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         event.preventDefault();

@@ -6,6 +6,12 @@ import { useShellStore } from "../../shell/state/shellStore";
 import { WorkspacePopup } from "../../workspace-popup";
 import type { FolderPicker } from "../../workspace-popup/infrastructure/workspaceFolderPicker";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
+import { useChatStore } from "../../chat";
+import {
+  projectBootMigrateAndSweep,
+  projectSyncRestoreFromShell,
+  useProjectStore,
+} from "../../project";
 import { useTauriPersistStorage } from "../infrastructure/sessionPersistStorage";
 import {
   createTauriWindowController,
@@ -70,6 +76,8 @@ export function SessionRoot({
           useWorkspaceStore.persist.rehydrate(),
           useShellStore.persist.rehydrate(),
           useThemeStore.persist.rehydrate(),
+          useProjectStore.persist.rehydrate(),
+          useChatStore.persist.rehydrate(),
         ]);
       } catch {
         useSessionStore.getState().setHasHydrated(true);
@@ -85,6 +93,23 @@ export function SessionRoot({
   }, [skipPersistBoot]);
 
   const ready = hasHydrated && persistReady;
+
+  useEffect(() => {
+    if (!ready) return;
+    projectBootMigrateAndSweep({
+      workspacePath: useWorkspaceStore.getState().workspacePath,
+      nowIso: new Date().toISOString(),
+      nowMs: Date.now(),
+    });
+  }, [ready]);
+
+  useEffect(() => {
+    return useShellStore.subscribe((state, prev) => {
+      if (state.activeMainCard !== prev.activeMainCard) {
+        projectSyncRestoreFromShell();
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (!ready) return;

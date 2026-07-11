@@ -9,6 +9,8 @@ import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { useShellStore } from "../../shell/state/shellStore";
 import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
 import { THEME_STORAGE_KEY } from "../../onboarding/infrastructure/onboardingThemeConstants";
+import { useChatStore } from "../../chat/state/chatStore";
+import { useProjectStore } from "../../project/state/projectStore";
 import { resetAllPersistedSession } from "./sessionReset";
 
 describe("resetAllPersistedSession", () => {
@@ -19,6 +21,16 @@ describe("resetAllPersistedSession", () => {
     useShellStore.getState().setActiveMainCard("editor");
     useShellStore.setState({ leftVisible: false, rightVisible: false });
     useThemeStore.getState().setMode("light");
+    useProjectStore.getState().createProjectWithRootChunk({
+      folderPath: "/tmp/x",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    useChatStore.getState().appendMessage({
+      chunkId: useProjectStore.getState().activeChunkId!,
+      role: "user",
+      content: "x",
+      createdAt: "2026-07-10T00:00:00.000Z",
+    });
     await Promise.resolve();
   });
 
@@ -38,5 +50,7 @@ describe("resetAllPersistedSession", () => {
     for (const key of Object.values(SESSION_PERSIST_KEYS)) {
       await expect(storage.getItem(key)).resolves.toBeNull();
     }
+    expect(useProjectStore.getState().projects).toEqual([]);
+    expect(useChatStore.getState().messagesByChunkId).toEqual({});
   });
 });

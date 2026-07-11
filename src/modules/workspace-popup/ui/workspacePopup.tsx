@@ -3,11 +3,11 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useTheme } from "../../onboarding";
+import { projectOpenFolder } from "../../project/state/projectActivation";
 import {
   createTauriFolderPicker,
   type FolderPicker,
 } from "../infrastructure/workspaceFolderPicker";
-import { useWorkspaceStore } from "../state/workspaceStore";
 
 export interface WorkspacePopupProps {
   folderPicker?: FolderPicker;
@@ -32,7 +32,6 @@ export function WorkspacePopup({
   onWorkspaceOpened,
 }: WorkspacePopupProps) {
   const { mode } = useTheme();
-  const setWorkspace = useWorkspaceStore((s) => s.setWorkspace);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
@@ -65,7 +64,7 @@ export function WorkspacePopup({
     try {
       const path = await folderPicker.pickFolder();
       if (path === null) return;
-      setWorkspace(path);
+      projectOpenFolder(path);
       onWorkspaceOpened?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

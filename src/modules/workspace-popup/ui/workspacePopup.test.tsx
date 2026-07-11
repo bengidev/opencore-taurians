@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../onboarding";
+import { useProjectStore } from "../../project/state/projectStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useWorkspaceStore } from "../state/workspaceStore";
 import { createMemoryFolderPicker } from "../infrastructure/workspaceFolderPicker";
@@ -15,6 +16,7 @@ describe("WorkspacePopup", () => {
   beforeEach(() => {
     useMemoryPersistStorage();
     useWorkspaceStore.setState({ workspacePath: null });
+    useProjectStore.getState().resetProjectState();
   });
 
   it("sets workspace path when Open project succeeds", async () => {
@@ -32,6 +34,7 @@ describe("WorkspacePopup", () => {
     await waitFor(() => {
       expect(useWorkspaceStore.getState().workspacePath).toBe("/tmp/opened");
     });
+    expect(useProjectStore.getState().projects[0]?.folderPath).toBe("/tmp/opened");
     expect(onOpened).toHaveBeenCalledOnce();
   });
 

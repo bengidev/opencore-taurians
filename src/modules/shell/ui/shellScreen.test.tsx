@@ -6,6 +6,15 @@ import { DEFAULT_SHELL_PANEL_WIDTH } from "../state/shellPanelSizing";
 import { useShellStore } from "../state/shellStore";
 import { ShellScreen } from "./shellScreen";
 
+function dismissPanelSlot(panelLabel: string) {
+  const panel = screen.getByLabelText(panelLabel);
+  const slot = panel.closest("[data-shell-panel-slot]");
+  if (!slot) {
+    throw new Error(`Could not find animated slot wrapper for ${panelLabel}`);
+  }
+  fireEvent.transitionEnd(slot, { propertyName: "width" });
+}
+
 describe("ShellScreen", () => {
   afterEach(() => {
     cleanup();
@@ -17,6 +26,8 @@ describe("ShellScreen", () => {
       activeMainCard: "chat",
       leftVisible: true,
       rightVisible: true,
+      bottomVisible: true,
+      settingsOpen: false,
       leftPanelWidth: DEFAULT_SHELL_PANEL_WIDTH,
       rightPanelWidth: DEFAULT_SHELL_PANEL_WIDTH,
     });
@@ -25,20 +36,41 @@ describe("ShellScreen", () => {
   it("keeps inactive main cards mounted while swapping", async () => {
     const user = userEvent.setup();
     render(<ShellScreen />);
-    const chatInput = screen.getByLabelText("chat-dummy-note");
-    await user.type(chatInput, "kept");
-    await user.click(screen.getByRole("button", { name: /terminal/i }));
-    await user.click(screen.getByRole("button", { name: /chat/i }));
-    expect(chatInput).toHaveValue("kept");
+    const terminalInput = screen.getByLabelText("terminal-dummy-note");
+    await user.type(terminalInput, "kept");
+    await user.click(screen.getByRole("tab", { name: "Terminal" }));
+    await user.click(screen.getByRole("tab", { name: "Editor" }));
+    await user.click(screen.getByRole("tab", { name: "Terminal" }));
+    expect(terminalInput).toHaveValue("kept");
   });
 
   it("hides left and right panels independently", async () => {
     const user = userEvent.setup();
     render(<ShellScreen />);
     expect(screen.getByLabelText("left panel")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /toggle left/i }));
+    await user.click(screen.getByRole("button", { name: "Hide left panel" }));
+    dismissPanelSlot("left panel");
     expect(screen.queryByLabelText("left panel")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show left panel" })).toBeInTheDocument();
     expect(screen.getByLabelText("right panel")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Hide right panel" }));
+    dismissPanelSlot("right panel");
+    expect(screen.queryByLabelText("right panel")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show right panel" })).toBeInTheDocument();
+  });
+
+  it("renders bottom panel inside the center column only", () => {
+    render(<ShellScreen />);
+    expect(screen.getByLabelText("bottom panel")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
+  });
+
+  it("hides bottom panel when disabled in settings", async () => {
+    const user = userEvent.setup();
+    render(<ShellScreen />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await user.click(screen.getByRole("switch", { name: "Show bottom panel" }));
+    expect(screen.queryByLabelText("bottom panel")).not.toBeInTheDocument();
   });
 
   it("resizes the left panel from its right border", () => {
