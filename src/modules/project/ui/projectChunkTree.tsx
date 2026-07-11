@@ -1,10 +1,10 @@
 import { Pin, Plus, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { projectListChildChunks } from "../domain/projectChunkTree";
 import type { ProjectChunk } from "../domain/projectTypes";
 import { projectActivateChunk } from "../state/projectActivation";
 import { useProjectStore } from "../state/projectStore";
+import { PanelToolButton } from "./panelToolButton";
 
 export interface ProjectChunkTreeProps {
   projectId: string;
@@ -97,27 +97,19 @@ function ChunkNodes({
             >
               <span className="block truncate">{chunk.title}</span>
             </button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label={
+            <PanelToolButton
+              label={
                 chunk.pinned ? `Unpin chunk ${chunk.title}` : `Pin chunk ${chunk.title}`
               }
-              className="shrink-0 text-muted-foreground"
               onClick={(event) => {
                 event.stopPropagation();
                 useProjectStore.getState().setChunkPinned(chunk.id, !chunk.pinned);
               }}
             >
               <Pin className="size-3" aria-hidden />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label="Add child chunk"
-              className="shrink-0 text-muted-foreground"
+            </PanelToolButton>
+            <PanelToolButton
+              label="Add child chunk"
               onClick={(event) => {
                 event.stopPropagation();
                 const child = useProjectStore.getState().addChildChunk({
@@ -129,13 +121,9 @@ function ChunkNodes({
               }}
             >
               <Plus className="size-3" aria-hidden />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label={`Delete chunk ${chunk.title}`}
-              className="shrink-0 text-muted-foreground"
+            </PanelToolButton>
+            <PanelToolButton
+              label={`Delete chunk ${chunk.title}`}
               onClick={(event) => {
                 event.stopPropagation();
                 if (!window.confirm(DELETE_CONFIRM)) return;
@@ -143,7 +131,7 @@ function ChunkNodes({
               }}
             >
               <Trash2 className="size-3" aria-hidden />
-            </Button>
+            </PanelToolButton>
           </div>
           <ul className="list-none">
             <ChunkNodes
