@@ -58,17 +58,18 @@ function ChunkNodes({
   return (
     <>
       {nodes.map((chunk) => (
-        <li key={chunk.id}>
+        <li key={chunk.id} className="min-w-0">
           <div
-            className="flex w-full items-center gap-0.5"
+            className="flex min-w-0 w-full items-center gap-0.5"
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
           >
             <button
               type="button"
               draggable
               aria-current={activeChunkId === chunk.id ? "true" : undefined}
+              title={chunk.title}
               className={cn(
-                "min-w-0 flex-1 rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em]",
+                "min-w-0 flex-1 overflow-hidden rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em]",
                 activeChunkId === chunk.id
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -94,7 +95,7 @@ function ChunkNodes({
                 reorderChunkSiblings(chunks, chunk.parentChunkId, sourceId, chunk.id);
               }}
             >
-              {chunk.title}
+              <span className="block truncate">{chunk.title}</span>
             </button>
             <Button
               type="button"
