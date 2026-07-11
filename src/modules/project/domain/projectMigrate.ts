@@ -1,4 +1,4 @@
-import { projectFolderBasename } from "./projectPath";
+import { projectFolderBasename, projectNormalizeFolderPath } from "./projectPath";
 import type { Project, ProjectChunk } from "./projectTypes";
 
 export function projectMigrateFromWorkspace(input: {
@@ -14,7 +14,7 @@ export function projectMigrateFromWorkspace(input: {
   const project: Project = {
     id: projectId,
     name: projectFolderBasename(input.workspacePath),
-    folderPath: input.workspacePath,
+    folderPath: projectNormalizeFolderPath(input.workspacePath),
     pinned: false,
     createdAt: input.nowIso,
     lastOpenedAt: input.nowIso,

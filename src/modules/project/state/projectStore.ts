@@ -9,7 +9,11 @@ import {
   projectReorderSiblingChunks,
 } from "../domain/projectChunkTree";
 import { projectMigrateFromWorkspace } from "../domain/projectMigrate";
-import { projectFolderBasename } from "../domain/projectPath";
+import {
+  projectFolderBasename,
+  projectNormalizeFolderPath,
+} from "../domain/projectPath";
+import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { projectSelectExpired } from "../domain/projectRetention";
 import type {
   Project,
@@ -17,6 +21,12 @@ import type {
   ProjectChunkRestore,
   ProjectGroup,
 } from "../domain/projectTypes";
+
+function syncWorkspaceWhenNoProjects(projectCount: number): void {
+  if (projectCount === 0) {
+    useWorkspaceStore.getState().clearWorkspace();
+  }
+}
 
 const EMPTY = {
   projects: [] as Project[],
@@ -87,7 +97,7 @@ export const useProjectStore = create<ProjectState>()(
         const project: Project = {
           id: projectId,
           name: projectFolderBasename(input.folderPath),
-          folderPath: input.folderPath,
+          folderPath: projectNormalizeFolderPath(input.folderPath),
           pinned: false,
           createdAt: input.nowIso,
           lastOpenedAt: input.nowIso,
@@ -232,8 +242,12 @@ export const useProjectStore = create<ProjectState>()(
             orderedIds,
           ),
         })),
-      findProjectByFolderPath: (folderPath) =>
-        get().projects.find((p) => p.folderPath === folderPath),
+      findProjectByFolderPath: (folderPath) => {
+        const normalized = projectNormalizeFolderPath(folderPath);
+        return get().projects.find(
+          (p) => projectNormalizeFolderPath(p.folderPath) === normalized,
+        );
+      },
       applyMigration: (workspacePath, nowIso) => {
         const migrated = projectMigrateFromWorkspace({
           workspacePath,
@@ -255,7 +269,7 @@ export const useProjectStore = create<ProjectState>()(
             p.id === projectId
               ? {
                   ...p,
-                  folderPath,
+                  folderPath: projectNormalizeFolderPath(folderPath),
                   name: projectFolderBasename(folderPath),
                 }
               : p,
@@ -272,12 +286,13 @@ export const useProjectStore = create<ProjectState>()(
           const projectStillHasChunks = chunks.some(
             (c) => c.projectId === projectId,
           );
+          const projects =
+            projectId && !projectStillHasChunks
+              ? state.projects.filter((p) => p.id !== projectId)
+              : state.projects;
           return {
             chunks,
-            projects:
-              projectId && !projectStillHasChunks
-                ? state.projects.filter((p) => p.id !== projectId)
-                : state.projects,
+            projects,
             activeChunkId: idSet.has(state.activeChunkId ?? "")
               ? null
               : state.activeChunkId,
@@ -289,6 +304,7 @@ export const useProjectStore = create<ProjectState>()(
                 : state.activeProjectId,
           };
         });
+        syncWorkspaceWhenNoProjects(get().projects.length);
       },
       deleteProjectCascade: (projectId) => {
         const ids = get()
@@ -311,6 +327,7 @@ export const useProjectStore = create<ProjectState>()(
             (id) => id !== projectId,
           ),
         }));
+        syncWorkspaceWhenNoProjects(get().projects.length);
       },
       runRetentionSweep: (input) => {
         const expired = projectSelectExpired({
@@ -329,6 +346,7 @@ export const useProjectStore = create<ProjectState>()(
             get().deleteProjectCascade(projectId);
           }
         }
+        syncWorkspaceWhenNoProjects(get().projects.length);
       },
     }),
     {
