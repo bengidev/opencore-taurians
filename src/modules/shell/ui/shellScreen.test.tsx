@@ -37,9 +37,19 @@ describe("ShellScreen", () => {
     const user = userEvent.setup();
     render(<ShellScreen />);
     expect(screen.getByLabelText("left panel")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /toggle left/i }));
+    await user.click(screen.getByRole("button", { name: "Hide left panel" }));
     expect(screen.queryByLabelText("left panel")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show left panel" })).toBeInTheDocument();
     expect(screen.getByLabelText("right panel")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Hide right panel" }));
+    expect(screen.queryByLabelText("right panel")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show right panel" })).toBeInTheDocument();
+  });
+
+  it("renders bottom panel inside the center column only", () => {
+    render(<ShellScreen />);
+    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.queryByText("Bottom Panel")).not.toBeInTheDocument();
   });
 
   it("resizes the left panel from its right border", () => {
