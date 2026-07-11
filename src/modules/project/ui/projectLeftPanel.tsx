@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "../../chat/state/chatStore";
 import {
@@ -21,6 +22,7 @@ import type { Project } from "../domain/projectTypes";
 import { projectMergeSearchResults } from "../domain/projectSearch";
 import { projectActivateChunk, projectOpenFolder } from "../state/projectActivation";
 import { useProjectStore } from "../state/projectStore";
+import { PanelToolButton } from "./panelToolButton";
 import { ProjectChunkTree } from "./projectChunkTree";
 import {
   projectExpandChunkAncestors,
@@ -133,56 +135,40 @@ function ProjectRow({
           )}
           <span className="truncate">{project.name}</span>
         </button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={
+        <PanelToolButton
+          label={
             project.pinned ? `Unpin project ${project.name}` : `Pin project ${project.name}`
           }
-          className="shrink-0 text-muted-foreground"
           onClick={(event) => {
             event.stopPropagation();
             useProjectStore.getState().setProjectPinned(project.id, !project.pinned);
           }}
         >
           <Pin className="size-3" aria-hidden />
-        </Button>
+        </PanelToolButton>
         {project.manualGroupId ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label={`Remove ${project.name} from group`}
-            className="shrink-0 text-muted-foreground"
+          <PanelToolButton
+            label={`Remove ${project.name} from group`}
             onClick={(event) => {
               event.stopPropagation();
               handleRemoveFromGroup();
             }}
           >
             <FolderX className="size-3" aria-hidden />
-          </Button>
+          </PanelToolButton>
         ) : (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label={`Move ${project.name} to group`}
-            className="shrink-0 text-muted-foreground"
+          <PanelToolButton
+            label={`Move ${project.name} to group`}
             onClick={(event) => {
               event.stopPropagation();
               handleMoveToGroup();
             }}
           >
             <FolderInput className="size-3" aria-hidden />
-          </Button>
+          </PanelToolButton>
         )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Add root chunk"
-          className="shrink-0 text-muted-foreground"
+        <PanelToolButton
+          label="Add root chunk"
           onClick={(event) => {
             event.stopPropagation();
             const chunk = useProjectStore.getState().addRootChunk({
@@ -194,20 +180,16 @@ function ProjectRow({
           }}
         >
           <Plus className="size-3" aria-hidden />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Relink folder"
-          className="shrink-0 text-muted-foreground"
+        </PanelToolButton>
+        <PanelToolButton
+          label="Relink folder"
           onClick={(event) => {
             event.stopPropagation();
             void onRelinkFolder();
           }}
         >
           <FolderSync className="size-3" aria-hidden />
-        </Button>
+        </PanelToolButton>
       </div>
       {expanded ? (
         <ProjectChunkTree
@@ -394,6 +376,7 @@ export function ProjectLeftPanel({
   };
 
   return (
+    <TooltipProvider delay={200}>
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <p className="border-b border-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
         Projects
@@ -484,5 +467,6 @@ export function ProjectLeftPanel({
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 }
