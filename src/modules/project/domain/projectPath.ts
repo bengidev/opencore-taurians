@@ -1,11 +1,11 @@
 function normalizeSeparators(path: string): string {
-  return path.replace(/\\/g, "/").replace(/\/+$/, "");
+  return path.replaceAll("\\", "/").replace(/\/+$/, "");
 }
 
 export function projectFolderBasename(folderPath: string): string {
   const normalized = normalizeSeparators(folderPath);
   const parts = normalized.split("/").filter(Boolean);
-  return parts.length > 0 ? parts[parts.length - 1]! : normalized;
+  return parts.at(-1) ?? normalized;
 }
 
 export function projectParentDirectoryPath(folderPath: string): string {
