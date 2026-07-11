@@ -72,7 +72,7 @@ export function ShellMainPanel() {
   const activeMainCard = useShellStore((s) => s.activeMainCard);
 
   return (
-    <main className="relative min-h-0 flex-1 border-x border-border bg-background">
+    <main className="relative min-h-0 flex-1 bg-background">
       {MAIN_CARDS.map((card) => (
         <section
           key={card}
