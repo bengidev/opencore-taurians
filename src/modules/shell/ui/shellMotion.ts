@@ -1,7 +1,14 @@
-export const SHELL_EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
-export const SHELL_EASE_DRAWER = "cubic-bezier(0.32, 0.72, 0, 1)";
-export const SHELL_SHOW_MS = 260;
-export const SHELL_HIDE_MS = 180;
+import {
+  DURATION_UI_PANEL_HIDE_MS,
+  DURATION_UI_PANEL_SHOW_MS,
+  EASE_DRAWER,
+  EASE_OUT,
+} from "../../../../design-system/motion";
+
+export const SHELL_EASE_OUT = EASE_OUT;
+export const SHELL_EASE_DRAWER = EASE_DRAWER;
+export const SHELL_SHOW_MS = DURATION_UI_PANEL_SHOW_MS;
+export const SHELL_HIDE_MS = DURATION_UI_PANEL_HIDE_MS;
 
 export function prefersReducedMotion() {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") {

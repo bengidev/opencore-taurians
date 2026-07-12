@@ -59,28 +59,18 @@ export function ShellPanelSlot({
 
   if (!mounted) return null;
 
-  const displayWidth = visible ? width : 0;
   const outerDurationMs = visible ? SHELL_SHOW_MS : SHELL_HIDE_MS;
   const outerEase = visible ? SHELL_EASE_OUT : SHELL_EASE_DRAWER;
   const contentOffset =
     side === "left" ? -CONTENT_OFFSET_PX : CONTENT_OFFSET_PX;
+  const transformOrigin = side === "left" ? "left center" : "right center";
 
   return (
     <div
       data-shell-panel-slot=""
       data-shell-panel-side={side}
-      className="min-h-0 shrink-0 overflow-hidden motion-reduce:transition-none"
-      style={{
-        width: displayWidth,
-        transitionProperty: reduceMotion ? "none" : "width",
-        transitionDuration: reduceMotion ? "0ms" : `${outerDurationMs}ms`,
-        transitionTimingFunction: outerEase,
-      }}
-      onTransitionEnd={(event) => {
-        if (event.propertyName === "width" && !visible) {
-          setMounted(false);
-        }
-      }}
+      className="min-h-0 shrink-0 overflow-hidden"
+      style={{ width }}
     >
       <div
         className="h-full motion-reduce:transition-none motion-reduce:blur-none motion-reduce:opacity-100"
@@ -90,13 +80,23 @@ export function ShellPanelSlot({
           filter: revealed || reduceMotion ? "blur(0px)" : "blur(2px)",
           transform:
             revealed || reduceMotion
-              ? "translateX(0px)"
-              : `translateX(${contentOffset}px)`,
+              ? "scaleX(1) translateX(0px)"
+              : `scaleX(0) translateX(${contentOffset}px)`,
+          transformOrigin,
           transitionProperty: reduceMotion ? "none" : "transform, opacity, filter",
           transitionDuration: reduceMotion
             ? "0ms"
-            : `${visible ? SHELL_SHOW_MS : SHELL_HIDE_MS}ms`,
-          transitionTimingFunction: visible ? SHELL_EASE_OUT : SHELL_EASE_DRAWER,
+            : `${outerDurationMs}ms`,
+          transitionTimingFunction: outerEase,
+        }}
+        onTransitionEnd={(event) => {
+          if (
+            event.target === event.currentTarget &&
+            event.propertyName === "transform" &&
+            !visible
+          ) {
+            setMounted(false);
+          }
         }}
       >
         {children}

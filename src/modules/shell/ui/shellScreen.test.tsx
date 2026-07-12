@@ -12,7 +12,11 @@ function dismissPanelSlot(panelLabel: string) {
   if (!slot) {
     throw new Error(`Could not find animated slot wrapper for ${panelLabel}`);
   }
-  fireEvent.transitionEnd(slot, { propertyName: "width" });
+  const inner = slot.firstElementChild;
+  if (!inner) {
+    throw new Error(`Could not find animated panel content for ${panelLabel}`);
+  }
+  fireEvent.transitionEnd(inner, { propertyName: "transform" });
 }
 
 describe("ShellScreen", () => {
