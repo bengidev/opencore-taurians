@@ -41,6 +41,7 @@ describe("ProjectLeftPanel", () => {
     const onOpenProject = vi.fn();
     render(<ProjectLeftPanel onRequestOpenProject={onOpenProject} />);
     expect(screen.getByRole("button", { name: /open project/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /add project/i })).not.toBeInTheDocument();
   });
 
   it("calls onRequestOpenProject when empty CTA is clicked", async () => {
@@ -49,6 +50,43 @@ describe("ProjectLeftPanel", () => {
     render(<ProjectLeftPanel onRequestOpenProject={onOpenProject} />);
     await user.click(screen.getByRole("button", { name: /open project/i }));
     expect(onOpenProject).toHaveBeenCalledOnce();
+  });
+
+  it("shows add project button on Projects section when projects exist", () => {
+    useProjectStore.getState().createProjectWithRootChunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    render(<ProjectLeftPanel />);
+    expect(screen.getByRole("button", { name: /add project/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /open project/i })).not.toBeInTheDocument();
+  });
+
+  it("calls onRequestOpenProject when add project button is clicked", async () => {
+    const user = userEvent.setup();
+    const onOpenProject = vi.fn();
+    useProjectStore.getState().createProjectWithRootChunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    render(<ProjectLeftPanel onRequestOpenProject={onOpenProject} />);
+    await user.click(screen.getByRole("button", { name: /add project/i }));
+    expect(onOpenProject).toHaveBeenCalledOnce();
+  });
+
+  it("opens folder via add project button when projects exist", async () => {
+    const user = userEvent.setup();
+    useProjectStore.getState().createProjectWithRootChunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    render(<ProjectLeftPanel folderPicker={createMemoryFolderPicker("/work/second-app")} />);
+    await user.click(screen.getByRole("button", { name: /add project/i }));
+    await waitFor(() => {
+      expect(useProjectStore.getState().projects).toHaveLength(2);
+    });
+    expect(useProjectStore.getState().projects[1]?.folderPath).toBe("/work/second-app");
+    expect(useWorkspaceStore.getState().workspacePath).toBe("/work/second-app");
   });
 
   it("opens folder via folder picker when empty CTA has no onRequestOpenProject", async () => {
