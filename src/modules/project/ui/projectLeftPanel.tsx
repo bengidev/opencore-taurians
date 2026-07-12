@@ -8,7 +8,6 @@ import {
   Plus,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "../../chat/state/chatStore";
@@ -20,9 +19,11 @@ import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { projectBuildAutoGroups } from "../domain/projectAutoGroup";
 import type { Project } from "../domain/projectTypes";
 import { projectMergeSearchResults } from "../domain/projectSearch";
-import { projectActivateChunk, projectOpenFolder } from "../state/projectActivation";
+import { projectActivateChunk } from "../state/projectActivation";
+import { projectRequestOpenFolder } from "./projectAddButton";
 import { useProjectStore } from "../state/projectStore";
 import { PanelToolButton } from "./panelToolButton";
+import { ProjectAddButton } from "./projectAddButton";
 import { PanelTooltip } from "./panelTooltip";
 import { ProjectChunkTree } from "./projectChunkTree";
 import {
@@ -337,15 +338,8 @@ export function ProjectLeftPanel({
     .filter((project) => !project.manualGroupId && !autoGroupedIds.has(project.id))
     .map((project) => project.id);
 
-  const handleOpenProject = async () => {
-    if (onRequestOpenProject) {
-      onRequestOpenProject();
-      return;
-    }
-    const path = await folderPicker.pickFolder();
-    if (path === null) return;
-    projectOpenFolder(path);
-  };
+  const handleOpenProject = () =>
+    projectRequestOpenFolder({ onRequestOpenProject, folderPicker });
 
   const handleRelinkFolder = async (projectId: string) => {
     const path = await folderPicker.pickFolder();
@@ -380,9 +374,17 @@ export function ProjectLeftPanel({
   return (
     <TooltipProvider delay={200}>
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <p className="border-b border-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-        Projects
-      </p>
+      <div className="flex items-center justify-between gap-1 border-b border-border px-2 py-1">
+        <p className="px-1 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+          Projects
+        </p>
+        {projects.length > 0 ? (
+          <ProjectAddButton
+            onRequestOpenProject={onRequestOpenProject}
+            folderPicker={folderPicker}
+          />
+        ) : null}
+      </div>
       <div className="border-b border-border px-3 py-2">
         <input
           type="search"
@@ -395,14 +397,14 @@ export function ProjectLeftPanel({
       </div>
       <div className="min-h-0 min-w-0 flex-1 overflow-auto p-2">
         {projects.length === 0 ? (
-          <Button
+          <button
             type="button"
-            variant="outline"
-            className="w-full font-mono text-[11px] uppercase tracking-[0.08em]"
+            className="flex w-full items-center gap-1 rounded-sm px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             onClick={() => void handleOpenProject()}
           >
+            <Plus className="size-3 shrink-0" aria-hidden />
             Open project
-          </Button>
+          </button>
         ) : isSearching ? (
           <ul className="list-none space-y-1">{displayedProjects.map(renderProjectRow)}</ul>
         ) : (
