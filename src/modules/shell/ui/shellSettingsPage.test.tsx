@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
@@ -6,6 +6,12 @@ import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPer
 import { DEFAULT_SHELL_PANEL_WIDTH } from "../state/shellPanelSizing";
 import { useShellStore } from "../state/shellStore";
 import { ShellScreen } from "./shellScreen";
+
+function dismissSettings() {
+  fireEvent.transitionEnd(screen.getByRole("dialog", { name: "Settings" }), {
+    propertyName: "opacity",
+  });
+}
 
 describe("ShellSettingsPage", () => {
   afterEach(() => cleanup());
@@ -57,6 +63,7 @@ describe("ShellSettingsPage", () => {
     render(<ShellScreen />);
     await user.click(screen.getByRole("button", { name: "Settings" }));
     await user.click(screen.getByText("Settings"));
+    dismissSettings();
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
     });
@@ -67,6 +74,7 @@ describe("ShellSettingsPage", () => {
     render(<ShellScreen />);
     await user.click(screen.getByRole("button", { name: "Settings" }));
     await user.click(screen.getByRole("button", { name: "Back" }));
+    dismissSettings();
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
     });
