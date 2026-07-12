@@ -117,4 +117,31 @@ describe("WorkspacePopup", () => {
     });
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it("calls onClose immediately when reduced motion is enabled", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockImplementation((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    render(
+      <ThemeProvider>
+        <WorkspacePopup
+          folderPicker={createMemoryFolderPicker(null)}
+          onClose={onClose}
+        />
+      </ThemeProvider>,
+    );
+    await user.click(
+      screen.getByRole("button", { name: /close workspace popup/i }),
+    );
+    expect(onClose).toHaveBeenCalledOnce();
+    vi.unstubAllGlobals();
+  });
 });

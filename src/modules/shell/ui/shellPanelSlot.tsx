@@ -59,6 +59,7 @@ export function ShellPanelSlot({
 
   if (!mounted) return null;
 
+  const displayWidth = visible ? width : 0;
   const outerDurationMs = visible ? SHELL_SHOW_MS : SHELL_HIDE_MS;
   const outerEase = visible ? SHELL_EASE_OUT : SHELL_EASE_DRAWER;
   const contentOffset =
@@ -69,8 +70,18 @@ export function ShellPanelSlot({
     <div
       data-shell-panel-slot=""
       data-shell-panel-side={side}
-      className="min-h-0 shrink-0 overflow-hidden"
-      style={{ width }}
+      className="min-h-0 shrink-0 overflow-hidden motion-reduce:transition-none"
+      style={{
+        width: displayWidth,
+        transitionProperty: reduceMotion ? "none" : "width",
+        transitionDuration: reduceMotion ? "0ms" : `${outerDurationMs}ms`,
+        transitionTimingFunction: outerEase,
+      }}
+      onTransitionEnd={(event) => {
+        if (event.propertyName === "width" && !visible) {
+          setMounted(false);
+        }
+      }}
     >
       <div
         className="h-full motion-reduce:transition-none motion-reduce:blur-none motion-reduce:opacity-100"
@@ -88,15 +99,6 @@ export function ShellPanelSlot({
             ? "0ms"
             : `${outerDurationMs}ms`,
           transitionTimingFunction: outerEase,
-        }}
-        onTransitionEnd={(event) => {
-          if (
-            event.target === event.currentTarget &&
-            event.propertyName === "transform" &&
-            !visible
-          ) {
-            setMounted(false);
-          }
         }}
       >
         {children}

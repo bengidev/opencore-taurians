@@ -2,6 +2,7 @@ import { XIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { prefersReducedMotion } from "../../../../design-system/motion";
 import { useTheme } from "../../onboarding";
 import { projectOpenFolder } from "../../project/state/projectActivation";
 import {
@@ -34,8 +35,18 @@ export function WorkspacePopup({
   const { mode } = useTheme();
   const [revealed, setRevealed] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
+
+  useEffect(() => {
+    setReduceMotion(prefersReducedMotion());
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = () => setReduceMotion(media.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setRevealed(true));
@@ -44,9 +55,13 @@ export function WorkspacePopup({
 
   const requestClose = useCallback(() => {
     if (!onClose || exiting) return;
+    if (reduceMotion) {
+      onClose();
+      return;
+    }
     setExiting(true);
     setRevealed(false);
-  }, [exiting, onClose]);
+  }, [exiting, onClose, reduceMotion]);
 
   useEffect(() => {
     if (!onClose) return;

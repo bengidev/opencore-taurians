@@ -9,3 +9,10 @@ export const DURATION_UI_POPOVER_MS = 200;
 export const DURATION_UI_PANEL_SHOW_MS = 260;
 export const DURATION_UI_PANEL_HIDE_MS = 180;
 export const DURATION_UI_SESSION_MS = 280;
+
+export function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}

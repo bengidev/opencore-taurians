@@ -1,4 +1,5 @@
 import {
+  DURATION_UI_POPOVER_MS,
   DURATION_UI_SESSION_MS,
   EASE_OUT,
 } from "../../../../design-system/motion";
@@ -12,6 +13,6 @@ export function getSessionScreenTransitionMs(): number {
     return SESSION_SCREEN_TRANSITION_MS;
   }
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    ? 0
+    ? DURATION_UI_POPOVER_MS
     : SESSION_SCREEN_TRANSITION_MS;
 }
