@@ -5,10 +5,9 @@
 }
 
 .onboarding-screen {
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   font-family: var(--ds-font-body);
   /* Instant bg — prevents a seam against the native title bar. */
-  transition: color 220ms var(--ease-out);
+  transition: color var(--duration-ui-popover) var(--ease-out);
 }
 
 /* Flash sits below the title-bar junction (2px) so it never paints a top seam. */
@@ -25,7 +24,7 @@
 }
 
 .onboarding-theme-flash[data-active="true"] {
-  animation: onboarding-theme-flash 260ms var(--ease-out);
+  animation: onboarding-theme-flash var(--duration-ui-panel-show) var(--ease-out);
 }
 
 @keyframes onboarding-theme-flash {
@@ -107,7 +106,7 @@
   text-transform: uppercase;
   border-radius: 6px !important;
   transition:
-    transform 160ms var(--ease-out),
+    transform var(--duration-ui-fast) var(--ease-out),
     background-color 180ms var(--ease-out),
     color 180ms var(--ease-out),
     border-color 180ms var(--ease-out);
@@ -127,12 +126,12 @@
   height: 100%;
   touch-action: none;
   cursor: pointer;
-  transition: opacity 220ms var(--ease-out);
+  transition: opacity var(--duration-ui-popover) var(--ease-out);
 }
 
 .onboarding-theme-toggle {
   transition:
-    transform 160ms var(--ease-out),
+    transform var(--duration-ui-fast) var(--ease-out),
     background-color 180ms var(--ease-out),
     color 180ms var(--ease-out),
     border-color 180ms var(--ease-out);
@@ -156,8 +155,8 @@
   opacity: 0;
   transform: translateY(8px);
   transition:
-    opacity 280ms var(--ease-out),
-    transform 280ms var(--ease-out);
+    opacity var(--duration-ui-session) var(--ease-out),
+    transform var(--duration-ui-session) var(--ease-out);
 }
 
 .onboarding-screen[data-ready="true"] .onboarding-enter {

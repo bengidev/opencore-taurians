@@ -6,7 +6,7 @@ import { useTheme } from "./onboardingThemeContext";
 import { ThemeToggle } from "./onboardingThemeToggle";
 
 export interface OnboardingScreenProps {
-  onEnter?: () => void;
+  onEnter?: (options?: { instant?: boolean }) => void;
 }
 
 function isInteractiveKeyboardTarget(target: EventTarget | null): boolean {
@@ -23,9 +23,12 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
   const [ready, setReady] = useState(false);
   const themeMountedRef = useRef(false);
 
-  const handleEnter = useCallback(() => {
-    onEnter?.();
-  }, [onEnter]);
+  const handleEnter = useCallback(
+    (instant = false) => {
+      onEnter?.({ instant });
+    },
+    [onEnter],
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -34,7 +37,7 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
       if (isInteractiveKeyboardTarget(event.target)) return;
 
       // Keyboard-driven enter stays instant — no animation.
-      handleEnter();
+      handleEnter(true);
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -114,7 +117,7 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
             type="button"
             size="lg"
             className="onboarding-cta h-9 min-h-9 px-6 font-normal"
-            onClick={handleEnter}
+            onClick={() => handleEnter()}
           >
             Enter OpenCore
           </Button>

@@ -11,9 +11,9 @@ import { ShellMainCardTabs } from "./shellMainCardTabs";
 import { ShellPanelResizeHandle } from "./shellPanelResizeHandle";
 import { ShellPanelSlot } from "./shellPanelSlot";
 import { ShellSettingsPage } from "./shellSettingsPage";
+import { SHELL_EASE_OUT, SHELL_HIDE_MS, SHELL_SHOW_MS } from "./shellMotion";
 
 const RESIZE_HANDLE_WIDTH = 8;
-const SHELL_EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
 
 function ShellPanelResizeGutter({
   visible,
@@ -53,7 +53,7 @@ function ShellPanelResizeGutter({
         ...style,
         width: RESIZE_HANDLE_WIDTH,
         transitionProperty: "opacity",
-        transitionDuration: visible ? "260ms" : "180ms",
+        transitionDuration: visible ? `${SHELL_SHOW_MS}ms` : `${SHELL_HIDE_MS}ms`,
         transitionTimingFunction: SHELL_EASE_OUT,
       }}
     >
@@ -79,7 +79,7 @@ export function ShellScreen() {
   const setRightPanelWidth = useShellStore((s) => s.setRightPanelWidth);
 
   return (
-    <TooltipProvider delay={400}>
+    <TooltipProvider delay={0}>
       <div className="relative flex h-dvh min-h-0 flex-col bg-background text-foreground">
         <div className="flex shrink-0 divide-x divide-border border-y border-border bg-background">
           <ShellPanelSlot side="left" visible={leftVisible} width={leftPanelWidth}>

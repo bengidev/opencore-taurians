@@ -2,12 +2,22 @@ import {
   ChevronDown,
   ChevronRight,
   FolderInput,
+  FolderOpen,
   FolderSync,
   FolderX,
   Pin,
   Plus,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "../../chat/state/chatStore";
@@ -385,26 +395,42 @@ export function ProjectLeftPanel({
           />
         ) : null}
       </div>
-      <div className="border-b border-border px-3 py-2">
-        <input
-          type="search"
-          aria-label="Search projects"
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search"
-          className="w-full border border-border bg-background px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em] text-foreground placeholder:text-muted-foreground"
-        />
-      </div>
+      {projects.length > 0 ? (
+        <div className="border-b border-border px-3 py-2">
+          <input
+            type="search"
+            aria-label="Search projects"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search"
+            className="w-full border border-border bg-background px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em] text-foreground placeholder:text-muted-foreground"
+          />
+        </div>
+      ) : null}
       <div className="min-h-0 min-w-0 flex-1 overflow-auto p-2">
         {projects.length === 0 ? (
-          <button
-            type="button"
-            className="flex w-full items-center gap-1 rounded-sm px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-            onClick={() => void handleOpenProject()}
-          >
-            <Plus className="size-3 shrink-0" aria-hidden />
-            Open project
-          </button>
+          <Empty className="min-h-40 gap-ds-6 border-2 border-dashed border-[color:var(--ds-border-strong)] bg-background p-ds-8">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <FolderOpen aria-hidden />
+              </EmptyMedia>
+              <EmptyTitle>No projects yet</EmptyTitle>
+              <EmptyDescription>
+                Open a folder to add your first project.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button
+                type="button"
+                size="sm"
+                className="font-mono text-[11px] uppercase tracking-[0.08em]"
+                onClick={() => void handleOpenProject()}
+              >
+                <Plus data-icon="inline-start" aria-hidden />
+                Open project
+              </Button>
+            </EmptyContent>
+          </Empty>
         ) : isSearching ? (
           <ul className="list-none space-y-1">{displayedProjects.map(renderProjectRow)}</ul>
         ) : (

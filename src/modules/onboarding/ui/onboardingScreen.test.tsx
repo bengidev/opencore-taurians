@@ -57,14 +57,14 @@ describe("OnboardingScreen", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: "Enter OpenCore" }));
-    expect(onEnter).toHaveBeenCalledOnce();
+    expect(onEnter).toHaveBeenCalledWith({ instant: false });
   });
 
-  it("invokes onEnter once when Enter is pressed outside interactive controls", () => {
+  it("invokes onEnter with instant when Enter is pressed outside interactive controls", () => {
     const onEnter = renderScreen();
 
     fireEvent.keyDown(window, { key: "Enter" });
-    expect(onEnter).toHaveBeenCalledOnce();
+    expect(onEnter).toHaveBeenCalledWith({ instant: true });
   });
 
   it("does not invoke onEnter when Enter is pressed on the primary action", async () => {
@@ -75,7 +75,7 @@ describe("OnboardingScreen", () => {
     enterButton.focus();
     await user.keyboard("{Enter}");
 
-    expect(onEnter).toHaveBeenCalledOnce();
+    expect(onEnter).toHaveBeenCalledWith({ instant: false });
   });
 
   it("does not invoke onEnter when Enter is pressed on the theme toggle", async () => {

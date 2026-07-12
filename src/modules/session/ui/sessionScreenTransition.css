@@ -1,6 +1,6 @@
 .session-screen-transition {
-  --session-transition-duration: 280ms;
-  --session-transition-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --session-transition-duration: var(--duration-ui-session);
+  --session-transition-ease: var(--ease-out);
   isolation: isolate;
 }
 
@@ -46,9 +46,9 @@
 @media (prefers-reduced-motion: reduce) {
   .session-onboarding-layer,
   .session-shell-layer {
-    transition: none;
+    transition: opacity var(--duration-ui-popover) var(--ease-out);
     transform: none;
     filter: none;
-    will-change: auto;
+    will-change: opacity;
   }
 }
