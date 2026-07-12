@@ -53,13 +53,15 @@ export function useSessionScreenTransition({
 
   useEffect(() => clearCommitTimeout, [clearCommitTimeout]);
 
-  const beginEnter = useCallback(() => {
-    if (enteredShellRef.current || onboardingCompleted) {
+  const beginEnter = useCallback((options?: { instant?: boolean }) => {
+    if (enteredShellRef.current || onboardingCompleted || options?.instant) {
       onCommitOnboarding();
       enteredShellRef.current = true;
       setShowOnboarding(false);
       setShowShell(true);
       setShellVisible(true);
+      setIsTransitioning(false);
+      setOnboardingExiting(false);
       return;
     }
 

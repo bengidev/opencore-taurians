@@ -19,6 +19,26 @@ describe("useSessionScreenTransition", () => {
     vi.useRealTimers();
   });
 
+  it("commits onboarding immediately when enter is instant", () => {
+    const onCommitOnboarding = vi.fn();
+    const { result } = renderHook(() =>
+      useSessionScreenTransition({
+        onboardingCompleted: false,
+        onCommitOnboarding,
+      }),
+    );
+
+    act(() => {
+      result.current.beginEnter({ instant: true });
+    });
+
+    expect(onCommitOnboarding).toHaveBeenCalledOnce();
+    expect(result.current.showOnboarding).toBe(false);
+    expect(result.current.showShell).toBe(true);
+    expect(result.current.isTransitioning).toBe(false);
+    expect(result.current.onboardingExiting).toBe(false);
+  });
+
   it("crossfades into the shell before committing onboarding", () => {
     const onCommitOnboarding = vi.fn();
     const { result } = renderHook(() =>
