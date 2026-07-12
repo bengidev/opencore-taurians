@@ -19,6 +19,26 @@ describe("useSessionScreenTransition", () => {
     vi.useRealTimers();
   });
 
+  it("commits onboarding immediately when enter is instant", () => {
+    const onCommitOnboarding = vi.fn();
+    const { result } = renderHook(() =>
+      useSessionScreenTransition({
+        onboardingCompleted: false,
+        onCommitOnboarding,
+      }),
+    );
+
+    act(() => {
+      result.current.beginEnter({ instant: true });
+    });
+
+    expect(onCommitOnboarding).toHaveBeenCalledOnce();
+    expect(result.current.showOnboarding).toBe(false);
+    expect(result.current.showShell).toBe(true);
+    expect(result.current.isTransitioning).toBe(false);
+    expect(result.current.onboardingExiting).toBe(false);
+  });
+
   it("crossfades into the shell before committing onboarding", () => {
     const onCommitOnboarding = vi.fn();
     const { result } = renderHook(() =>
@@ -85,5 +105,39 @@ describe("useSessionScreenTransition", () => {
     expect(result.current.showOnboarding).toBe(true);
     expect(result.current.showShell).toBe(false);
     expect(result.current.isTransitioning).toBe(false);
+  });
+
+  it("uses the reduced-motion commit delay when prefers-reduced-motion is enabled", () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockImplementation((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    const onCommitOnboarding = vi.fn();
+    const { result } = renderHook(() =>
+      useSessionScreenTransition({
+        onboardingCompleted: false,
+        onCommitOnboarding,
+      }),
+    );
+
+    act(() => {
+      result.current.beginEnter();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(199);
+    });
+    expect(onCommitOnboarding).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(onCommitOnboarding).toHaveBeenCalledOnce();
+    vi.unstubAllGlobals();
   });
 });

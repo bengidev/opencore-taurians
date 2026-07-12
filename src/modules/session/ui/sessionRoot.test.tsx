@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../onboarding";
@@ -75,6 +75,9 @@ describe("SessionRoot", () => {
     await user.click(
       screen.getByRole("button", { name: /close workspace popup/i }),
     );
+    fireEvent.transitionEnd(screen.getByRole("dialog"), {
+      propertyName: "opacity",
+    });
     expect(screen.queryByText(/welcome back to/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText("left panel")).toBeInTheDocument();
   });
@@ -127,7 +130,7 @@ describe("SessionRoot", () => {
         />
       </ThemeProvider>,
     );
-    await user.click(screen.getByRole("button", { name: "Enter OpenCore" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enter OpenCore" }));
     expect(windowController.lastSize).toEqual({ width: 1280, height: 800 });
     expect(
       screen.getByRole("button", { name: "Enter OpenCore" }),

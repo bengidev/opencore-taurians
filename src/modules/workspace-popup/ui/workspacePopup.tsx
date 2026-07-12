@@ -1,7 +1,8 @@
 import { XIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { prefersReducedMotion } from "../../../../design-system/motion";
 import { useTheme } from "../../onboarding";
 import { projectOpenFolder } from "../../project/state/projectActivation";
 import {
@@ -32,29 +33,50 @@ export function WorkspacePopup({
   onWorkspaceOpened,
 }: WorkspacePopupProps) {
   const { mode } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [exiting, setExiting] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setMounted(true));
+    setReduceMotion(prefersReducedMotion());
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = () => setReduceMotion(media.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setRevealed(true));
     return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  const requestClose = useCallback(() => {
+    if (!onClose || exiting) return;
+    if (reduceMotion) {
+      onClose();
+      return;
+    }
+    setExiting(true);
+    setRevealed(false);
+  }, [exiting, onClose, reduceMotion]);
 
   useEffect(() => {
     if (!onClose) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.repeat) return;
-      onClose();
+      requestClose();
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [onClose, requestClose]);
 
   const handleBackdropClick = () => {
-    onClose?.();
+    requestClose();
   };
 
   const handleOpenProject = async () => {
@@ -86,11 +108,20 @@ export function WorkspacePopup({
         aria-labelledby="workspace-popup-title"
         className={cn(
           "relative w-full max-w-[420px] rounded-[6px] border border-border bg-background px-8 py-10",
-          "origin-center transition-[transform,opacity] duration-[220ms] ease-[cubic-bezier(0.23,1,0.32,1)]",
-          mounted ? "scale-100 opacity-100" : "scale-[0.95] opacity-0",
+          "origin-center transition-[transform,opacity] duration-[var(--duration-ui-popover)] ease-[var(--ease-out)]",
+          revealed ? "scale-100 opacity-100" : "scale-[0.95] opacity-0",
           "motion-reduce:scale-100 motion-reduce:opacity-100 motion-reduce:transition-none",
         )}
         onClick={(event) => event.stopPropagation()}
+        onTransitionEnd={(event) => {
+          if (
+            event.target === event.currentTarget &&
+            exiting &&
+            (event.propertyName === "opacity" || event.propertyName === "transform")
+          ) {
+            onClose?.();
+          }
+        }}
       >
         {onClose ? (
           <Button
@@ -99,7 +130,7 @@ export function WorkspacePopup({
             size="icon-sm"
             className="absolute right-3 top-3"
             aria-label="Close workspace popup"
-            onClick={onClose}
+            onClick={requestClose}
           >
             <XIcon className="stroke-[1.5]" />
           </Button>

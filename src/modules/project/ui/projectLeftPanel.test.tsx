@@ -40,8 +40,11 @@ describe("ProjectLeftPanel", () => {
   it("shows empty CTA when no projects", () => {
     const onOpenProject = vi.fn();
     render(<ProjectLeftPanel onRequestOpenProject={onOpenProject} />);
+    expect(screen.getByText("No projects yet")).toBeInTheDocument();
+    expect(screen.getByText(/open a folder to add your first project/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /open project/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /add project/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("searchbox", { name: /search projects/i })).not.toBeInTheDocument();
   });
 
   it("calls onRequestOpenProject when empty CTA is clicked", async () => {

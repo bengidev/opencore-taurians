@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../onboarding";
@@ -75,6 +75,9 @@ describe("WorkspacePopup", () => {
     await user.click(
       screen.getByRole("button", { name: /close workspace popup/i }),
     );
+    fireEvent.transitionEnd(screen.getByRole("dialog"), {
+      propertyName: "opacity",
+    });
     expect(onClose).toHaveBeenCalledOnce();
   });
 
@@ -90,6 +93,9 @@ describe("WorkspacePopup", () => {
       </ThemeProvider>,
     );
     await user.keyboard("{Escape}");
+    fireEvent.transitionEnd(screen.getByRole("dialog"), {
+      propertyName: "opacity",
+    });
     expect(onClose).toHaveBeenCalledOnce();
   });
 
@@ -106,6 +112,36 @@ describe("WorkspacePopup", () => {
     );
     const backdrop = container.firstElementChild as HTMLElement;
     await user.click(backdrop);
+    fireEvent.transitionEnd(screen.getByRole("dialog"), {
+      propertyName: "opacity",
+    });
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("calls onClose immediately when reduced motion is enabled", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockImplementation((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    render(
+      <ThemeProvider>
+        <WorkspacePopup
+          folderPicker={createMemoryFolderPicker(null)}
+          onClose={onClose}
+        />
+      </ThemeProvider>,
+    );
+    await user.click(
+      screen.getByRole("button", { name: /close workspace popup/i }),
+    );
+    expect(onClose).toHaveBeenCalledOnce();
+    vi.unstubAllGlobals();
   });
 });

@@ -90,7 +90,7 @@ function ShellPanelSettingRow({
         >
           {label}
         </Label>
-        <p className="text-sm italic text-muted-foreground">{description}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       <Switch
         id={id}
@@ -136,10 +136,7 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
     setRevealed(false);
     if (reduceMotion) {
       setMounted(false);
-      return;
     }
-    const timeout = window.setTimeout(() => setMounted(false), SHELL_HIDE_MS);
-    return () => window.clearTimeout(timeout);
   }, [open, reduceMotion]);
 
   if (!mounted) return null;
@@ -164,6 +161,15 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
         transitionProperty: reduceMotion ? "none" : "transform, opacity, filter",
         transitionDuration: reduceMotion ? "0ms" : `${overlayDurationMs}ms`,
         transitionTimingFunction: overlayEase,
+      }}
+      onTransitionEnd={(event) => {
+        if (
+          event.target === event.currentTarget &&
+          !open &&
+          (event.propertyName === "opacity" || event.propertyName === "transform")
+        ) {
+          setMounted(false);
+        }
       }}
     >
       <header

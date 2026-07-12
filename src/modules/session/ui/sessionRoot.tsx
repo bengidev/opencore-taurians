@@ -126,8 +126,8 @@ export function SessionRoot({
     windowController,
   ]);
 
-  const handleEnter = () => {
-    beginEnter();
+  const handleEnter = (options?: { instant?: boolean }) => {
+    beginEnter(options);
   };
 
   const handleReset = async () => {

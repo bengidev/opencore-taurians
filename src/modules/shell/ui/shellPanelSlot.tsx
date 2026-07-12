@@ -64,6 +64,7 @@ export function ShellPanelSlot({
   const outerEase = visible ? SHELL_EASE_OUT : SHELL_EASE_DRAWER;
   const contentOffset =
     side === "left" ? -CONTENT_OFFSET_PX : CONTENT_OFFSET_PX;
+  const transformOrigin = side === "left" ? "left center" : "right center";
 
   return (
     <div
@@ -90,13 +91,14 @@ export function ShellPanelSlot({
           filter: revealed || reduceMotion ? "blur(0px)" : "blur(2px)",
           transform:
             revealed || reduceMotion
-              ? "translateX(0px)"
-              : `translateX(${contentOffset}px)`,
+              ? "scaleX(1) translateX(0px)"
+              : `scaleX(0) translateX(${contentOffset}px)`,
+          transformOrigin,
           transitionProperty: reduceMotion ? "none" : "transform, opacity, filter",
           transitionDuration: reduceMotion
             ? "0ms"
-            : `${visible ? SHELL_SHOW_MS : SHELL_HIDE_MS}ms`,
-          transitionTimingFunction: visible ? SHELL_EASE_OUT : SHELL_EASE_DRAWER,
+            : `${outerDurationMs}ms`,
+          transitionTimingFunction: outerEase,
         }}
       >
         {children}
