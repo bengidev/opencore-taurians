@@ -56,7 +56,7 @@ describe("ProjectLeftPanel", () => {
   });
 
   it("shows add project button on Projects section when projects exist", () => {
-    useProjectStore.getState().createProjectWithRootChunk({
+    useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -68,7 +68,7 @@ describe("ProjectLeftPanel", () => {
   it("calls onRequestOpenProject when add project button is clicked", async () => {
     const user = userEvent.setup();
     const onOpenProject = vi.fn();
-    useProjectStore.getState().createProjectWithRootChunk({
+    useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -79,7 +79,7 @@ describe("ProjectLeftPanel", () => {
 
   it("opens folder via add project button when projects exist", async () => {
     const user = userEvent.setup();
-    useProjectStore.getState().createProjectWithRootChunk({
+    useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -103,21 +103,21 @@ describe("ProjectLeftPanel", () => {
     expect(useWorkspaceStore.getState().workspacePath).toBe("/work/new-app");
   });
 
-  it("selects a chunk on click", async () => {
+  it("selects a trunk on click", async () => {
     const user = userEvent.setup();
-    const { chunk } = useProjectStore.getState().createProjectWithRootChunk({
+    const { trunk } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
     useProjectStore.getState().setActiveIds(null, null);
     render(<ProjectLeftPanel />);
     await user.click(screen.getByRole("button", { name: "Main" }));
-    expect(useProjectStore.getState().activeChunkId).toBe(chunk.id);
+    expect(useProjectStore.getState().activeTrunkId).toBe(trunk.id);
   });
 
-  it("collapses and expands project chunk tree", async () => {
+  it("collapses and expands project trunk tree", async () => {
     const user = userEvent.setup();
-    useProjectStore.getState().createProjectWithRootChunk({
+    useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -133,7 +133,7 @@ describe("ProjectLeftPanel", () => {
 
   it("pins a project via the pin button", async () => {
     const user = userEvent.setup();
-    const { project } = useProjectStore.getState().createProjectWithRootChunk({
+    const { project } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -148,47 +148,47 @@ describe("ProjectLeftPanel", () => {
     );
   });
 
-  it("adds a child chunk and activates it", async () => {
+  it("adds a child trunk and activates it", async () => {
     const user = userEvent.setup();
-    const { chunk } = useProjectStore.getState().createProjectWithRootChunk({
+    const { trunk } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
     useProjectStore.getState().setActiveIds(null, null);
     render(<ProjectLeftPanel />);
-    const beforeCount = useProjectStore.getState().chunks.length;
-    await user.click(screen.getByRole("button", { name: "Add child chunk" }));
+    const beforeCount = useProjectStore.getState().trunks.length;
+    await user.click(screen.getByRole("button", { name: "Add child trunk" }));
     const after = useProjectStore.getState();
-    expect(after.chunks.length).toBe(beforeCount + 1);
-    const child = after.chunks.find((c) => c.parentChunkId === chunk.id);
+    expect(after.trunks.length).toBe(beforeCount + 1);
+    const child = after.trunks.find((c) => c.parentTrunkId === trunk.id);
     expect(child).toBeDefined();
-    expect(after.activeChunkId).toBe(child?.id);
-    expect(screen.getByRole("button", { name: "New chunk" })).toBeInTheDocument();
+    expect(after.activeTrunkId).toBe(child?.id);
+    expect(screen.getByRole("button", { name: "New trunk" })).toBeInTheDocument();
   });
 
-  it("deletes a chunk when confirm is accepted", async () => {
+  it("deletes a trunk when confirm is accepted", async () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-    const { chunk: root } = useProjectStore.getState().createProjectWithRootChunk({
+    const { trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    useProjectStore.getState().addChildChunk({
-      parentChunkId: root.id,
+    useProjectStore.getState().addChildTrunk({
+      parentTrunkId: root.id,
       title: "Child",
       nowIso: "2026-07-10T00:00:01.000Z",
     });
     render(<ProjectLeftPanel />);
-    await user.click(screen.getByRole("button", { name: "Delete chunk Main" }));
-    expect(confirmSpy).toHaveBeenCalledWith("Delete this chunk and its children?");
-    expect(useProjectStore.getState().chunks.find((c) => c.id === root.id)).toBeUndefined();
+    await user.click(screen.getByRole("button", { name: "Delete trunk Main" }));
+    expect(confirmSpy).toHaveBeenCalledWith("Delete this trunk and its children?");
+    expect(useProjectStore.getState().trunks.find((c) => c.id === root.id)).toBeUndefined();
     expect(screen.queryByRole("button", { name: "Main" })).not.toBeInTheDocument();
     confirmSpy.mockRestore();
   });
 
-  it("adds a root chunk on the project row", async () => {
+  it("adds a root trunk on the project row", async () => {
     const user = userEvent.setup();
-    const { project } = useProjectStore.getState().createProjectWithRootChunk({
+    const { project } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -196,33 +196,33 @@ describe("ProjectLeftPanel", () => {
     render(<ProjectLeftPanel />);
     const beforeCount = useProjectStore
       .getState()
-      .chunks.filter((c) => c.projectId === project.id && c.parentChunkId === null).length;
-    await user.click(screen.getByRole("button", { name: "Add root chunk" }));
+      .trunks.filter((c) => c.projectId === project.id && c.parentTrunkId === null).length;
+    await user.click(screen.getByRole("button", { name: "Add root trunk" }));
     const roots = useProjectStore
       .getState()
-      .chunks.filter((c) => c.projectId === project.id && c.parentChunkId === null);
+      .trunks.filter((c) => c.projectId === project.id && c.parentTrunkId === null);
     expect(roots.length).toBe(beforeCount + 1);
-    expect(useProjectStore.getState().activeChunkId).toBe(roots[roots.length - 1]?.id);
+    expect(useProjectStore.getState().activeTrunkId).toBe(roots[roots.length - 1]?.id);
   });
 
-  it("filters by chunk title and chat message body", async () => {
+  it("filters by trunk title and chat message body", async () => {
     const user = userEvent.setup();
-    const { chunk: root } = useProjectStore.getState().createProjectWithRootChunk({
+    const { trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/Alpha",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    const other = useProjectStore.getState().addChildChunk({
-      parentChunkId: root.id,
+    const other = useProjectStore.getState().addChildTrunk({
+      parentTrunkId: root.id,
       title: "Other",
       nowIso: "2026-07-10T00:00:01.000Z",
     })!;
-    useProjectStore.getState().addChildChunk({
-      parentChunkId: root.id,
+    useProjectStore.getState().addChildTrunk({
+      parentTrunkId: root.id,
       title: "Notes",
       nowIso: "2026-07-10T00:00:01.500Z",
     });
     useChatStore.getState().appendMessage({
-      chunkId: other.id,
+      trunkId: other.id,
       role: "user",
       content: "unique-zebra-token",
       createdAt: "2026-07-10T00:00:02.000Z",
@@ -234,9 +234,9 @@ describe("ProjectLeftPanel", () => {
     expect(screen.queryByRole("button", { name: /^Notes$/i })).not.toBeInTheDocument();
   });
 
-  it("filters by chunk title", async () => {
+  it("filters by trunk title", async () => {
     const user = userEvent.setup();
-    useProjectStore.getState().createProjectWithRootChunk({
+    useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/Alpha",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -247,11 +247,11 @@ describe("ProjectLeftPanel", () => {
 
   it("renders auto groups and moves project to manual group", async () => {
     const user = userEvent.setup();
-    useProjectStore.getState().createProjectWithRootChunk({
+    useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/apps/alpha",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    useProjectStore.getState().createProjectWithRootChunk({
+    useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/apps/beta",
       nowIso: "2026-07-10T00:00:01.000Z",
     });
@@ -270,18 +270,18 @@ describe("ProjectLeftPanel", () => {
     promptSpy.mockRestore();
   });
 
-  it("reorders sibling chunks via HTML5 drag and drop", () => {
-    const { chunk: root } = useProjectStore.getState().createProjectWithRootChunk({
+  it("reorders sibling trunks via HTML5 drag and drop", () => {
+    const { trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    const a = useProjectStore.getState().addChildChunk({
-      parentChunkId: root.id,
+    const a = useProjectStore.getState().addChildTrunk({
+      parentTrunkId: root.id,
       title: "ChunkA",
       nowIso: "2026-07-10T00:00:01.000Z",
     })!;
-    const b = useProjectStore.getState().addChildChunk({
-      parentChunkId: root.id,
+    const b = useProjectStore.getState().addChildTrunk({
+      parentTrunkId: root.id,
       title: "ChunkB",
       nowIso: "2026-07-10T00:00:02.000Z",
     })!;
@@ -294,7 +294,7 @@ describe("ProjectLeftPanel", () => {
     fireEvent.drop(buttonA, { dataTransfer });
     const ordered = useProjectStore
       .getState()
-      .chunks.filter((c) => c.parentChunkId === root.id)
+      .trunks.filter((c) => c.parentTrunkId === root.id)
       .sort((x, y) => x.siblingOrder - y.siblingOrder)
       .map((c) => c.id);
     expect(ordered).toEqual([b.id, a.id]);
@@ -302,7 +302,7 @@ describe("ProjectLeftPanel", () => {
 
   it("relinks folder and updates workspace when project is active", async () => {
     const user = userEvent.setup();
-    const { project } = useProjectStore.getState().createProjectWithRootChunk({
+    const { project } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });

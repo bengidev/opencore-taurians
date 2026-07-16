@@ -36,7 +36,7 @@ describe("ProjectAddButton", () => {
 
   it("opens a second project when one already exists", async () => {
     const user = userEvent.setup();
-    useProjectStore.getState().createProjectWithRootChunk({
+    useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
