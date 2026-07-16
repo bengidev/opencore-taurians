@@ -1,7 +1,7 @@
-import type { Project, ProjectChunk, ProjectGroup } from "../domain/projectTypes";
+import type { Project, ProjectTrunk, ProjectGroup } from "../domain/projectTypes";
 
-export function projectSearchTitleChunkIds(
-  chunks: readonly ProjectChunk[],
+export function projectSearchTitleTrunkIds(
+  trunks: readonly ProjectTrunk[],
   projects: readonly Project[],
   groups: readonly ProjectGroup[],
   query: string,
@@ -24,35 +24,35 @@ export function projectSearchTitleChunkIds(
   }
 
   const ids: string[] = [];
-  for (const chunk of chunks) {
-    if (chunk.title.toLowerCase().includes(q) || matchingProjectIds.has(chunk.projectId)) {
-      ids.push(chunk.id);
+  for (const trunk of trunks) {
+    if (trunk.title.toLowerCase().includes(q) || matchingProjectIds.has(trunk.projectId)) {
+      ids.push(trunk.id);
     }
   }
   return ids;
 }
 
-export function projectExpandChunkAncestors(
-  chunks: readonly ProjectChunk[],
-  chunkIds: readonly string[],
+export function projectExpandTrunkAncestors(
+  trunks: readonly ProjectTrunk[],
+  trunkIds: readonly string[],
 ): Set<string> {
-  const byId = new Map(chunks.map((chunk) => [chunk.id, chunk]));
+  const byId = new Map(trunks.map((trunk) => [trunk.id, trunk]));
   const out = new Set<string>();
-  for (const id of chunkIds) {
+  for (const id of trunkIds) {
     let current: string | null = id;
     while (current) {
       if (out.has(current)) break;
       out.add(current);
-      current = byId.get(current)?.parentChunkId ?? null;
+      current = byId.get(current)?.parentTrunkId ?? null;
     }
   }
   return out;
 }
 
-export function projectProjectHasVisibleChunks(
+export function projectProjectHasVisibleTrunks(
   projectId: string,
-  chunks: readonly ProjectChunk[],
-  visibleChunkIds: Set<string>,
+  trunks: readonly ProjectTrunk[],
+  visibleTrunkIds: Set<string>,
 ): boolean {
-  return chunks.some((chunk) => chunk.projectId === projectId && visibleChunkIds.has(chunk.id));
+  return trunks.some((trunk) => trunk.projectId === projectId && visibleTrunkIds.has(trunk.id));
 }

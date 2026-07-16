@@ -29,20 +29,20 @@ import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { projectBuildAutoGroups } from "../domain/projectAutoGroup";
 import type { Project } from "../domain/projectTypes";
 import { projectMergeSearchResults } from "../domain/projectSearch";
-import { projectActivateChunk } from "../state/projectActivation";
+import { projectActivateTrunk } from "../state/projectActivation";
 import { projectRequestOpenFolder } from "./projectAddButton";
 import { useProjectStore } from "../state/projectStore";
 import { PanelToolButton } from "./panelToolButton";
 import { ProjectAddButton } from "./projectAddButton";
 import { PanelTooltip } from "./panelTooltip";
-import { ProjectChunkTree } from "./projectChunkTree";
+import { ProjectTrunkTree } from "./projectTrunkTree";
 import {
-  projectExpandChunkAncestors,
-  projectProjectHasVisibleChunks,
-  projectSearchTitleChunkIds,
+  projectExpandTrunkAncestors,
+  projectProjectHasVisibleTrunks,
+  projectSearchTitleTrunkIds,
 } from "./projectPanelSearch";
 
-const NEW_CHUNK_TITLE = "New chunk";
+const NEW_TRUNK_TITLE = "New trunk";
 const PROJECT_DRAG_ID_MIME = "application/x-project-id";
 const PROJECT_DRAG_GROUP_MIME = "application/x-project-group-id";
 
@@ -71,18 +71,18 @@ export interface ProjectLeftPanelProps {
 
 function ProjectRow({
   project,
-  chunks,
-  activeChunkId,
+  trunks,
+  activeTrunkId,
   expanded,
-  visibleChunkIds,
+  visibleTrunkIds,
   onToggleExpanded,
   onRelinkFolder,
 }: {
   project: Project;
-  chunks: ReturnType<typeof useProjectStore.getState>["chunks"];
-  activeChunkId: string | null;
+  trunks: ReturnType<typeof useProjectStore.getState>["trunks"];
+  activeTrunkId: string | null;
   expanded: boolean;
-  visibleChunkIds: Set<string> | undefined;
+  visibleTrunkIds: Set<string> | undefined;
   onToggleExpanded: () => void;
   onRelinkFolder: () => void;
 }) {
@@ -181,15 +181,15 @@ function ProjectRow({
           </PanelToolButton>
         )}
         <PanelToolButton
-          label="Add root chunk"
+          label="Add root trunk"
           onClick={(event) => {
             event.stopPropagation();
-            const chunk = useProjectStore.getState().addRootChunk({
+            const trunk = useProjectStore.getState().addRootTrunk({
               projectId: project.id,
-              title: NEW_CHUNK_TITLE,
+              title: NEW_TRUNK_TITLE,
               nowIso: new Date().toISOString(),
             });
-            if (chunk) projectActivateChunk(chunk.id);
+            if (trunk) projectActivateTrunk(trunk.id);
           }}
         >
           <Plus className="size-3" aria-hidden />
@@ -205,11 +205,11 @@ function ProjectRow({
         </PanelToolButton>
       </div>
       {expanded ? (
-        <ProjectChunkTree
+        <ProjectTrunkTree
           projectId={project.id}
-          chunks={chunks}
-          activeChunkId={activeChunkId}
-          visibleChunkIds={visibleChunkIds}
+          trunks={trunks}
+          activeTrunkId={activeTrunkId}
+          visibleTrunkIds={visibleTrunkIds}
         />
       ) : null}
     </li>
@@ -220,10 +220,10 @@ function ProjectSection({
   label,
   projectIds,
   projectsById,
-  chunks,
-  activeChunkId,
+  trunks,
+  activeTrunkId,
   expandedProjectIds,
-  visibleChunkIds,
+  visibleTrunkIds,
   isSearching,
   searchQuery,
   onRelinkFolder,
@@ -231,10 +231,10 @@ function ProjectSection({
   label: string;
   projectIds: string[];
   projectsById: Map<string, Project>;
-  chunks: ReturnType<typeof useProjectStore.getState>["chunks"];
-  activeChunkId: string | null;
+  trunks: ReturnType<typeof useProjectStore.getState>["trunks"];
+  activeTrunkId: string | null;
   expandedProjectIds: string[];
-  visibleChunkIds: Set<string> | undefined;
+  visibleTrunkIds: Set<string> | undefined;
   isSearching: boolean;
   searchQuery: string;
   onRelinkFolder: (projectId: string) => void;
@@ -256,20 +256,20 @@ function ProjectSection({
       </p>
       <ul className="list-none space-y-1">
         {rows.map((project) => {
-          const hasVisibleChunks =
-            visibleChunkIds !== undefined &&
-            projectProjectHasVisibleChunks(project.id, chunks, visibleChunkIds);
+          const hasVisibleTrunks =
+            visibleTrunkIds !== undefined &&
+            projectProjectHasVisibleTrunks(project.id, trunks, visibleTrunkIds);
           const expanded = isSearching
-            ? project.name.toLowerCase().includes(q) || hasVisibleChunks
+            ? project.name.toLowerCase().includes(q) || hasVisibleTrunks
             : expandedProjectIds.includes(project.id);
           return (
             <ProjectRow
               key={project.id}
               project={project}
-              chunks={chunks}
-              activeChunkId={activeChunkId}
+              trunks={trunks}
+              activeTrunkId={activeTrunkId}
               expanded={expanded}
-              visibleChunkIds={visibleChunkIds}
+              visibleTrunkIds={visibleTrunkIds}
               onToggleExpanded={() =>
                 useProjectStore.getState().toggleProjectExpanded(project.id)
               }
@@ -287,27 +287,27 @@ export function ProjectLeftPanel({
   folderPicker = createTauriFolderPicker(),
 }: ProjectLeftPanelProps) {
   const projects = useProjectStore((s) => s.projects);
-  const chunks = useProjectStore((s) => s.chunks);
+  const trunks = useProjectStore((s) => s.trunks);
   const groups = useProjectStore((s) => s.groups);
   const expandedProjectIds = useProjectStore((s) => s.expandedProjectIds);
-  const activeChunkId = useProjectStore((s) => s.activeChunkId);
+  const activeTrunkId = useProjectStore((s) => s.activeTrunkId);
   const toggleProjectExpanded = useProjectStore((s) => s.toggleProjectExpanded);
-  const messagesByChunkId = useChatStore((s) => s.messagesByChunkId);
+  const messagesByTrunkId = useChatStore((s) => s.messagesByTrunkId);
   const [searchQuery, setSearchQuery] = useState("");
 
   const q = searchQuery.trim().toLowerCase();
   const isSearching = q.length > 0;
 
-  const visibleChunkIds = useMemo(() => {
+  const visibleTrunkIds = useMemo(() => {
     if (!isSearching) return undefined;
-    const titleChunkIds = projectSearchTitleChunkIds(chunks, projects, groups, q);
-    const messageChunkIds = useChatStore
+    const titleTrunkIds = projectSearchTitleTrunkIds(trunks, projects, groups, q);
+    const messageTrunkIds = useChatStore
       .getState()
       .searchMessages(q)
-      .map((hit) => hit.chunkId);
-    const hitIds = projectMergeSearchResults({ titleChunkIds, messageChunkIds });
-    return projectExpandChunkAncestors(chunks, hitIds);
-  }, [isSearching, q, chunks, projects, groups, messagesByChunkId]);
+      .map((hit) => hit.trunkId);
+    const hitIds = projectMergeSearchResults({ titleTrunkIds, messageTrunkIds });
+    return projectExpandTrunkAncestors(trunks, hitIds);
+  }, [isSearching, q, trunks, projects, groups, messagesByTrunkId]);
 
   const projectsById = useMemo(
     () => new Map(projects.map((project) => [project.id, project])),
@@ -320,8 +320,8 @@ export function ProjectLeftPanel({
     ? sortedProjects.filter(
         (project) =>
           project.name.toLowerCase().includes(q) ||
-          (visibleChunkIds !== undefined &&
-            projectProjectHasVisibleChunks(project.id, chunks, visibleChunkIds)),
+          (visibleTrunkIds !== undefined &&
+            projectProjectHasVisibleTrunks(project.id, trunks, visibleTrunkIds)),
       )
     : sortedProjects;
 
@@ -361,20 +361,20 @@ export function ProjectLeftPanel({
   };
 
   const renderProjectRow = (project: Project) => {
-    const hasVisibleChunks =
-      visibleChunkIds !== undefined &&
-      projectProjectHasVisibleChunks(project.id, chunks, visibleChunkIds);
+    const hasVisibleTrunks =
+      visibleTrunkIds !== undefined &&
+      projectProjectHasVisibleTrunks(project.id, trunks, visibleTrunkIds);
     const expanded = isSearching
-      ? project.name.toLowerCase().includes(q) || hasVisibleChunks
+      ? project.name.toLowerCase().includes(q) || hasVisibleTrunks
       : expandedProjectIds.includes(project.id);
     return (
       <ProjectRow
         key={project.id}
         project={project}
-        chunks={chunks}
-        activeChunkId={activeChunkId}
+        trunks={trunks}
+        activeTrunkId={activeTrunkId}
         expanded={expanded}
-        visibleChunkIds={visibleChunkIds}
+        visibleTrunkIds={visibleTrunkIds}
         onToggleExpanded={() => toggleProjectExpanded(project.id)}
         onRelinkFolder={() => void handleRelinkFolder(project.id)}
       />
@@ -440,10 +440,10 @@ export function ProjectLeftPanel({
                 label="Pinned"
                 projectIds={pinnedProjects.map((p) => p.id)}
                 projectsById={projectsById}
-                chunks={chunks}
-                activeChunkId={activeChunkId}
+                trunks={trunks}
+                activeTrunkId={activeTrunkId}
                 expandedProjectIds={expandedProjectIds}
-                visibleChunkIds={visibleChunkIds}
+                visibleTrunkIds={visibleTrunkIds}
                 isSearching={isSearching}
                 searchQuery={searchQuery}
                 onRelinkFolder={(projectId) => void handleRelinkFolder(projectId)}
@@ -455,10 +455,10 @@ export function ProjectLeftPanel({
                 label={group.label}
                 projectIds={group.projectIds}
                 projectsById={projectsById}
-                chunks={chunks}
-                activeChunkId={activeChunkId}
+                trunks={trunks}
+                activeTrunkId={activeTrunkId}
                 expandedProjectIds={expandedProjectIds}
-                visibleChunkIds={visibleChunkIds}
+                visibleTrunkIds={visibleTrunkIds}
                 isSearching={isSearching}
                 searchQuery={searchQuery}
                 onRelinkFolder={(projectId) => void handleRelinkFolder(projectId)}
@@ -470,10 +470,10 @@ export function ProjectLeftPanel({
                 label={group.label}
                 projectIds={group.projectIds}
                 projectsById={projectsById}
-                chunks={chunks}
-                activeChunkId={activeChunkId}
+                trunks={trunks}
+                activeTrunkId={activeTrunkId}
                 expandedProjectIds={expandedProjectIds}
-                visibleChunkIds={visibleChunkIds}
+                visibleTrunkIds={visibleTrunkIds}
                 isSearching={isSearching}
                 searchQuery={searchQuery}
                 onRelinkFolder={(projectId) => void handleRelinkFolder(projectId)}
@@ -484,10 +484,10 @@ export function ProjectLeftPanel({
                 label="Ungrouped"
                 projectIds={ungroupedProjectIds}
                 projectsById={projectsById}
-                chunks={chunks}
-                activeChunkId={activeChunkId}
+                trunks={trunks}
+                activeTrunkId={activeTrunkId}
                 expandedProjectIds={expandedProjectIds}
-                visibleChunkIds={visibleChunkIds}
+                visibleTrunkIds={visibleTrunkIds}
                 isSearching={isSearching}
                 searchQuery={searchQuery}
                 onRelinkFolder={(projectId) => void handleRelinkFolder(projectId)}
