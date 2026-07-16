@@ -1,10 +1,10 @@
 export function projectMergeSearchResults(input: {
-  titleChunkIds: readonly string[];
-  messageChunkIds: readonly string[];
+  titleTrunkIds: readonly string[];
+  messageTrunkIds: readonly string[];
 }): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const id of [...input.titleChunkIds, ...input.messageChunkIds]) {
+  for (const id of [...input.titleTrunkIds, ...input.messageTrunkIds]) {
     if (seen.has(id)) continue;
     seen.add(id);
     out.push(id);

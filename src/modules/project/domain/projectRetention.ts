@@ -1,27 +1,27 @@
-import { projectCollectSubtreeChunkIds } from "./projectChunkTree";
-import type { Project, ProjectChunk } from "./projectTypes";
+import { projectCollectTrunkWithChildrenIds } from "./projectTrunkTree";
+import type { Project, ProjectTrunk } from "./projectTypes";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export interface ProjectRetentionResult {
   projectIds: string[];
-  chunkIds: string[];
+  trunkIds: string[];
 }
 
 export function projectSelectExpired(input: {
   nowMs: number;
   retentionDays: number;
   projects: readonly Project[];
-  chunks: readonly ProjectChunk[];
+  trunks: readonly ProjectTrunk[];
 }): ProjectRetentionResult {
   const cutoff = input.nowMs - input.retentionDays * MS_PER_DAY;
   const isStale = (iso: string) => Date.parse(iso) < cutoff;
 
-  const pinnedChunkProjectIds = new Set(
-    input.chunks.filter((c) => c.pinned).map((c) => c.projectId),
+  const pinnedTrunkProjectIds = new Set(
+    input.trunks.filter((c) => c.pinned).map((c) => c.projectId),
   );
 
-  const expiredChunkIds = input.chunks
+  const expiredTrunkIds = input.trunks
     .filter((c) => !c.pinned && isStale(c.lastOpenedAt))
     .filter((c) => {
       const project = input.projects.find((p) => p.id === c.projectId);
@@ -29,35 +29,35 @@ export function projectSelectExpired(input: {
     })
     .map((c) => c.id);
 
-  // If any chunk in a project is pinned, retain all chunks in that project for v1 simplicity
-  // consistent with "ancestor project retained while pinned chunk exists".
-  const retainAllChunksForProjects = pinnedChunkProjectIds;
-  const retainedChunkIds = new Set(
-    input.chunks
+  // If any trunk in a project is pinned, retain all trunks in that project for v1 simplicity
+  // consistent with "ancestor project retained while pinned trunk exists".
+  const retainAllTrunksForProjects = pinnedTrunkProjectIds;
+  const retainedTrunkIds = new Set(
+    input.trunks
       .filter((c) => c.pinned || !isStale(c.lastOpenedAt))
       .map((c) => c.id),
   );
-  const chunkIds = expiredChunkIds.filter((id) => {
-    const chunk = input.chunks.find((c) => c.id === id);
-    if (!chunk || retainAllChunksForProjects.has(chunk.projectId)) return false;
-    const subtree = projectCollectSubtreeChunkIds(input.chunks, id);
+  const trunkIds = expiredTrunkIds.filter((id) => {
+    const trunk = input.trunks.find((c) => c.id === id);
+    if (!trunk || retainAllTrunksForProjects.has(trunk.projectId)) return false;
+    const subtree = projectCollectTrunkWithChildrenIds(input.trunks, id);
     return !subtree.some(
       (descendantId) =>
-        descendantId !== id && retainedChunkIds.has(descendantId),
+        descendantId !== id && retainedTrunkIds.has(descendantId),
     );
   });
 
   const projectIds = input.projects
     .filter((p) => !p.pinned)
     .filter((p) => isStale(p.lastOpenedAt))
-    .filter((p) => !pinnedChunkProjectIds.has(p.id))
+    .filter((p) => !pinnedTrunkProjectIds.has(p.id))
     .filter(
       (p) =>
-        !input.chunks.some(
-          (c) => c.projectId === p.id && retainedChunkIds.has(c.id),
+        !input.trunks.some(
+          (c) => c.projectId === p.id && retainedTrunkIds.has(c.id),
         ),
     )
     .map((p) => p.id);
 
-  return { projectIds, chunkIds };
+  return { projectIds, trunkIds };
 }

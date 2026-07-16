@@ -1,11 +1,11 @@
 export {
-  projectActivateChunk,
+  projectActivateTrunk,
   projectActivateProject,
   projectBootMigrateAndSweep,
   projectOpenFolder,
   projectSyncRestoreFromShell,
 } from "./state/projectActivation";
-export { appendChunkMessage } from "./state/projectChat";
+export { appendTrunkMessage } from "./state/projectChat";
 export { useProjectStore } from "./state/projectStore";
 export { ProjectAddButton } from "./ui/projectAddButton";
 export { ProjectLeftPanel } from "./ui/projectLeftPanel";
