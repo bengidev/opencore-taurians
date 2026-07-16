@@ -5,53 +5,53 @@ import { SESSION_PERSIST_KEYS } from "../../session/infrastructure/sessionPersis
 import type { ChatMessage, ChatRole, ChatSearchHit } from "../domain/chatTypes";
 
 export interface ChatState {
-  messagesByChunkId: Record<string, ChatMessage[]>;
+  messagesByTrunkId: Record<string, ChatMessage[]>;
   appendMessage: (input: {
-    chunkId: string;
+    trunkId: string;
     role: ChatRole;
     content: string;
     createdAt: string;
     id?: string;
   }) => ChatMessage;
-  listMessages: (chunkId: string) => ChatMessage[];
+  listMessages: (trunkId: string) => ChatMessage[];
   searchMessages: (query: string) => ChatSearchHit[];
-  deleteByChunkIds: (chunkIds: string[]) => void;
+  deleteByTrunkIds: (trunkIds: string[]) => void;
   resetChat: () => void;
 }
 
 export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
-      messagesByChunkId: {},
+      messagesByTrunkId: {},
       appendMessage: (input) => {
         const message: ChatMessage = {
           id: input.id ?? crypto.randomUUID(),
-          chunkId: input.chunkId,
+          trunkId: input.trunkId,
           role: input.role,
           content: input.content,
           createdAt: input.createdAt,
         };
         set((state) => {
-          const existing = state.messagesByChunkId[input.chunkId] ?? [];
+          const existing = state.messagesByTrunkId[input.trunkId] ?? [];
           return {
-            messagesByChunkId: {
-              ...state.messagesByChunkId,
-              [input.chunkId]: [...existing, message],
+            messagesByTrunkId: {
+              ...state.messagesByTrunkId,
+              [input.trunkId]: [...existing, message],
             },
           };
         });
         return message;
       },
-      listMessages: (chunkId) => get().messagesByChunkId[chunkId] ?? [],
+      listMessages: (trunkId) => get().messagesByTrunkId[trunkId] ?? [],
       searchMessages: (query) => {
         const q = query.trim().toLowerCase();
         if (!q) return [];
         const hits: ChatSearchHit[] = [];
-        for (const [chunkId, messages] of Object.entries(get().messagesByChunkId)) {
+        for (const [trunkId, messages] of Object.entries(get().messagesByTrunkId)) {
           for (const message of messages) {
             if (!message.content.toLowerCase().includes(q)) continue;
             hits.push({
-              chunkId,
+              trunkId,
               messageId: message.id,
               snippet: message.content.slice(0, 120),
             });
@@ -59,22 +59,22 @@ export const useChatStore = create<ChatState>()(
         }
         return hits;
       },
-      deleteByChunkIds: (chunkIds) => {
-        const remove = new Set(chunkIds);
+      deleteByTrunkIds: (trunkIds) => {
+        const remove = new Set(trunkIds);
         set((state) => {
           const next: Record<string, ChatMessage[]> = {};
-          for (const [chunkId, messages] of Object.entries(state.messagesByChunkId)) {
-            if (!remove.has(chunkId)) next[chunkId] = messages;
+          for (const [trunkId, messages] of Object.entries(state.messagesByTrunkId)) {
+            if (!remove.has(trunkId)) next[trunkId] = messages;
           }
-          return { messagesByChunkId: next };
+          return { messagesByTrunkId: next };
         });
       },
-      resetChat: () => set({ messagesByChunkId: {} }),
+      resetChat: () => set({ messagesByTrunkId: {} }),
     }),
     {
       name: SESSION_PERSIST_KEYS.chat,
       storage: createSessionPersistStorage(),
-      partialize: (state) => ({ messagesByChunkId: state.messagesByChunkId }),
+      partialize: (state) => ({ messagesByTrunkId: state.messagesByTrunkId }),
     },
   ),
 );
