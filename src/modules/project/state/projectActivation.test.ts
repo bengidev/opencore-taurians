@@ -4,7 +4,7 @@ import { useShellStore } from "../../shell/state/shellStore";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { useProjectStore } from "./projectStore";
 import {
-  projectActivateChunk,
+  projectActivateTrunk,
   projectBootMigrateAndSweep,
   projectOpenFolder,
   projectSyncRestoreFromShell,
@@ -18,28 +18,28 @@ describe("projectActivation", () => {
     useShellStore.setState({ activeMainCard: "chat" });
   });
 
-  it("activateChunk sets workspace and shell card from restore", () => {
-    const { project, chunk } = useProjectStore.getState().createProjectWithRootChunk({
+  it("activateTrunk sets workspace and shell card from restore", () => {
+    const { project, trunk } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    useProjectStore.getState().setChunkRestore(chunk.id, { activeMainCard: "terminal" });
-    projectActivateChunk(chunk.id);
+    useProjectStore.getState().setTrunkRestore(trunk.id, { activeMainCard: "terminal" });
+    projectActivateTrunk(trunk.id);
     expect(useWorkspaceStore.getState().workspacePath).toBe(project.folderPath);
     expect(useShellStore.getState().activeMainCard).toBe("terminal");
-    expect(useProjectStore.getState().activeChunkId).toBe(chunk.id);
+    expect(useProjectStore.getState().activeTrunkId).toBe(trunk.id);
   });
 
-  it("syncs shell card changes back onto active chunk", () => {
-    const { chunk } = useProjectStore.getState().createProjectWithRootChunk({
+  it("syncs shell card changes back onto active trunk", () => {
+    const { trunk } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    projectActivateChunk(chunk.id);
+    projectActivateTrunk(trunk.id);
     useShellStore.getState().setActiveMainCard("editor");
     projectSyncRestoreFromShell();
     expect(
-      useProjectStore.getState().chunks.find((c) => c.id === chunk.id)?.restore.activeMainCard,
+      useProjectStore.getState().trunks.find((c) => c.id === trunk.id)?.restore.activeMainCard,
     ).toBe("editor");
   });
 
@@ -50,16 +50,16 @@ describe("projectActivation", () => {
     expect(useProjectStore.getState().projects).toHaveLength(1);
   });
 
-  it("boot sweep uses fresh state after retention deletes active chunk", () => {
-    const stale = useProjectStore.getState().createProjectWithRootChunk({
+  it("boot sweep uses fresh state after retention deletes active trunk", () => {
+    const stale = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/stale",
       nowIso: "2026-05-01T00:00:00.000Z",
     });
-    const fresh = useProjectStore.getState().createProjectWithRootChunk({
+    const fresh = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/current",
       nowIso: "2026-07-01T00:00:00.000Z",
     });
-    useProjectStore.getState().setActiveIds(stale.project.id, stale.chunk.id);
+    useProjectStore.getState().setActiveIds(stale.project.id, stale.trunk.id);
 
     projectBootMigrateAndSweep({
       workspacePath: "/work/current",
@@ -70,15 +70,15 @@ describe("projectActivation", () => {
 
     expect(useProjectStore.getState().projects).toHaveLength(1);
     expect(useProjectStore.getState().projects[0]?.folderPath).toBe("/work/current");
-    expect(useProjectStore.getState().activeChunkId).toBe(fresh.chunk.id);
+    expect(useProjectStore.getState().activeTrunkId).toBe(fresh.trunk.id);
     expect(useWorkspaceStore.getState().workspacePath).toBe("/work/current");
     expect(
-      useProjectStore.getState().chunks.some((c) => c.id === stale.chunk.id),
+      useProjectStore.getState().trunks.some((c) => c.id === stale.trunk.id),
     ).toBe(false);
   });
 
   it("boot does not recreate a project after the user deleted every project", () => {
-    const { project } = useProjectStore.getState().createProjectWithRootChunk({
+    const { project } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });

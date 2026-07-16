@@ -21,12 +21,12 @@ describe("resetAllPersistedSession", () => {
     useShellStore.getState().setActiveMainCard("editor");
     useShellStore.setState({ leftVisible: false, rightVisible: false });
     useThemeStore.getState().setMode("light");
-    useProjectStore.getState().createProjectWithRootChunk({
+    useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/tmp/x",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
     useChatStore.getState().appendMessage({
-      chunkId: useProjectStore.getState().activeChunkId!,
+      trunkId: useProjectStore.getState().activeTrunkId!,
       role: "user",
       content: "x",
       createdAt: "2026-07-10T00:00:00.000Z",
@@ -51,6 +51,6 @@ describe("resetAllPersistedSession", () => {
       await expect(storage.getItem(key)).resolves.toBeNull();
     }
     expect(useProjectStore.getState().projects).toEqual([]);
-    expect(useChatStore.getState().messagesByChunkId).toEqual({});
+    expect(useChatStore.getState().messagesByTrunkId).toEqual({});
   });
 });
