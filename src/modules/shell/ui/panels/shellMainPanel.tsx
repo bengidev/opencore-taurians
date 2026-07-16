@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useChatStore } from "../../../chat/state/chatStore";
-import { appendChunkMessage } from "../../../project/state/projectChat";
+import { appendTrunkMessage } from "../../../project/state/projectChat";
 import { useProjectStore } from "../../../project/state/projectStore";
 import { useShellStore, type ShellMainCard } from "../../state/shellStore";
 
@@ -9,24 +9,24 @@ const MAIN_CARDS = ["chat", "terminal", "editor"] as const satisfies readonly Sh
 const EMPTY_MESSAGES: never[] = [];
 
 function ChatCard() {
-  const activeChunkId = useProjectStore((s) => s.activeChunkId);
-  const messagesByChunkId = useChatStore((s) => s.messagesByChunkId);
-  const messages = activeChunkId
-    ? (messagesByChunkId[activeChunkId] ?? EMPTY_MESSAGES)
+  const activeTrunkId = useProjectStore((s) => s.activeTrunkId);
+  const messagesByTrunkId = useChatStore((s) => s.messagesByTrunkId);
+  const messages = activeTrunkId
+    ? (messagesByTrunkId[activeTrunkId] ?? EMPTY_MESSAGES)
     : EMPTY_MESSAGES;
   const [draft, setDraft] = useState("");
 
-  if (!activeChunkId) {
+  if (!activeTrunkId) {
     return (
-      <p className="mt-2 font-mono text-sm text-muted-foreground">Select a chunk</p>
+      <p className="mt-2 font-mono text-sm text-muted-foreground">Select a trunk</p>
     );
   }
 
   const send = () => {
     const content = draft.trim();
     if (!content) return;
-    appendChunkMessage({
-      chunkId: activeChunkId,
+    appendTrunkMessage({
+      trunkId: activeTrunkId,
       role: "user",
       content,
       nowIso: new Date().toISOString(),
