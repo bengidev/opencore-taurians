@@ -1,16 +1,16 @@
 import { projectFolderBasename, projectNormalizeFolderPath } from "./projectPath";
-import type { Project, ProjectChunk } from "./projectTypes";
+import type { Project, ProjectTrunk } from "./projectTypes";
 
 export function projectMigrateFromWorkspace(input: {
   workspacePath: string | null;
   existingProjectCount: number;
   nowIso: string;
   projectId?: string;
-  chunkId?: string;
-}): { project: Project; chunk: ProjectChunk } | null {
+  trunkId?: string;
+}): { project: Project; trunk: ProjectTrunk } | null {
   if (!input.workspacePath || input.existingProjectCount > 0) return null;
   const projectId = input.projectId ?? crypto.randomUUID();
-  const chunkId = input.chunkId ?? crypto.randomUUID();
+  const trunkId = input.trunkId ?? crypto.randomUUID();
   const project: Project = {
     id: projectId,
     name: projectFolderBasename(input.workspacePath),
@@ -20,10 +20,10 @@ export function projectMigrateFromWorkspace(input: {
     lastOpenedAt: input.nowIso,
     listOrder: 0,
   };
-  const chunk: ProjectChunk = {
-    id: chunkId,
+  const trunk: ProjectTrunk = {
+    id: trunkId,
     projectId,
-    parentChunkId: null,
+    parentTrunkId: null,
     title: "Main",
     pinned: false,
     createdAt: input.nowIso,
@@ -31,5 +31,5 @@ export function projectMigrateFromWorkspace(input: {
     restore: { activeMainCard: "chat" },
     siblingOrder: 0,
   };
-  return { project, chunk };
+  return { project, trunk };
 }

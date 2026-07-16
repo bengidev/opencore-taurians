@@ -19,17 +19,17 @@ describe("projectMigrateFromWorkspace", () => {
     ).toBeNull();
   });
 
-  it("builds one project and one root chunk", () => {
+  it("builds one project and one root trunk", () => {
     const result = projectMigrateFromWorkspace({
       workspacePath: "/work/app",
       existingProjectCount: 0,
       nowIso: "2026-07-10T00:00:00.000Z",
       projectId: "p1",
-      chunkId: "c1",
+      trunkId: "c1",
     });
     expect(result?.project.name).toBe("app");
     expect(result?.project.folderPath).toBe("/work/app");
-    expect(result?.chunk.parentChunkId).toBeNull();
-    expect(result?.chunk.projectId).toBe("p1");
+    expect(result?.trunk.parentTrunkId).toBeNull();
+    expect(result?.trunk.projectId).toBe("p1");
   });
 });
