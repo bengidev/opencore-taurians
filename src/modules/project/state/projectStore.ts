@@ -4,10 +4,11 @@ import { useChatStore } from "../../chat/state/chatStore";
 import { createSessionPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { SESSION_PERSIST_KEYS } from "../../session/infrastructure/sessionPersistKeys";
 import {
-  projectCollectSubtreeChunkIds,
-  projectListChildChunks,
-  projectReorderSiblingChunks,
-} from "../domain/projectChunkTree";
+  projectCollectTrunkWithChildrenIds,
+  projectIsRootTrunk,
+  projectListChildTrunks,
+  projectReorderSiblingTrunks,
+} from "../domain/projectTrunkTree";
 import { projectMigrateFromWorkspace } from "../domain/projectMigrate";
 import {
   projectFolderBasename,
@@ -17,8 +18,8 @@ import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { projectSelectExpired } from "../domain/projectRetention";
 import type {
   Project,
-  ProjectChunk,
-  ProjectChunkRestore,
+  ProjectTrunk,
+  ProjectTrunkRestore,
   ProjectGroup,
 } from "../domain/projectTypes";
 
@@ -30,57 +31,57 @@ function syncWorkspaceWhenNoProjects(projectCount: number): void {
 
 const EMPTY = {
   projects: [] as Project[],
-  chunks: [] as ProjectChunk[],
+  trunks: [] as ProjectTrunk[],
   groups: [] as ProjectGroup[],
   activeProjectId: null as string | null,
-  activeChunkId: null as string | null,
+  activeTrunkId: null as string | null,
   expandedProjectIds: [] as string[],
   panelError: null as string | null,
 };
 
 export interface ProjectState {
   projects: Project[];
-  chunks: ProjectChunk[];
+  trunks: ProjectTrunk[];
   groups: ProjectGroup[];
   activeProjectId: string | null;
-  activeChunkId: string | null;
+  activeTrunkId: string | null;
   expandedProjectIds: string[];
   panelError: string | null;
   resetProjectState: () => void;
   setPanelError: (message: string | null) => void;
-  createProjectWithRootChunk: (input: {
+  createProjectWithRootTrunk: (input: {
     folderPath: string;
     nowIso: string;
     projectId?: string;
-    chunkId?: string;
-  }) => { project: Project; chunk: ProjectChunk };
-  addChildChunk: (input: {
-    parentChunkId: string;
+    trunkId?: string;
+  }) => { project: Project; trunk: ProjectTrunk };
+  addChildTrunk: (input: {
+    parentTrunkId: string;
     title: string;
     nowIso: string;
-  }) => ProjectChunk | null;
-  addRootChunk: (input: {
+  }) => ProjectTrunk | null;
+  addRootTrunk: (input: {
     projectId: string;
     title: string;
     nowIso: string;
-  }) => ProjectChunk | null;
+  }) => ProjectTrunk | null;
   setProjectPinned: (projectId: string, pinned: boolean) => void;
-  setChunkPinned: (chunkId: string, pinned: boolean) => void;
-  setChunkRestore: (chunkId: string, restore: ProjectChunkRestore) => void;
-  touchChunkActivity: (chunkId: string, nowIso: string) => void;
-  setActiveIds: (projectId: string | null, chunkId: string | null) => void;
+  setTrunkPinned: (trunkId: string, pinned: boolean) => void;
+  setTrunkRestore: (trunkId: string, restore: ProjectTrunkRestore) => void;
+  touchTrunkActivity: (trunkId: string, nowIso: string) => void;
+  setActiveIds: (projectId: string | null, trunkId: string | null) => void;
   toggleProjectExpanded: (projectId: string) => void;
   createManualGroup: (label: string) => ProjectGroup;
   assignProjectToGroup: (projectId: string, groupId: string | null) => void;
   reorderProjectsInGroup: (groupId: string, orderedProjectIds: string[]) => void;
-  reorderSiblingChunks: (
-    parentChunkId: string | null,
+  reorderSiblingTrunks: (
+    parentTrunkId: string | null,
     orderedIds: string[],
   ) => void;
   findProjectByFolderPath: (folderPath: string) => Project | undefined;
   applyMigration: (workspacePath: string | null, nowIso: string) => void;
   updateProjectFolder: (projectId: string, folderPath: string) => void;
-  deleteChunkCascade: (chunkId: string) => void;
+  deleteTrunkCascade: (trunkId: string) => void;
   deleteProjectCascade: (projectId: string) => void;
   runRetentionSweep: (input: { nowMs: number; retentionDays: number }) => void;
 }
@@ -91,9 +92,9 @@ export const useProjectStore = create<ProjectState>()(
       ...EMPTY,
       resetProjectState: () => set({ ...EMPTY }),
       setPanelError: (message) => set({ panelError: message }),
-      createProjectWithRootChunk: (input) => {
+      createProjectWithRootTrunk: (input) => {
         const projectId = input.projectId ?? crypto.randomUUID();
-        const chunkId = input.chunkId ?? crypto.randomUUID();
+        const trunkId = input.trunkId ?? crypto.randomUUID();
         const project: Project = {
           id: projectId,
           name: projectFolderBasename(input.folderPath),
@@ -103,10 +104,10 @@ export const useProjectStore = create<ProjectState>()(
           lastOpenedAt: input.nowIso,
           listOrder: get().projects.length,
         };
-        const chunk: ProjectChunk = {
-          id: chunkId,
+        const trunk: ProjectTrunk = {
+          id: trunkId,
           projectId,
-          parentChunkId: null,
+          parentTrunkId: null,
           title: "Main",
           pinned: false,
           createdAt: input.nowIso,
@@ -116,23 +117,23 @@ export const useProjectStore = create<ProjectState>()(
         };
         set((state) => ({
           projects: [...state.projects, project],
-          chunks: [...state.chunks, chunk],
+          trunks: [...state.trunks, trunk],
           activeProjectId: projectId,
-          activeChunkId: chunkId,
+          activeTrunkId: trunkId,
           expandedProjectIds: state.expandedProjectIds.includes(projectId)
             ? state.expandedProjectIds
             : [...state.expandedProjectIds, projectId],
         }));
-        return { project, chunk };
+        return { project, trunk };
       },
-      addChildChunk: (input) => {
-        const parent = get().chunks.find((c) => c.id === input.parentChunkId);
-        if (!parent) return null;
-        const siblings = projectListChildChunks(get().chunks, parent.id);
-        const chunk: ProjectChunk = {
+      addChildTrunk: (input) => {
+        const parent = get().trunks.find((c) => c.id === input.parentTrunkId);
+        if (!parent || !projectIsRootTrunk(parent)) return null;
+        const siblings = projectListChildTrunks(get().trunks, parent.id);
+        const trunk: ProjectTrunk = {
           id: crypto.randomUUID(),
           projectId: parent.projectId,
-          parentChunkId: parent.id,
+          parentTrunkId: parent.id,
           title: input.title,
           pinned: false,
           createdAt: input.nowIso,
@@ -140,18 +141,18 @@ export const useProjectStore = create<ProjectState>()(
           restore: { activeMainCard: "chat" },
           siblingOrder: siblings.length,
         };
-        set((state) => ({ chunks: [...state.chunks, chunk] }));
-        return chunk;
+        set((state) => ({ trunks: [...state.trunks, trunk] }));
+        return trunk;
       },
-      addRootChunk: (input) => {
+      addRootTrunk: (input) => {
         if (!get().projects.some((p) => p.id === input.projectId)) return null;
-        const siblings = projectListChildChunks(get().chunks, null).filter(
+        const siblings = projectListChildTrunks(get().trunks, null).filter(
           (c) => c.projectId === input.projectId,
         );
-        const chunk: ProjectChunk = {
+        const trunk: ProjectTrunk = {
           id: crypto.randomUUID(),
           projectId: input.projectId,
-          parentChunkId: null,
+          parentTrunkId: null,
           title: input.title,
           pinned: false,
           createdAt: input.nowIso,
@@ -159,8 +160,8 @@ export const useProjectStore = create<ProjectState>()(
           restore: { activeMainCard: "chat" },
           siblingOrder: siblings.length,
         };
-        set((state) => ({ chunks: [...state.chunks, chunk] }));
-        return chunk;
+        set((state) => ({ trunks: [...state.trunks, trunk] }));
+        return trunk;
       },
       setProjectPinned: (projectId, pinned) =>
         set((state) => ({
@@ -168,33 +169,33 @@ export const useProjectStore = create<ProjectState>()(
             p.id === projectId ? { ...p, pinned } : p,
           ),
         })),
-      setChunkPinned: (chunkId, pinned) =>
+      setTrunkPinned: (trunkId, pinned) =>
         set((state) => ({
-          chunks: state.chunks.map((c) =>
-            c.id === chunkId ? { ...c, pinned } : c,
+          trunks: state.trunks.map((c) =>
+            c.id === trunkId ? { ...c, pinned } : c,
           ),
         })),
-      setChunkRestore: (chunkId, restore) =>
+      setTrunkRestore: (trunkId, restore) =>
         set((state) => ({
-          chunks: state.chunks.map((c) =>
-            c.id === chunkId ? { ...c, restore } : c,
+          trunks: state.trunks.map((c) =>
+            c.id === trunkId ? { ...c, restore } : c,
           ),
         })),
-      touchChunkActivity: (chunkId, nowIso) =>
+      touchTrunkActivity: (trunkId, nowIso) =>
         set((state) => {
-          const chunk = state.chunks.find((c) => c.id === chunkId);
-          if (!chunk) return state;
+          const trunk = state.trunks.find((c) => c.id === trunkId);
+          if (!trunk) return state;
           return {
-            chunks: state.chunks.map((c) =>
-              c.id === chunkId ? { ...c, lastOpenedAt: nowIso } : c,
+            trunks: state.trunks.map((c) =>
+              c.id === trunkId ? { ...c, lastOpenedAt: nowIso } : c,
             ),
             projects: state.projects.map((p) =>
-              p.id === chunk.projectId ? { ...p, lastOpenedAt: nowIso } : p,
+              p.id === trunk.projectId ? { ...p, lastOpenedAt: nowIso } : p,
             ),
           };
         }),
-      setActiveIds: (projectId, chunkId) =>
-        set({ activeProjectId: projectId, activeChunkId: chunkId }),
+      setActiveIds: (projectId, trunkId) =>
+        set({ activeProjectId: projectId, activeTrunkId: trunkId }),
       toggleProjectExpanded: (projectId) =>
         set((state) => ({
           expandedProjectIds: state.expandedProjectIds.includes(projectId)
@@ -234,11 +235,11 @@ export const useProjectStore = create<ProjectState>()(
             g.id === groupId ? { ...g, projectIds: [...orderedProjectIds] } : g,
           ),
         })),
-      reorderSiblingChunks: (parentChunkId, orderedIds) =>
+      reorderSiblingTrunks: (parentTrunkId, orderedIds) =>
         set((state) => ({
-          chunks: projectReorderSiblingChunks(
-            state.chunks,
-            parentChunkId,
+          trunks: projectReorderSiblingTrunks(
+            state.trunks,
+            parentTrunkId,
             orderedIds,
           ),
         })),
@@ -257,9 +258,9 @@ export const useProjectStore = create<ProjectState>()(
         if (!migrated) return;
         set((state) => ({
           projects: [...state.projects, migrated.project],
-          chunks: [...state.chunks, migrated.chunk],
+          trunks: [...state.trunks, migrated.trunk],
           activeProjectId: migrated.project.id,
-          activeChunkId: migrated.chunk.id,
+          activeTrunkId: migrated.trunk.id,
           expandedProjectIds: [...state.expandedProjectIds, migrated.project.id],
         }));
       },
@@ -275,30 +276,30 @@ export const useProjectStore = create<ProjectState>()(
               : p,
           ),
         })),
-      deleteChunkCascade: (chunkId) => {
-        const ids = projectCollectSubtreeChunkIds(get().chunks, chunkId);
+      deleteTrunkCascade: (trunkId) => {
+        const ids = projectCollectTrunkWithChildrenIds(get().trunks, trunkId);
         const idSet = new Set(ids);
-        const chunk = get().chunks.find((c) => c.id === chunkId);
-        useChatStore.getState().deleteByChunkIds(ids);
+        const trunk = get().trunks.find((c) => c.id === trunkId);
+        useChatStore.getState().deleteByTrunkIds(ids);
         set((state) => {
-          const chunks = state.chunks.filter((c) => !idSet.has(c.id));
-          const projectId = chunk?.projectId;
-          const projectStillHasChunks = chunks.some(
+          const trunks = state.trunks.filter((c) => !idSet.has(c.id));
+          const projectId = trunk?.projectId;
+          const projectStillHasTrunks = trunks.some(
             (c) => c.projectId === projectId,
           );
           const projects =
-            projectId && !projectStillHasChunks
+            projectId && !projectStillHasTrunks
               ? state.projects.filter((p) => p.id !== projectId)
               : state.projects;
           return {
-            chunks,
+            trunks,
             projects,
-            activeChunkId: idSet.has(state.activeChunkId ?? "")
+            activeTrunkId: idSet.has(state.activeTrunkId ?? "")
               ? null
-              : state.activeChunkId,
+              : state.activeTrunkId,
             activeProjectId:
               projectId &&
-              !projectStillHasChunks &&
+              !projectStillHasTrunks &&
               state.activeProjectId === projectId
                 ? null
                 : state.activeProjectId,
@@ -308,21 +309,21 @@ export const useProjectStore = create<ProjectState>()(
       },
       deleteProjectCascade: (projectId) => {
         const ids = get()
-          .chunks.filter((c) => c.projectId === projectId)
+          .trunks.filter((c) => c.projectId === projectId)
           .map((c) => c.id);
-        useChatStore.getState().deleteByChunkIds(ids);
+        useChatStore.getState().deleteByTrunkIds(ids);
         set((state) => ({
           projects: state.projects.filter((p) => p.id !== projectId),
-          chunks: state.chunks.filter((c) => c.projectId !== projectId),
+          trunks: state.trunks.filter((c) => c.projectId !== projectId),
           groups: state.groups.map((g) => ({
             ...g,
             projectIds: g.projectIds.filter((id) => id !== projectId),
           })),
           activeProjectId:
             state.activeProjectId === projectId ? null : state.activeProjectId,
-          activeChunkId: ids.includes(state.activeChunkId ?? "")
+          activeTrunkId: ids.includes(state.activeTrunkId ?? "")
             ? null
-            : state.activeChunkId,
+            : state.activeTrunkId,
           expandedProjectIds: state.expandedProjectIds.filter(
             (id) => id !== projectId,
           ),
@@ -334,11 +335,11 @@ export const useProjectStore = create<ProjectState>()(
           nowMs: input.nowMs,
           retentionDays: input.retentionDays,
           projects: get().projects,
-          chunks: get().chunks,
+          trunks: get().trunks,
         });
-        for (const chunkId of expired.chunkIds) {
-          if (get().chunks.some((c) => c.id === chunkId)) {
-            get().deleteChunkCascade(chunkId);
+        for (const trunkId of expired.trunkIds) {
+          if (get().trunks.some((c) => c.id === trunkId)) {
+            get().deleteTrunkCascade(trunkId);
           }
         }
         for (const projectId of expired.projectIds) {
@@ -354,10 +355,10 @@ export const useProjectStore = create<ProjectState>()(
       storage: createSessionPersistStorage(),
       partialize: (state) => ({
         projects: state.projects,
-        chunks: state.chunks,
+        trunks: state.trunks,
         groups: state.groups,
         activeProjectId: state.activeProjectId,
-        activeChunkId: state.activeChunkId,
+        activeTrunkId: state.activeTrunkId,
         expandedProjectIds: state.expandedProjectIds,
       }),
     },
