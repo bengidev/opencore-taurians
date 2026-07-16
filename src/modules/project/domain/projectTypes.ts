@@ -1,6 +1,6 @@
 import type { ShellMainCard } from "../../shell/state/shellStore";
 
-export interface ProjectChunkRestore {
+export interface ProjectTrunkRestore {
   activeMainCard: ShellMainCard;
 }
 
@@ -15,15 +15,15 @@ export interface Project {
   listOrder: number;
 }
 
-export interface ProjectChunk {
+export interface ProjectTrunk {
   id: string;
   projectId: string;
-  parentChunkId: string | null;
+  parentTrunkId: string | null;
   title: string;
   pinned: boolean;
   createdAt: string;
   lastOpenedAt: string;
-  restore: ProjectChunkRestore;
+  restore: ProjectTrunkRestore;
   siblingOrder: number;
 }
 
