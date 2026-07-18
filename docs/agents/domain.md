@@ -5,7 +5,7 @@ How the engineering skills should consume this repo's domain documentation when 
 ## Before exploring, read these
 
 - **`CONTEXT-MAP.md`** at the repo root — points at one `CONTEXT.md` per context. Read each one relevant to the topic.
-- **`docs/adr/`** — read ADRs that touch the area you're about to work in. Also check context-scoped `docs/adr/` directories listed below.
+- **`docs/adr/`** — read ADRs that touch the area you're about to work in. Also check context-scoped `docs/adr/` directories from the context map.
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
 
@@ -13,18 +13,24 @@ If any of these files don't exist, **proceed silently**. Don't flag their absenc
 
 Multi-context layout for this repo:
 
-```
+```text
 /
 ├── CONTEXT-MAP.md
 ├── docs/adr/                              ← system-wide decisions
 ├── src/
-│   ├── CONTEXT.md                         ← app shell (routing, shared UI)
+│   ├── CONTEXT.md                         ← app shell (created lazily)
 │   ├── docs/adr/
-│   └── modules/onboarding/
-│       ├── CONTEXT.md                     ← onboarding flow, theme, galaxy orb
-│       └── docs/adr/
+│   └── modules/
+│       ├── onboarding/
+│       │   ├── CONTEXT.md
+│       │   └── docs/adr/
+│       ├── session/CONTEXT.md
+│       ├── shell/CONTEXT.md
+│       ├── workspace-popup/CONTEXT.md
+│       ├── project/CONTEXT.md
+│       └── chat/CONTEXT.md
 └── src-tauri/
-    ├── CONTEXT.md                         ← Tauri desktop shell, native APIs
+    ├── CONTEXT.md                         ← desktop shell (created lazily)
     └── docs/adr/
 ```
 
@@ -33,7 +39,12 @@ Multi-context layout for this repo:
 | Context | When to read |
 | ------- | ------------ |
 | **onboarding** | Onboarding Screen, Theme Mode, Galaxy Orb, Scene Backdrop, Enter action |
-| **app** | `App.tsx`, routing, shared components, design system integration |
+| **session** | Session lifecycle, persistence, boot hydration, root UI, window sizing |
+| **shell** | Workspace chrome, Main Cards, panels, Settings, Main Card Tabs |
+| **workspace-popup** | Workspace Popup, Open Project, Folder Picker |
+| **project** | Projects, ProjectTrunks, ProjectGroups, activation, retention |
+| **chat** | ChatMessage persistence and trunk-scoped history |
+| **app** | `App.tsx`, routing, shared components, design-system integration |
 | **desktop** | Tauri config, Rust commands, window management, native plugins |
 
 ## Use the glossary's vocabulary

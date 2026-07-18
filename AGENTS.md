@@ -10,4 +10,4 @@ Five canonical triage labels, unmodified defaults. See `docs/agents/triage-label
 
 ### Domain docs
 
-Multi-context — `CONTEXT-MAP.md` at the repo root maps onboarding, app, and desktop contexts. See `docs/agents/domain.md`.
+Multi-context — `CONTEXT-MAP.md` maps the app, desktop, and feature-module contexts. See `docs/agents/domain.md`.
