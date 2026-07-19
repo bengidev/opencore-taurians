@@ -13,6 +13,8 @@ import { ExplorerContextMenu } from "./ExplorerContextMenu";
 import { ExplorerEmptySelectProject } from "./ExplorerEmptySelectProject";
 import { ExplorerTree } from "./ExplorerTree";
 
+const defaultExplorerApi = createTauriExplorerApi();
+
 function parentDir(path: string): string {
   const index = path.lastIndexOf("/");
   return index <= 0 ? path : path.slice(0, index);
@@ -61,7 +63,7 @@ export interface ExplorerPanelProps {
 }
 
 export function ExplorerPanel({
-  explorerApi = createTauriExplorerApi(),
+  explorerApi = defaultExplorerApi,
 }: ExplorerPanelProps) {
   const project = useProjectStore((s) =>
     s.projects.find((item) => item.id === s.activeProjectId),
