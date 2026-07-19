@@ -180,7 +180,20 @@ export function ExplorerPanel({
         </div>
       ) : null}
       <ExplorerContextMenu targetPath={project?.folderPath ?? null}>
-        <div className="min-h-0 flex-1 overflow-y-auto p-1">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-1"
+          onMouseDown={(event) => {
+            const { renamingPath, cancelRename } = useExplorerStore.getState();
+            if (!renamingPath) {
+              return;
+            }
+            const target = event.target as HTMLElement;
+            if (target.closest('input[aria-label="Rename"]')) {
+              return;
+            }
+            cancelRename();
+          }}
+        >
           {project ? <ExplorerTree /> : <ExplorerEmptySelectProject />}
         </div>
       </ExplorerContextMenu>
