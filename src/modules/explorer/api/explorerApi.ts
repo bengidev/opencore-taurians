@@ -1,5 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import {
+  DEFAULT_NEW_FILE_NAME,
+  DEFAULT_NEW_FOLDER_NAME,
+} from "../domain/explorerDefaults";
 import type {
   ExplorerAutoRefresh,
   ExplorerDropPayload,
@@ -31,9 +35,9 @@ export function createTauriExplorerApi(): ExplorerApi {
   return {
     listDir: (projectRoot, dirPath) =>
       invoke("explorer_list_dir", { input: { projectRoot, dirPath } }),
-    createFile: (projectRoot, parentDir, name = "untitled") =>
+    createFile: (projectRoot, parentDir, name = DEFAULT_NEW_FILE_NAME) =>
       invoke("explorer_create_file", { input: { projectRoot, parentDir, name } }),
-    createDir: (projectRoot, parentDir, name = "New Folder") =>
+    createDir: (projectRoot, parentDir, name = DEFAULT_NEW_FOLDER_NAME) =>
       invoke("explorer_create_dir", { input: { projectRoot, parentDir, name } }),
     rename: (projectRoot, path, newName) =>
       invoke("explorer_rename", { input: { projectRoot, path, newName } }),
