@@ -25,7 +25,8 @@ pub struct ExplorerCreateDirInput {
 pub fn explorer_create_file(input: ExplorerCreateFileInput) -> Result<ExplorerEntry, ExplorerError> {
     let parent = ensure_under_root(Path::new(&input.project_root), Path::new(&input.parent_dir))
         .map_err(|_| ExplorerError::OutsideProject(input.parent_dir.clone()))?;
-    let target = parent.join(&input.name);
+    let target = ensure_under_root(Path::new(&input.project_root), &parent.join(&input.name))
+        .map_err(|_| ExplorerError::OutsideProject(input.name.clone()))?;
     if target.exists() {
         return Err(ExplorerError::AlreadyExists(
             target.to_string_lossy().into_owned(),
@@ -43,7 +44,8 @@ pub fn explorer_create_file(input: ExplorerCreateFileInput) -> Result<ExplorerEn
 pub fn explorer_create_dir(input: ExplorerCreateDirInput) -> Result<ExplorerEntry, ExplorerError> {
     let parent = ensure_under_root(Path::new(&input.project_root), Path::new(&input.parent_dir))
         .map_err(|_| ExplorerError::OutsideProject(input.parent_dir.clone()))?;
-    let target = parent.join(&input.name);
+    let target = ensure_under_root(Path::new(&input.project_root), &parent.join(&input.name))
+        .map_err(|_| ExplorerError::OutsideProject(input.name.clone()))?;
     if target.exists() {
         return Err(ExplorerError::AlreadyExists(
             target.to_string_lossy().into_owned(),
@@ -90,5 +92,31 @@ mod tests {
             name: "untitled".into(),
         });
         assert!(matches!(result, Err(ExplorerError::AlreadyExists(_))));
+    }
+
+    #[test]
+    fn rejects_traversal_name_on_create_file() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().to_string_lossy().into_owned();
+        let result = explorer_create_file(ExplorerCreateFileInput {
+            project_root: root.clone(),
+            parent_dir: root,
+            name: "../escape.txt".into(),
+        });
+        assert!(matches!(result, Err(ExplorerError::OutsideProject(_))));
+        assert!(!dir.path().parent().unwrap().join("escape.txt").exists());
+    }
+
+    #[test]
+    fn rejects_traversal_name_on_create_dir() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().to_string_lossy().into_owned();
+        let result = explorer_create_dir(ExplorerCreateDirInput {
+            project_root: root.clone(),
+            parent_dir: root,
+            name: "../escaped-dir".into(),
+        });
+        assert!(matches!(result, Err(ExplorerError::OutsideProject(_))));
+        assert!(!dir.path().parent().unwrap().join("escaped-dir").exists());
     }
 }
