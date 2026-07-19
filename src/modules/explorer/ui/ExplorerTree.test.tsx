@@ -1,6 +1,9 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useEditorStore } from "../../editor/state/editorStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
+import { useShellStore } from "../../shell/state/shellStore";
 import { useProjectStore } from "../../project/state/projectStore";
 import { createMemoryExplorerApi } from "../api/createMemoryExplorerApi";
 import { useExplorerStore } from "../state/explorerStore";
@@ -13,6 +16,7 @@ describe("ExplorerTree", () => {
     useMemoryPersistStorage();
     useProjectStore.getState().resetProjectState();
     useExplorerStore.getState().resetExplorerState();
+    useEditorStore.setState({ openFilePath: null });
   });
 
   it("renders project files", async () => {
@@ -33,5 +37,34 @@ describe("ExplorerTree", () => {
 
     render(<ExplorerTree />);
     expect(await screen.findByText("a.ts")).toBeInTheDocument();
+  });
+
+  it("file click sets editor card and openFilePath", async () => {
+    const user = userEvent.setup();
+    const folderPath = "/proj";
+    const filePath = "/proj/a.ts";
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "a.ts", path: filePath, isDir: false }],
+      },
+    });
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
+
+    const setActiveMainCardSpy = vi.spyOn(useShellStore.getState(), "setActiveMainCard");
+    const setOpenFilePathSpy = vi.spyOn(useEditorStore.getState(), "setOpenFilePath");
+
+    render(<ExplorerTree />);
+    await user.click(await screen.findByText("a.ts"));
+
+    expect(setActiveMainCardSpy).toHaveBeenCalledWith("editor");
+    expect(setOpenFilePathSpy).toHaveBeenCalledWith(filePath);
   });
 });

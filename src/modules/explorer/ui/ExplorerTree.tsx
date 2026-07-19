@@ -11,6 +11,9 @@ interface ExplorerEntryRowProps {
   depth: number;
 }
 
+const rowLabelClassName =
+  "flex min-w-0 flex-1 items-center gap-1 overflow-hidden rounded-sm px-1 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em]";
+
 function openFile(path: string): void {
   useShellStore.getState().setActiveMainCard("editor");
   useEditorStore.getState().setOpenFilePath(path);
@@ -28,6 +31,12 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
   const isSelected = selectedPath === entry.path;
   const isRenaming = renamingPath === entry.path;
   const children = childrenByPath[entry.path] ?? [];
+  const labelClassName = cn(
+    rowLabelClassName,
+    isSelected
+      ? "bg-muted text-foreground"
+      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+  );
 
   if (entry.isDir) {
     return (
@@ -50,24 +59,22 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
               <ChevronRight className="size-3" aria-hidden />
             )}
           </button>
-          <button
-            type="button"
-            aria-current={isSelected ? "true" : undefined}
-            className={cn(
-              "flex min-w-0 flex-1 items-center gap-1 overflow-hidden rounded-sm px-1 py-1 text-left font-mono text-[11px]",
-              isSelected
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-            )}
-            onClick={() => selectPath(entry.path)}
-          >
-            <Folder className="size-3 shrink-0" aria-hidden />
-            {isRenaming ? (
+          {isRenaming ? (
+            <div className={labelClassName}>
+              <Folder className="size-3 shrink-0" aria-hidden />
               <ExplorerRenameInput initialName={entry.name} />
-            ) : (
+            </div>
+          ) : (
+            <button
+              type="button"
+              aria-current={isSelected ? "true" : undefined}
+              className={labelClassName}
+              onClick={() => selectPath(entry.path)}
+            >
+              <Folder className="size-3 shrink-0" aria-hidden />
               <span className="truncate">{entry.name}</span>
-            )}
-          </button>
+            </button>
+          )}
         </div>
         {expanded ? (
           <ul className="list-none">
@@ -88,27 +95,25 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
         data-explorer-path={entry.path}
       >
         <span className="size-4 shrink-0" aria-hidden />
-        <button
-          type="button"
-          aria-current={isSelected ? "true" : undefined}
-          className={cn(
-            "flex min-w-0 flex-1 items-center gap-1 overflow-hidden rounded-sm px-1 py-1 text-left font-mono text-[11px]",
-            isSelected
-              ? "bg-muted text-foreground"
-              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-          )}
-          onClick={() => {
-            selectPath(entry.path);
-            openFile(entry.path);
-          }}
-        >
-          <File className="size-3 shrink-0" aria-hidden />
-          {isRenaming ? (
+        {isRenaming ? (
+          <div className={labelClassName}>
+            <File className="size-3 shrink-0" aria-hidden />
             <ExplorerRenameInput initialName={entry.name} />
-          ) : (
+          </div>
+        ) : (
+          <button
+            type="button"
+            aria-current={isSelected ? "true" : undefined}
+            className={labelClassName}
+            onClick={() => {
+              selectPath(entry.path);
+              openFile(entry.path);
+            }}
+          >
+            <File className="size-3 shrink-0" aria-hidden />
             <span className="truncate">{entry.name}</span>
-          )}
-        </button>
+          </button>
+        )}
       </div>
     </li>
   );
