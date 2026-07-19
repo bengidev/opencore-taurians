@@ -29,4 +29,41 @@ describe("explorerStore", () => {
 
     expect(useExplorerStore.getState().childrenByPath["/proj"]).toHaveLength(1);
   });
+
+  it("commitRename remaps expanded folder cache when renaming a directory", async () => {
+    const folderPath = "/proj";
+    const oldDir = "/proj/foo";
+    const childFile = { name: "a.ts", path: "/proj/foo/a.ts", isDir: false };
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "foo", path: oldDir, isDir: true }],
+        [oldDir]: [childFile],
+      },
+    });
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
+    await useExplorerStore.getState().toggleExpanded(oldDir);
+    useExplorerStore.getState().selectPath(childFile.path);
+    useExplorerStore.setState({ renamingPath: oldDir });
+    await useExplorerStore.getState().commitRename("bar");
+
+    const state = useExplorerStore.getState();
+    const newDir = "/proj/bar";
+    const newChild = "/proj/bar/a.ts";
+
+    expect(state.childrenByPath[newDir]).toEqual([
+      { name: "a.ts", path: newChild, isDir: false },
+    ]);
+    expect(state.childrenByPath[oldDir]).toBeUndefined();
+    expect(state.expandedPaths.has(newDir)).toBe(true);
+    expect(state.expandedPaths.has(oldDir)).toBe(false);
+    expect(state.selectedPath).toBe(newChild);
+  });
 });
