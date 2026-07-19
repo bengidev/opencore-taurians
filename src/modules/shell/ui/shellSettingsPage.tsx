@@ -108,6 +108,8 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
   const resetPanelWidths = useShellStore((s) => s.resetPanelWidths);
+  const explorerAutoRefresh = useShellStore((s) => s.explorerAutoRefresh);
+  const setExplorerAutoRefresh = useShellStore((s) => s.setExplorerAutoRefresh);
   const [mounted, setMounted] = useState(open);
   const [revealed, setRevealed] = useState(open);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -253,6 +255,38 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
           >
             Reset panel widths
           </Button>
+        </section>
+        <section className="flex flex-col gap-3">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+            Explorer
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Control how the file tree stays up to date.
+          </p>
+          <div role="group" aria-label="Explorer auto-refresh">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                aria-pressed={explorerAutoRefresh === "live"}
+                className="font-mono text-[11px] uppercase tracking-[0.08em]"
+                onClick={() => setExplorerAutoRefresh("live")}
+              >
+                Live updates
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                aria-pressed={explorerAutoRefresh === "on-activate"}
+                className="font-mono text-[11px] uppercase tracking-[0.08em]"
+                onClick={() => setExplorerAutoRefresh("on-activate")}
+              >
+                On project switch
+              </Button>
+            </div>
+          </div>
         </section>
       </div>
     </div>

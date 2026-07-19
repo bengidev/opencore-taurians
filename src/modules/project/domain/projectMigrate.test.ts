@@ -31,5 +31,6 @@ describe("projectMigrateFromWorkspace", () => {
     expect(result?.project.folderPath).toBe("/work/app");
     expect(result?.trunk.parentTrunkId).toBeNull();
     expect(result?.trunk.projectId).toBe("p1");
+    expect(result?.trunk.title).toBe("default");
   });
 });

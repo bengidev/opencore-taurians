@@ -1,9 +1,18 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 const host = process.env.TAURI_DEV_HOST;
+const require = createRequire(import.meta.url);
+
+function resolveViteFsAllowRoots(): string[] {
+  const roots = new Set<string>([path.resolve(__dirname)]);
+  // Git worktrees may resolve dependencies from a parent checkout's node_modules.
+  roots.add(path.dirname(path.dirname(require.resolve("vite/package.json"))));
+  return [...roots];
+}
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
@@ -36,6 +45,9 @@ export default defineConfig(async () => ({
           port: 1421,
         }
       : undefined,
+    fs: {
+      allow: resolveViteFsAllowRoots(),
+    },
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**", "**/.extract-design-system/**"],

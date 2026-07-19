@@ -1,3 +1,4 @@
+import { DEFAULT_ROOT_TRUNK_TITLE } from "./projectDefaults";
 import { projectFolderBasename, projectNormalizeFolderPath } from "./projectPath";
 import type { Project, ProjectTrunk } from "./projectTypes";
 
@@ -24,7 +25,7 @@ export function projectMigrateFromWorkspace(input: {
     id: trunkId,
     projectId,
     parentTrunkId: null,
-    title: "Main",
+    title: DEFAULT_ROOT_TRUNK_TITLE,
     pinned: false,
     createdAt: input.nowIso,
     lastOpenedAt: input.nowIso,
