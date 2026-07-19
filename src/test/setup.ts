@@ -1,5 +1,14 @@
 import "@testing-library/jest-dom/vitest";
-import { beforeEach } from "vitest";
+import { beforeEach, vi } from "vitest";
+import { createMemoryExplorerApi } from "../modules/explorer/api/createMemoryExplorerApi";
+
+vi.mock("../modules/explorer/api/explorerApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../modules/explorer/api/explorerApi")>();
+  return {
+    ...actual,
+    createTauriExplorerApi: () => createMemoryExplorerApi(),
+  };
+});
 
 const storage = new Map<string, string>();
 
