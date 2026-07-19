@@ -24,7 +24,11 @@ pub fn explorer_rename(input: ExplorerRenameInput) -> Result<ExplorerEntry, Expl
     let parent = source
         .parent()
         .ok_or_else(|| ExplorerError::Invalid("no parent".into()))?;
-    let dest = parent.join(&input.new_name);
+    let dest = ensure_under_root(
+        Path::new(&input.project_root),
+        &parent.join(&input.new_name),
+    )
+    .map_err(|_| ExplorerError::OutsideProject(input.new_name.clone()))?;
     if dest.exists() {
         return Err(ExplorerError::AlreadyExists(
             dest.to_string_lossy().into_owned(),
@@ -61,5 +65,21 @@ mod tests {
         assert!(!entry.is_dir);
         assert!(dir.path().join("main.rs").exists());
         assert!(!untitled.exists());
+    }
+
+    #[test]
+    fn rejects_traversal_name_on_rename() {
+        let dir = tempdir().unwrap();
+        let untitled = dir.path().join("untitled");
+        fs::write(&untitled, "").unwrap();
+        let root = dir.path().to_string_lossy().into_owned();
+        let result = explorer_rename(ExplorerRenameInput {
+            project_root: root.clone(),
+            path: untitled.to_string_lossy().into_owned(),
+            new_name: "../moved.txt".into(),
+        });
+        assert!(matches!(result, Err(ExplorerError::OutsideProject(_))));
+        assert!(untitled.exists());
+        assert!(!dir.path().parent().unwrap().join("moved.txt").exists());
     }
 }

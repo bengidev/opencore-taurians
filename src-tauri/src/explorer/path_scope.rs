@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 #[derive(Debug, thiserror::Error)]
 pub enum PathScopeError {
@@ -9,7 +9,21 @@ pub enum PathScopeError {
 }
 
 pub fn normalize_path(path: &Path) -> PathBuf {
-    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+    path.canonicalize().unwrap_or_else(|_| lexically_normalize(path))
+}
+
+fn lexically_normalize(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            component => normalized.push(component),
+        }
+    }
+    normalized
 }
 
 pub fn ensure_under_root(project_root: &Path, target: &Path) -> Result<PathBuf, PathScopeError> {
@@ -41,6 +55,14 @@ mod tests {
         let dir = tempdir().unwrap();
         let outside = std::env::temp_dir();
         let result = ensure_under_root(dir.path(), &outside);
+        assert!(matches!(result, Err(PathScopeError::OutsideProject)));
+    }
+
+    #[test]
+    fn rejects_lexical_traversal_outside_root() {
+        let dir = tempdir().unwrap();
+        let traversal = dir.path().join("..").join("outside.txt");
+        let result = ensure_under_root(dir.path(), &traversal);
         assert!(matches!(result, Err(PathScopeError::OutsideProject)));
     }
 }
