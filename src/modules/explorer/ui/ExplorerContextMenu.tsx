@@ -9,6 +9,7 @@ import {
 import { projectNormalizeFolderPath } from "../../project/domain/projectPath";
 import type { ExplorerEntry } from "../domain/explorerTypes";
 import { useExplorerStore } from "../state/explorerStore";
+import { explorerContextMenuClassName } from "./explorerStyles";
 
 export interface ExplorerContextMenuProps {
   targetPath: string | null;
@@ -184,60 +185,62 @@ export function ExplorerContextMenu({
       >
         {children}
       </ContextMenuTrigger>
-      {contextTarget ? (
-        <ContextMenuContent>
-          {kind === "folder" || kind === "empty" ? (
-            <>
-              <ContextMenuItem
-                onSelect={() => void handleNewFile(parentForTarget(contextTarget))}
-              >
-                New File
-              </ContextMenuItem>
-              <ContextMenuItem
-                onSelect={() => void handleNewFolder(parentForTarget(contextTarget))}
-              >
-                New Folder
-              </ContextMenuItem>
-            </>
-          ) : null}
-          {kind === "folder" || kind === "file" ? (
-            <>
-              {kind === "folder" ? <ContextMenuSeparator /> : null}
-              <ContextMenuItem
-                onSelect={() => useExplorerStore.getState().startRename(contextTarget.path)}
-              >
-                Rename
-              </ContextMenuItem>
-              <ContextMenuItem
-                onSelect={() => void handleDuplicate(contextTarget.path)}
-              >
-                Duplicate
-              </ContextMenuItem>
-              <ContextMenuItem
-                variant="destructive"
-                onSelect={() => void handleDelete(contextTarget.path)}
-              >
-                Delete
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-              <ContextMenuItem onSelect={() => void handleReveal(contextTarget.path)}>
-                Reveal in Finder
-              </ContextMenuItem>
-              <ContextMenuItem onSelect={() => void handleCopyPath(contextTarget.path)}>
-                Copy Path
-              </ContextMenuItem>
-            </>
-          ) : null}
-          {kind === "folder" || kind === "empty" ? (
-            <>
-              {kind === "folder" ? <ContextMenuSeparator /> : null}
-              <ContextMenuItem onSelect={() => void handleRefresh()}>
-                Refresh
-              </ContextMenuItem>
-            </>
-          ) : null}
-        </ContextMenuContent>
-      ) : null}
+      <ContextMenuContent className={explorerContextMenuClassName}>
+        {contextTarget ? (
+          <>
+            {kind === "folder" || kind === "empty" ? (
+              <>
+                <ContextMenuItem
+                  onClick={() => void handleNewFile(parentForTarget(contextTarget))}
+                >
+                  New File
+                </ContextMenuItem>
+                <ContextMenuItem
+                  onClick={() => void handleNewFolder(parentForTarget(contextTarget))}
+                >
+                  New Folder
+                </ContextMenuItem>
+              </>
+            ) : null}
+            {kind === "folder" || kind === "file" ? (
+              <>
+                {kind === "folder" ? <ContextMenuSeparator /> : null}
+                <ContextMenuItem
+                  onClick={() => useExplorerStore.getState().startRename(contextTarget.path)}
+                >
+                  Rename
+                </ContextMenuItem>
+                <ContextMenuItem
+                  onClick={() => void handleDuplicate(contextTarget.path)}
+                >
+                  Duplicate
+                </ContextMenuItem>
+                <ContextMenuItem
+                  variant="destructive"
+                  onClick={() => void handleDelete(contextTarget.path)}
+                >
+                  Delete
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem onClick={() => void handleReveal(contextTarget.path)}>
+                  Reveal in Finder
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => void handleCopyPath(contextTarget.path)}>
+                  Copy Path
+                </ContextMenuItem>
+              </>
+            ) : null}
+            {kind === "folder" || kind === "empty" ? (
+              <>
+                {kind === "folder" ? <ContextMenuSeparator /> : null}
+                <ContextMenuItem onClick={() => void handleRefresh()}>
+                  Refresh
+                </ContextMenuItem>
+              </>
+            ) : null}
+          </>
+        ) : null}
+      </ContextMenuContent>
     </ContextMenu>
   );
 }
