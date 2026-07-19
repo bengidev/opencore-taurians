@@ -42,7 +42,7 @@ import {
   projectSearchTitleTrunkIds,
 } from "./projectPanelSearch";
 
-const NEW_TRUNK_TITLE = "New trunk";
+import { DEFAULT_NEW_TRUNK_TITLE } from "../domain/projectDefaults";
 const PROJECT_DRAG_ID_MIME = "application/x-project-id";
 const PROJECT_DRAG_GROUP_MIME = "application/x-project-group-id";
 
@@ -109,7 +109,7 @@ function ProjectRow({
             draggable={Boolean(project.manualGroupId)}
             aria-expanded={expanded}
             className={cn(
-              "flex min-w-0 flex-1 items-center gap-1 overflow-hidden rounded-sm px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-foreground hover:bg-muted/60",
+              "flex min-w-0 flex-1 items-center gap-1 overflow-hidden rounded-sm px-2 py-1 text-left font-mono text-[11px] tracking-[0.08em] text-foreground hover:bg-muted/60",
             )}
             onClick={onToggleExpanded}
             onDragStart={
@@ -186,7 +186,7 @@ function ProjectRow({
             event.stopPropagation();
             const trunk = useProjectStore.getState().addRootTrunk({
               projectId: project.id,
-              title: NEW_TRUNK_TITLE,
+              title: DEFAULT_NEW_TRUNK_TITLE,
               nowIso: new Date().toISOString(),
             });
             if (trunk) projectActivateTrunk(trunk.id);
