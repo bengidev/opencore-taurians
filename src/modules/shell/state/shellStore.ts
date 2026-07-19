@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { ExplorerAutoRefresh } from "../../explorer/domain/explorerTypes";
 import { createSessionPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { SESSION_PERSIST_KEYS } from "../../session/infrastructure/sessionPersistKeys";
 import {
@@ -17,6 +18,7 @@ export interface ShellState {
   settingsOpen: boolean;
   leftPanelWidth: number;
   rightPanelWidth: number;
+  explorerAutoRefresh: ExplorerAutoRefresh;
   setActiveMainCard: (card: ShellMainCard) => void;
   toggleLeft: () => void;
   toggleRight: () => void;
@@ -26,6 +28,7 @@ export interface ShellState {
   setSettingsOpen: (open: boolean) => void;
   setLeftPanelWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
+  setExplorerAutoRefresh: (mode: ExplorerAutoRefresh) => void;
   resetPanelWidths: () => void;
   resetShellUi: () => void;
 }
@@ -38,6 +41,7 @@ const DEFAULT_SHELL_UI = {
   settingsOpen: false,
   leftPanelWidth: DEFAULT_SHELL_PANEL_WIDTH,
   rightPanelWidth: DEFAULT_SHELL_PANEL_WIDTH,
+  explorerAutoRefresh: "live" as ExplorerAutoRefresh,
 };
 
 export const useShellStore = create<ShellState>()(
@@ -55,6 +59,7 @@ export const useShellStore = create<ShellState>()(
         set({ leftPanelWidth: clampShellPanelWidth(width) }),
       setRightPanelWidth: (width) =>
         set({ rightPanelWidth: clampShellPanelWidth(width) }),
+      setExplorerAutoRefresh: (mode) => set({ explorerAutoRefresh: mode }),
       resetPanelWidths: () =>
         set({
           leftPanelWidth: DEFAULT_SHELL_PANEL_WIDTH,
@@ -72,6 +77,7 @@ export const useShellStore = create<ShellState>()(
         bottomVisible: state.bottomVisible,
         leftPanelWidth: state.leftPanelWidth,
         rightPanelWidth: state.rightPanelWidth,
+        explorerAutoRefresh: state.explorerAutoRefresh,
       }),
     },
   ),

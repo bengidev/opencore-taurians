@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   projectCollectTrunkWithChildrenIds,
+  projectFlattenTrunks,
   projectListChildTrunks,
   projectReorderSiblingTrunks,
 } from "./projectTrunkTree";
@@ -28,17 +29,30 @@ describe("projectTrunkTree", () => {
     trunk({ id: "a1", projectId: "p", parentTrunkId: "a", title: "a1", siblingOrder: 0 }),
   ];
 
-  it("lists children sorted by siblingOrder", () => {
-    expect(projectListChildTrunks(trunks, "r").map((c) => c.id)).toEqual(["a", "b"]);
+  it("lists root trunks sorted by siblingOrder", () => {
+    expect(projectListChildTrunks(trunks, null).map((c) => c.id)).toEqual(["r"]);
   });
 
-  it("collects trunk id and direct children only", () => {
-    expect(projectCollectTrunkWithChildrenIds(trunks, "r").sort()).toEqual(["a", "b", "r"]);
+  it("collects only the trunk id (flat model)", () => {
+    expect(projectCollectTrunkWithChildrenIds(trunks, "r")).toEqual(["r"]);
     expect(projectCollectTrunkWithChildrenIds(trunks, "a")).toEqual(["a"]);
   });
 
-  it("reorders siblings under the same parent", () => {
-    const next = projectReorderSiblingTrunks(trunks, "r", ["b", "a"]);
-    expect(projectListChildTrunks(next, "r").map((c) => c.id)).toEqual(["b", "a"]);
+  it("reorders root trunks", () => {
+    const flat = projectFlattenTrunks(trunks);
+    const next = projectReorderSiblingTrunks(flat, null, ["b", "a", "r", "a1"]);
+    expect(projectListChildTrunks(next, null).map((c) => c.id)).toEqual(["b", "a", "r", "a1"]);
+  });
+
+  it("promotes nested trunks to the project root list", () => {
+    expect(projectFlattenTrunks(trunks).every((trunk) => trunk.parentTrunkId === null)).toBe(
+      true,
+    );
+    expect(projectFlattenTrunks(trunks).map((trunk) => trunk.id).sort()).toEqual([
+      "a",
+      "a1",
+      "b",
+      "r",
+    ]);
   });
 });

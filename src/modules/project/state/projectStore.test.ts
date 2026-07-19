@@ -23,33 +23,34 @@ describe("projectStore", () => {
     expect(useProjectStore.getState().activeTrunkId).toBe(trunk.id);
   });
 
-  it("adds child trunk under parent", () => {
+  it("rejects nested child trunks", () => {
     const { trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    const child = useProjectStore.getState().addChildTrunk({
-      parentTrunkId: root.id,
-      title: "Child",
-      nowIso: "2026-07-10T00:00:01.000Z",
-    });
-    expect(child?.parentTrunkId).toBe(root.id);
+    expect(
+      useProjectStore.getState().addChildTrunk({
+        parentTrunkId: root.id,
+        title: "Child",
+        nowIso: "2026-07-10T00:00:01.000Z",
+      }),
+    ).toBeNull();
   });
 
-  it("rejects child trunk under a non-root parent", () => {
+  it("rejects child trunk under any parent", () => {
     const { trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    const child = useProjectStore.getState().addChildTrunk({
-      parentTrunkId: root.id,
-      title: "Child",
+    const sibling = useProjectStore.getState().addRootTrunk({
+      projectId: root.projectId,
+      title: "Sibling",
       nowIso: "2026-07-10T00:00:01.000Z",
     })!;
     expect(
       useProjectStore.getState().addChildTrunk({
-        parentTrunkId: child.id,
-        title: "Grandchild",
+        parentTrunkId: sibling.id,
+        title: "Nested",
         nowIso: "2026-07-10T00:00:02.000Z",
       }),
     ).toBeNull();
@@ -68,25 +69,26 @@ describe("projectStore", () => {
     expect(useProjectStore.getState().trunks.find((c) => c.id === trunk.id)?.pinned).toBe(true);
   });
 
-  it("deleting a trunk removes subtree and chat messages", () => {
-    const { trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
+  it("deleting a trunk removes it and its chat messages", () => {
+    const { project, trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    const child = useProjectStore.getState().addChildTrunk({
-      parentTrunkId: root.id,
-      title: "Child",
+    const sibling = useProjectStore.getState().addRootTrunk({
+      projectId: project.id,
+      title: "Sibling",
       nowIso: "2026-07-10T00:00:01.000Z",
     })!;
     useChatStore.getState().appendMessage({
-      trunkId: child.id,
+      trunkId: sibling.id,
       role: "user",
       content: "bye",
       createdAt: "2026-07-10T00:00:02.000Z",
     });
-    useProjectStore.getState().deleteTrunkCascade(child.id);
-    expect(useProjectStore.getState().trunks.find((c) => c.id === child.id)).toBeUndefined();
-    expect(useChatStore.getState().listMessages(child.id)).toEqual([]);
+    useProjectStore.getState().deleteTrunkCascade(sibling.id);
+    expect(useProjectStore.getState().trunks.find((c) => c.id === sibling.id)).toBeUndefined();
+    expect(useProjectStore.getState().trunks.find((c) => c.id === root.id)).toBeDefined();
+    expect(useChatStore.getState().listMessages(sibling.id)).toEqual([]);
   });
 
   it("retention sweep deletes expired unpinned data and chat", () => {
@@ -112,30 +114,28 @@ describe("projectStore", () => {
     expect(useChatStore.getState().listMessages(trunk.id)).toEqual([]);
   });
 
-  it("retention sweep keeps a fresh child when its ancestor is stale", () => {
+  it("retention sweep deletes stale trunk but keeps fresh sibling", () => {
     const { project, trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-01-01T00:00:00.000Z",
     });
-    const child = useProjectStore.getState().addChildTrunk({
-      parentTrunkId: root.id,
-      title: "Child",
+    const sibling = useProjectStore.getState().addRootTrunk({
+      projectId: project.id,
+      title: "Sibling",
       nowIso: "2026-07-01T00:00:00.000Z",
     })!;
     useProjectStore.setState({
       projects: [{ ...project, lastOpenedAt: "2026-01-01T00:00:00.000Z" }],
       trunks: [
         { ...root, lastOpenedAt: "2026-01-01T00:00:00.000Z" },
-        { ...child, lastOpenedAt: "2026-07-01T00:00:00.000Z" },
+        { ...sibling, lastOpenedAt: "2026-07-01T00:00:00.000Z" },
       ],
     });
     useProjectStore.getState().runRetentionSweep({
       nowMs: Date.parse("2026-07-10T00:00:00.000Z"),
       retentionDays: 30,
     });
-    expect(useProjectStore.getState().trunks.map((c) => c.id).sort()).toEqual(
-      [root.id, child.id].sort(),
-    );
+    expect(useProjectStore.getState().trunks.map((c) => c.id)).toEqual([sibling.id]);
   });
 
   it("clears workspace when the last project is deleted", () => {

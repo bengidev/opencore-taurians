@@ -37,6 +37,14 @@ describe("ShellSettingsPage", () => {
     expect(screen.getByRole("button", { name: "Back" })).toHaveTextContent("Settings");
   });
 
+  it("persists explorer auto-refresh setting", async () => {
+    const user = userEvent.setup();
+    render(<ShellScreen />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await user.click(screen.getByRole("button", { name: "On project switch" }));
+    expect(useShellStore.getState().explorerAutoRefresh).toBe("on-activate");
+  });
+
   it("switches theme from settings", async () => {
     const user = userEvent.setup();
     render(<ShellScreen />);

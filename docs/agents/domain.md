@@ -28,7 +28,8 @@ Multi-context layout for this repo:
 │       ├── shell/CONTEXT.md
 │       ├── workspace-popup/CONTEXT.md
 │       ├── project/CONTEXT.md
-│       └── chat/CONTEXT.md
+│       ├── chat/CONTEXT.md
+│       └── explorer/CONTEXT.md
 └── src-tauri/
     ├── CONTEXT.md                         ← desktop shell (created lazily)
     └── docs/adr/
@@ -44,6 +45,7 @@ Multi-context layout for this repo:
 | **workspace-popup** | Workspace Popup, Open Project, Folder Picker |
 | **project** | Projects, ProjectTrunks, ProjectGroups, activation, retention |
 | **chat** | ChatMessage persistence and trunk-scoped history |
+| **explorer** | Explorer, Explorer Panel, Explorer Tree, active-project file browsing |
 | **app** | `App.tsx`, routing, shared components, design-system integration |
 | **desktop** | Tauri config, Rust commands, window management, native plugins |
 
