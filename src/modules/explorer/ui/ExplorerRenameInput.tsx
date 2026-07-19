@@ -21,7 +21,7 @@ export function ExplorerRenameInput({ initialName }: ExplorerRenameInputProps) {
       ref={inputRef}
       type="text"
       aria-label="Rename"
-      className="min-w-0 flex-1 rounded-sm border border-border bg-background px-1 py-0 font-mono text-[11px] uppercase tracking-[0.08em] text-foreground"
+      className="min-w-0 flex-1 rounded-[4px] border border-border bg-background px-1.5 py-0 font-mono text-[11px] tracking-[0.08em] text-foreground outline-none transition-[border-color,box-shadow] duration-[var(--duration-ui-fast)] ease-[var(--ease-out)] focus-visible:border-foreground/30 focus-visible:ring-1 focus-visible:ring-ring/40"
       value={value}
       onChange={(event) => setValue(event.target.value)}
       onKeyDown={(event) => {

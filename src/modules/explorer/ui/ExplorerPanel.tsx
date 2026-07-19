@@ -11,6 +11,7 @@ import type { ExplorerDropPayload } from "../domain/explorerTypes";
 import { useExplorerStore } from "../state/explorerStore";
 import { ExplorerContextMenu } from "./ExplorerContextMenu";
 import { ExplorerEmptySelectProject } from "./ExplorerEmptySelectProject";
+import { explorerPanelDismissClassName } from "./explorerStyles";
 import { ExplorerTree } from "./ExplorerTree";
 
 const defaultExplorerApi = createTauriExplorerApi();
@@ -149,21 +150,29 @@ export function ExplorerPanel({
 
   return (
     <aside aria-label="explorer panel" className="flex h-full min-h-0 flex-col">
-      <p className="truncate border-b border-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-        {project?.name ?? "Explorer"}
-      </p>
+      <header className="shrink-0 border-b border-border px-3 py-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+          Files
+        </p>
+        <p
+          className="truncate font-mono text-[11px] tracking-[0.08em] text-foreground"
+          title={project?.name ?? "Explorer"}
+        >
+          {project?.name ?? "Explorer"}
+        </p>
+      </header>
       {error ? (
-        <div className="flex items-start gap-2 border-b border-border px-3 py-2">
-          <p
-            className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-[0.08em] text-destructive"
-            role="alert"
-          >
+        <div
+          className="flex items-start gap-2 border-b border-destructive/20 bg-destructive/5 px-3 py-2"
+          role="alert"
+        >
+          <p className="min-w-0 flex-1 font-mono text-[11px] tracking-[0.08em] text-destructive">
             {error}
           </p>
           <button
             type="button"
             aria-label="Dismiss error"
-            className="shrink-0 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground hover:text-foreground"
+            className={explorerPanelDismissClassName}
             onClick={() => clearError()}
           >
             Dismiss

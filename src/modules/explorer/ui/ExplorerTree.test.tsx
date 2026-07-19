@@ -67,4 +67,31 @@ describe("ExplorerTree", () => {
     expect(setActiveMainCardSpy).toHaveBeenCalledWith("editor");
     expect(setOpenFilePathSpy).toHaveBeenCalledWith(filePath);
   });
+
+  it("expands a folder when the row is clicked", async () => {
+    const user = userEvent.setup();
+    const folderPath = "/proj";
+    const subDir = "/proj/src";
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "src", path: subDir, isDir: true }],
+        [subDir]: [{ name: "a.ts", path: "/proj/src/a.ts", isDir: false }],
+      },
+    });
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
+
+    render(<ExplorerTree />);
+    await user.click(screen.getByRole("button", { name: "src" }));
+
+    expect(await screen.findByText("a.ts")).toBeInTheDocument();
+    expect(useExplorerStore.getState().expandedPaths.has(subDir)).toBe(true);
+  });
 });
