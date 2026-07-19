@@ -18,6 +18,9 @@ pub fn run() {
             explorer::create::explorer_create_file,
             explorer::create::explorer_create_dir,
             explorer::rename::explorer_rename,
+            explorer::trash::explorer_trash,
+            explorer::duplicate::explorer_duplicate,
+            explorer::copy::explorer_copy_paths,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
