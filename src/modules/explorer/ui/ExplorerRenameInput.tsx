@@ -35,6 +35,7 @@ export function ExplorerRenameInput({ initialName }: ExplorerRenameInputProps) {
         }
       }}
       onClick={(event) => event.stopPropagation()}
+      onBlur={() => cancelRename()}
     />
   );
 }

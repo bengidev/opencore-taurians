@@ -189,7 +189,14 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
         await loadDir(path);
       }
     },
-    selectPath: (path) => set({ selectedPath: path }),
+    selectPath: (path) => {
+      const { renamingPath } = get();
+      if (renamingPath && path !== renamingPath) {
+        set({ selectedPath: path, renamingPath: null });
+        return;
+      }
+      set({ selectedPath: path });
+    },
     startRename: (path) => set({ renamingPath: path, selectedPath: path }),
     commitRename: async (newName) => {
       const { api, projectRoot, renamingPath } = get();
