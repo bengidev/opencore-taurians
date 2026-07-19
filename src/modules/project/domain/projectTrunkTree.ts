@@ -4,6 +4,17 @@ export function projectIsRootTrunk(trunk: Pick<ProjectTrunk, "parentTrunkId">): 
   return trunk.parentTrunkId === null;
 }
 
+export function projectIsChildTrunk(trunk: Pick<ProjectTrunk, "parentTrunkId">): boolean {
+  return trunk.parentTrunkId !== null;
+}
+
+/** Trunks live in a flat list under each project — promote any nested rows to root level. */
+export function projectFlattenTrunks(trunks: readonly ProjectTrunk[]): ProjectTrunk[] {
+  return trunks.map((trunk) =>
+    trunk.parentTrunkId === null ? trunk : { ...trunk, parentTrunkId: null },
+  );
+}
+
 export function projectListChildTrunks(
   trunks: readonly ProjectTrunk[],
   parentTrunkId: string | null,
@@ -14,15 +25,11 @@ export function projectListChildTrunks(
     .sort((a, b) => a.siblingOrder - b.siblingOrder || a.title.localeCompare(b.title));
 }
 
-/** Root trunk id plus direct children only (no deeper descendants). */
 export function projectCollectTrunkWithChildrenIds(
   trunks: readonly ProjectTrunk[],
   trunkId: string,
 ): string[] {
-  const trunk = trunks.find((candidate) => candidate.id === trunkId);
-  if (!trunk || !projectIsRootTrunk(trunk)) return [trunkId];
-  const childIds = projectListChildTrunks(trunks, trunkId).map((child) => child.id);
-  return [trunkId, ...childIds];
+  return trunks.some((trunk) => trunk.id === trunkId) ? [trunkId] : [];
 }
 
 export function projectReorderSiblingTrunks(

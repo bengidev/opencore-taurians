@@ -111,7 +111,7 @@ describe("ProjectLeftPanel", () => {
     });
     useProjectStore.getState().setActiveIds(null, null);
     render(<ProjectLeftPanel />);
-    await user.click(screen.getByRole("button", { name: "Main" }));
+    await user.click(screen.getByRole("button", { name: "default" }));
     expect(useProjectStore.getState().activeTrunkId).toBe(trunk.id);
   });
 
@@ -122,13 +122,13 @@ describe("ProjectLeftPanel", () => {
       nowIso: "2026-07-10T00:00:00.000Z",
     });
     render(<ProjectLeftPanel />);
-    expect(screen.getByRole("button", { name: "Main" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "default" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "app" }));
-    expect(screen.queryByRole("button", { name: "Main" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "default" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "app" }));
-    expect(screen.getByRole("button", { name: "Main" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "default" })).toBeInTheDocument();
   });
 
   it("pins a project via the pin button", async () => {
@@ -148,41 +148,53 @@ describe("ProjectLeftPanel", () => {
     );
   });
 
-  it("adds a child trunk and activates it", async () => {
+  it("adds a root trunk and activates it", async () => {
     const user = userEvent.setup();
-    const { trunk } = useProjectStore.getState().createProjectWithRootTrunk({
+    const { project } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
     useProjectStore.getState().setActiveIds(null, null);
     render(<ProjectLeftPanel />);
     const beforeCount = useProjectStore.getState().trunks.length;
-    await user.click(screen.getByRole("button", { name: "Add child trunk" }));
+    await user.click(screen.getByRole("button", { name: "Add root trunk" }));
     const after = useProjectStore.getState();
     expect(after.trunks.length).toBe(beforeCount + 1);
-    const child = after.trunks.find((c) => c.parentTrunkId === trunk.id);
-    expect(child).toBeDefined();
-    expect(after.activeTrunkId).toBe(child?.id);
-    expect(screen.getByRole("button", { name: "New trunk" })).toBeInTheDocument();
+    const added = after.trunks.find(
+      (trunk) => trunk.projectId === project.id && trunk.title === "new trunk",
+    );
+    expect(added).toBeDefined();
+    expect(added?.parentTrunkId).toBeNull();
+    expect(after.activeTrunkId).toBe(added?.id);
+    expect(screen.getByRole("button", { name: "new trunk" })).toBeInTheDocument();
+  });
+
+  it("does not show add child trunk controls", () => {
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    render(<ProjectLeftPanel />);
+    expect(screen.queryByRole("button", { name: "Add child trunk" })).not.toBeInTheDocument();
   });
 
   it("deletes a trunk when confirm is accepted", async () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-    const { trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
+    const { project } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    useProjectStore.getState().addChildTrunk({
-      parentTrunkId: root.id,
-      title: "Child",
+    useProjectStore.getState().addRootTrunk({
+      projectId: project.id,
+      title: "Sibling",
       nowIso: "2026-07-10T00:00:01.000Z",
     });
     render(<ProjectLeftPanel />);
-    await user.click(screen.getByRole("button", { name: "Delete trunk Main" }));
-    expect(confirmSpy).toHaveBeenCalledWith("Delete this trunk and its children?");
-    expect(useProjectStore.getState().trunks.find((c) => c.id === root.id)).toBeUndefined();
-    expect(screen.queryByRole("button", { name: "Main" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete trunk default" }));
+    expect(confirmSpy).toHaveBeenCalledWith("Delete this trunk?");
+    expect(useProjectStore.getState().trunks.find((c) => c.title === "default")).toBeUndefined();
+    expect(screen.getByRole("button", { name: "Sibling" })).toBeInTheDocument();
     confirmSpy.mockRestore();
   });
 
@@ -207,17 +219,17 @@ describe("ProjectLeftPanel", () => {
 
   it("filters by trunk title and chat message body", async () => {
     const user = userEvent.setup();
-    const { trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
+    const { project } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/Alpha",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    const other = useProjectStore.getState().addChildTrunk({
-      parentTrunkId: root.id,
+    const other = useProjectStore.getState().addRootTrunk({
+      projectId: project.id,
       title: "Other",
       nowIso: "2026-07-10T00:00:01.000Z",
     })!;
-    useProjectStore.getState().addChildTrunk({
-      parentTrunkId: root.id,
+    useProjectStore.getState().addRootTrunk({
+      projectId: project.id,
       title: "Notes",
       nowIso: "2026-07-10T00:00:01.500Z",
     });
@@ -230,7 +242,7 @@ describe("ProjectLeftPanel", () => {
     render(<ProjectLeftPanel />);
     await user.type(screen.getByRole("searchbox", { name: /search projects/i }), "zebra");
     expect(screen.getByRole("button", { name: /^Other$/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Main$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "default" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Notes$/i })).not.toBeInTheDocument();
   });
 
@@ -241,8 +253,8 @@ describe("ProjectLeftPanel", () => {
       nowIso: "2026-07-10T00:00:00.000Z",
     });
     render(<ProjectLeftPanel />);
-    await user.type(screen.getByRole("searchbox", { name: /search projects/i }), "main");
-    expect(screen.getByRole("button", { name: /^Main$/i })).toBeInTheDocument();
+    await user.type(screen.getByRole("searchbox", { name: /search projects/i }), "default");
+    expect(screen.getByRole("button", { name: "default" })).toBeInTheDocument();
   });
 
   it("renders auto groups and moves project to manual group", async () => {
@@ -271,17 +283,17 @@ describe("ProjectLeftPanel", () => {
   });
 
   it("reorders sibling trunks via HTML5 drag and drop", () => {
-    const { trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
+    const { project, trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    const a = useProjectStore.getState().addChildTrunk({
-      parentTrunkId: root.id,
+    const a = useProjectStore.getState().addRootTrunk({
+      projectId: project.id,
       title: "ChunkA",
       nowIso: "2026-07-10T00:00:01.000Z",
     })!;
-    const b = useProjectStore.getState().addChildTrunk({
-      parentTrunkId: root.id,
+    const b = useProjectStore.getState().addRootTrunk({
+      projectId: project.id,
       title: "ChunkB",
       nowIso: "2026-07-10T00:00:02.000Z",
     })!;
@@ -294,10 +306,10 @@ describe("ProjectLeftPanel", () => {
     fireEvent.drop(buttonA, { dataTransfer });
     const ordered = useProjectStore
       .getState()
-      .trunks.filter((c) => c.parentTrunkId === root.id)
+      .trunks.filter((c) => c.projectId === project.id && c.parentTrunkId === null)
       .sort((x, y) => x.siblingOrder - y.siblingOrder)
       .map((c) => c.id);
-    expect(ordered).toEqual([b.id, a.id]);
+    expect(ordered).toEqual([root.id, b.id, a.id]);
   });
 
   it("relinks folder and updates workspace when project is active", async () => {
