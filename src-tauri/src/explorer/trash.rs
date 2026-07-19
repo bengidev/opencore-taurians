@@ -6,6 +6,7 @@ use super::error::ExplorerError;
 use super::path_scope::ensure_under_root;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExplorerPathInput {
     pub project_root: String,
     pub path: String,

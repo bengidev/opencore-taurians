@@ -9,6 +9,7 @@ use super::list_dir::ExplorerEntry;
 use super::path_scope::ensure_under_root;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExplorerCopyPathsInput {
     pub project_root: String,
     pub target_dir: String,

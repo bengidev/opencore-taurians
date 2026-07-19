@@ -8,6 +8,7 @@ use super::list_dir::ExplorerEntry;
 use super::path_scope::ensure_under_root;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExplorerCreateFileInput {
     pub project_root: String,
     pub parent_dir: String,
@@ -15,6 +16,7 @@ pub struct ExplorerCreateFileInput {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExplorerCreateDirInput {
     pub project_root: String,
     pub parent_dir: String,

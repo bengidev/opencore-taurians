@@ -7,12 +7,14 @@ use super::error::ExplorerError;
 use super::path_scope::ensure_under_root;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExplorerListDirInput {
     pub project_root: String,
     pub dir_path: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ExplorerEntry {
     pub name: String,
     pub path: String,
