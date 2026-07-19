@@ -6,6 +6,7 @@ pub enum ExplorerError {
     OutsideProject(String),
     NotFound(String),
     AlreadyExists(String),
+    Invalid(String),
     Io(String),
 }
 
