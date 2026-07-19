@@ -5,10 +5,11 @@ import { createSessionPersistStorage } from "../../session/infrastructure/sessio
 import { SESSION_PERSIST_KEYS } from "../../session/infrastructure/sessionPersistKeys";
 import {
   projectCollectTrunkWithChildrenIds,
-  projectIsRootTrunk,
+  projectFlattenTrunks,
   projectListChildTrunks,
   projectReorderSiblingTrunks,
 } from "../domain/projectTrunkTree";
+import { DEFAULT_ROOT_TRUNK_TITLE } from "../domain/projectDefaults";
 import { projectMigrateFromWorkspace } from "../domain/projectMigrate";
 import {
   projectFolderBasename,
@@ -108,7 +109,7 @@ export const useProjectStore = create<ProjectState>()(
           id: trunkId,
           projectId,
           parentTrunkId: null,
-          title: "Main",
+          title: DEFAULT_ROOT_TRUNK_TITLE,
           pinned: false,
           createdAt: input.nowIso,
           lastOpenedAt: input.nowIso,
@@ -126,24 +127,7 @@ export const useProjectStore = create<ProjectState>()(
         }));
         return { project, trunk };
       },
-      addChildTrunk: (input) => {
-        const parent = get().trunks.find((c) => c.id === input.parentTrunkId);
-        if (!parent || !projectIsRootTrunk(parent)) return null;
-        const siblings = projectListChildTrunks(get().trunks, parent.id);
-        const trunk: ProjectTrunk = {
-          id: crypto.randomUUID(),
-          projectId: parent.projectId,
-          parentTrunkId: parent.id,
-          title: input.title,
-          pinned: false,
-          createdAt: input.nowIso,
-          lastOpenedAt: input.nowIso,
-          restore: { activeMainCard: "chat" },
-          siblingOrder: siblings.length,
-        };
-        set((state) => ({ trunks: [...state.trunks, trunk] }));
-        return trunk;
-      },
+      addChildTrunk: (_input) => null,
       addRootTrunk: (input) => {
         if (!get().projects.some((p) => p.id === input.projectId)) return null;
         const siblings = projectListChildTrunks(get().trunks, null).filter(
@@ -361,6 +345,19 @@ export const useProjectStore = create<ProjectState>()(
         activeTrunkId: state.activeTrunkId,
         expandedProjectIds: state.expandedProjectIds,
       }),
+      merge: (persisted, current) => {
+        const merged = { ...current, ...(persisted as Partial<ProjectState>) };
+        const trunks = projectFlattenTrunks(merged.trunks ?? []);
+        const trunkIds = new Set(trunks.map((trunk) => trunk.id));
+        return {
+          ...merged,
+          trunks,
+          activeTrunkId:
+            merged.activeTrunkId && trunkIds.has(merged.activeTrunkId)
+              ? merged.activeTrunkId
+              : null,
+        };
+      },
     },
   ),
 );

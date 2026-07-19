@@ -48,7 +48,7 @@ describe("projectSelectExpired", () => {
     expect(result.projectIds.sort()).toEqual(["stale"]);
   });
 
-  it("keeps pinned trunk and its ancestor project", () => {
+  it("keeps pinned trunk and its project even when sibling trunks are stale", () => {
     const result = projectSelectExpired({
       nowMs: NOW,
       retentionDays: 30,
@@ -58,7 +58,6 @@ describe("projectSelectExpired", () => {
         c({
           id: "pin",
           projectId: "p1",
-          parentTrunkId: "root",
           pinned: true,
           lastOpenedAt: OLD,
         }),
@@ -79,7 +78,7 @@ describe("projectSelectExpired", () => {
     expect(result.trunkIds).toEqual([]);
   });
 
-  it("does not expire a stale ancestor when a descendant was used recently", () => {
+  it("expires stale trunks independently of fresh siblings", () => {
     const result = projectSelectExpired({
       nowMs: NOW,
       retentionDays: 30,
@@ -87,14 +86,13 @@ describe("projectSelectExpired", () => {
       trunks: [
         c({ id: "root", projectId: "p1", lastOpenedAt: OLD }),
         c({
-          id: "child",
+          id: "fresh",
           projectId: "p1",
-          parentTrunkId: "root",
           lastOpenedAt: RECENT,
         }),
       ],
     });
-    expect(result.trunkIds).toEqual([]);
+    expect(result.trunkIds).toEqual(["root"]);
     expect(result.projectIds).toEqual([]);
   });
 });
