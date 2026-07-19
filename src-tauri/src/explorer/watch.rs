@@ -11,9 +11,16 @@ use tauri::{AppHandle, Emitter, State};
 use super::error::ExplorerError;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExplorerWatchInput {
     pub project_root: String,
     pub mode: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExplorerUnwatchInput {
+    pub project_root: String,
 }
 
 pub struct ExplorerWatchState(pub Mutex<HashMap<String, RecommendedWatcher>>);
@@ -97,10 +104,10 @@ pub fn explorer_watch(
 
 #[tauri::command]
 pub fn explorer_unwatch(
-    project_root: String,
+    input: ExplorerUnwatchInput,
     state: State<ExplorerWatchState>,
 ) -> Result<(), ExplorerError> {
-    state.0.lock().unwrap().remove(&project_root);
+    state.0.lock().unwrap().remove(&input.project_root);
     Ok(())
 }
 
