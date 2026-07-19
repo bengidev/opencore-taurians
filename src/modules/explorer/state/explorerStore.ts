@@ -9,6 +9,48 @@ function parentDir(path: string): string {
   return index <= 0 ? path : path.slice(0, index);
 }
 
+function remapPathPrefix(path: string, oldPrefix: string, newPrefix: string): string {
+  if (path === oldPrefix) {
+    return newPrefix;
+  }
+  if (path.startsWith(`${oldPrefix}/`)) {
+    return `${newPrefix}${path.slice(oldPrefix.length)}`;
+  }
+  return path;
+}
+
+function remapChildrenByPath(
+  childrenByPath: Record<string, ExplorerEntry[]>,
+  oldPrefix: string,
+  newPrefix: string,
+): Record<string, ExplorerEntry[]> {
+  const next: Record<string, ExplorerEntry[]> = {};
+
+  for (const [dirPath, children] of Object.entries(childrenByPath)) {
+    const remappedDir = remapPathPrefix(dirPath, oldPrefix, newPrefix);
+    next[remappedDir] = children.map((item) => {
+      const remappedPath = remapPathPrefix(item.path, oldPrefix, newPrefix);
+      return remappedPath === item.path ? item : { ...item, path: remappedPath };
+    });
+  }
+
+  return next;
+}
+
+function remapExpandedPaths(
+  expandedPaths: Set<string>,
+  oldPrefix: string,
+  newPrefix: string,
+): Set<string> {
+  const next = new Set<string>();
+
+  for (const path of expandedPaths) {
+    next.add(remapPathPrefix(path, oldPrefix, newPrefix));
+  }
+
+  return next;
+}
+
 function createEmptyState() {
   return {
     api: null as ExplorerApi | null,
@@ -40,6 +82,7 @@ export interface ExplorerState {
   startRename: (path: string) => void;
   commitRename: (newName: string) => Promise<void>;
   cancelRename: () => void;
+  clearError: () => void;
   refresh: () => Promise<void>;
 }
 
@@ -161,7 +204,7 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
         const entry = await api.rename(projectRoot, renamingPath, newName);
         set((state) => {
           const siblings = state.childrenByPath[parentPath];
-          const childrenByPath = siblings
+          let childrenByPath = siblings
             ? {
                 ...state.childrenByPath,
                 [parentPath]: siblings.map((item) =>
@@ -170,10 +213,23 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
               }
             : state.childrenByPath;
 
+          let expandedPaths = state.expandedPaths;
+          let selectedPath = state.selectedPath;
+
+          if (entry.isDir && renamingPath !== entry.path) {
+            childrenByPath = remapChildrenByPath(childrenByPath, renamingPath, entry.path);
+            expandedPaths = remapExpandedPaths(expandedPaths, renamingPath, entry.path);
+            if (selectedPath) {
+              selectedPath = remapPathPrefix(selectedPath, renamingPath, entry.path);
+            }
+          } else if (selectedPath === renamingPath) {
+            selectedPath = entry.path;
+          }
+
           return {
             childrenByPath,
-            selectedPath:
-              state.selectedPath === renamingPath ? entry.path : state.selectedPath,
+            expandedPaths,
+            selectedPath,
             renamingPath: null,
             error: null,
           };
@@ -185,6 +241,7 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
       }
     },
     cancelRename: () => set({ renamingPath: null }),
+    clearError: () => set({ error: null }),
     refresh: async () => {
       const { projectRoot, expandedPaths } = get();
       if (!projectRoot) {

@@ -65,6 +65,12 @@ function resolveContextTarget(
   };
 }
 
+function setExplorerError(error: unknown): void {
+  useExplorerStore.setState({
+    error: error instanceof Error ? error.message : String(error),
+  });
+}
+
 export function ExplorerContextMenu({
   targetPath,
   children,
@@ -76,9 +82,13 @@ export function ExplorerContextMenu({
     if (!api || !projectRoot) {
       return;
     }
-    const entry = await api.createFile(projectRoot, parentDirPath);
-    await loadDir(parentDirPath);
-    startRename(entry.path);
+    try {
+      const entry = await api.createFile(projectRoot, parentDirPath);
+      await loadDir(parentDirPath);
+      startRename(entry.path);
+    } catch (error) {
+      setExplorerError(error);
+    }
   };
 
   const handleNewFolder = async (parentDirPath: string) => {
@@ -86,9 +96,13 @@ export function ExplorerContextMenu({
     if (!api || !projectRoot) {
       return;
     }
-    const entry = await api.createDir(projectRoot, parentDirPath);
-    await loadDir(parentDirPath);
-    startRename(entry.path);
+    try {
+      const entry = await api.createDir(projectRoot, parentDirPath);
+      await loadDir(parentDirPath);
+      startRename(entry.path);
+    } catch (error) {
+      setExplorerError(error);
+    }
   };
 
   const handleDelete = async (path: string) => {
@@ -96,8 +110,12 @@ export function ExplorerContextMenu({
     if (!api || !projectRoot) {
       return;
     }
-    await api.trash(projectRoot, path);
-    await refresh();
+    try {
+      await api.trash(projectRoot, path);
+      await refresh();
+    } catch (error) {
+      setExplorerError(error);
+    }
   };
 
   const handleDuplicate = async (path: string) => {
@@ -105,8 +123,12 @@ export function ExplorerContextMenu({
     if (!api || !projectRoot) {
       return;
     }
-    await api.duplicate(projectRoot, path);
-    await refresh();
+    try {
+      await api.duplicate(projectRoot, path);
+      await refresh();
+    } catch (error) {
+      setExplorerError(error);
+    }
   };
 
   const handleReveal = async (path: string) => {
@@ -114,11 +136,27 @@ export function ExplorerContextMenu({
     if (!api) {
       return;
     }
-    await api.reveal(path);
+    try {
+      await api.reveal(path);
+    } catch (error) {
+      setExplorerError(error);
+    }
   };
 
   const handleCopyPath = async (path: string) => {
-    await navigator.clipboard.writeText(path);
+    try {
+      await navigator.clipboard.writeText(path);
+    } catch (error) {
+      setExplorerError(error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      await useExplorerStore.getState().refresh();
+    } catch (error) {
+      setExplorerError(error);
+    }
   };
 
   const parentForTarget = (target: ContextTarget): string => {
@@ -193,9 +231,7 @@ export function ExplorerContextMenu({
           {kind === "folder" || kind === "empty" ? (
             <>
               {kind === "folder" ? <ContextMenuSeparator /> : null}
-              <ContextMenuItem
-                onSelect={() => void useExplorerStore.getState().refresh()}
-              >
+              <ContextMenuItem onSelect={() => void handleRefresh()}>
                 Refresh
               </ContextMenuItem>
             </>

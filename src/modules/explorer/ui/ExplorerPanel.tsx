@@ -53,9 +53,15 @@ async function handleExternalDrop(payload: ExplorerDropPayload): Promise<void> {
     return;
   }
 
-  const targetDir = resolveDropTargetDir(payload, projectRoot);
-  await api.copyPaths(projectRoot, targetDir, payload.paths);
-  await refresh();
+  try {
+    const targetDir = resolveDropTargetDir(payload, projectRoot);
+    await api.copyPaths(projectRoot, targetDir, payload.paths);
+    await refresh();
+  } catch (error) {
+    useExplorerStore.setState({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 export interface ExplorerPanelProps {
@@ -68,6 +74,8 @@ export function ExplorerPanel({
   const project = useProjectStore((s) =>
     s.projects.find((item) => item.id === s.activeProjectId),
   );
+  const error = useExplorerStore((s) => s.error);
+  const clearError = useExplorerStore((s) => s.clearError);
 
   useEffect(() => {
     const api = explorerApi;
@@ -144,6 +152,24 @@ export function ExplorerPanel({
       <p className="truncate border-b border-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
         {project?.name ?? "Explorer"}
       </p>
+      {error ? (
+        <div className="flex items-start gap-2 border-b border-border px-3 py-2">
+          <p
+            className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-[0.08em] text-destructive"
+            role="alert"
+          >
+            {error}
+          </p>
+          <button
+            type="button"
+            aria-label="Dismiss error"
+            className="shrink-0 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground hover:text-foreground"
+            onClick={() => clearError()}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
       <ExplorerContextMenu targetPath={project?.folderPath ?? null}>
         <div className="min-h-0 flex-1 overflow-y-auto p-1">
           {project ? <ExplorerTree /> : <ExplorerEmptySelectProject />}
