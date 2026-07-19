@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useChatStore } from "../../../chat/state/chatStore";
+import { useEditorStore } from "../../../editor/state/editorStore";
 import { appendTrunkMessage } from "../../../project/state/projectChat";
 import { useProjectStore } from "../../../project/state/projectStore";
 import { useShellStore, type ShellMainCard } from "../../state/shellStore";
@@ -68,6 +69,27 @@ function ChatCard() {
   );
 }
 
+function EditorCard() {
+  const openFilePath = useEditorStore((s) => s.openFilePath);
+
+  if (!openFilePath) {
+    return (
+      <p className="mt-2 font-mono text-sm text-muted-foreground">
+        Open a file from the explorer
+      </p>
+    );
+  }
+
+  return (
+    <p
+      className="mt-2 truncate font-mono text-sm text-muted-foreground"
+      aria-label="editor-open-file"
+    >
+      {openFilePath}
+    </p>
+  );
+}
+
 export function ShellMainPanel() {
   const activeMainCard = useShellStore((s) => s.activeMainCard);
 
@@ -85,6 +107,8 @@ export function ShellMainPanel() {
           </p>
           {card === "chat" ? (
             <ChatCard />
+          ) : card === "editor" ? (
+            <EditorCard />
           ) : (
             <input
               aria-label={`${card}-dummy-note`}
