@@ -1,5 +1,9 @@
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { ExplorerApi } from "./explorerApi";
+import {
+  DEFAULT_NEW_FILE_NAME,
+  DEFAULT_NEW_FOLDER_NAME,
+} from "../domain/explorerDefaults";
 import type {
   ExplorerAutoRefresh,
   ExplorerDropPayload,
@@ -69,7 +73,7 @@ export function createMemoryExplorerApi(seed: MemoryExplorerSeed = {}): Explorer
 
   return {
     listDir: async (_projectRoot, dirPath) => [...getDirEntries(dirPath)],
-    createFile: async (_projectRoot, parentDirPath, name = "untitled") => {
+    createFile: async (_projectRoot, parentDirPath, name = DEFAULT_NEW_FILE_NAME) => {
       const entry: ExplorerEntry = {
         name,
         path: joinPath(parentDirPath, name),
@@ -78,7 +82,7 @@ export function createMemoryExplorerApi(seed: MemoryExplorerSeed = {}): Explorer
       getDirEntries(parentDirPath).push(entry);
       return entry;
     },
-    createDir: async (_projectRoot, parentDirPath, name = "New Folder") => {
+    createDir: async (_projectRoot, parentDirPath, name = DEFAULT_NEW_FOLDER_NAME) => {
       const entry: ExplorerEntry = {
         name,
         path: joinPath(parentDirPath, name),
