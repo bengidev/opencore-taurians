@@ -123,27 +123,22 @@ export function SessionRoot({
     void (async () => {
       const area = await readLogicalWorkArea();
       if (cancelled) return;
-      const base =
-        isTransitioning || (onboardingCompleted && showShell)
-          ? SHELL_WINDOW_SIZE
-          : ONBOARDING_WINDOW_SIZE;
+      const shellMode =
+        isTransitioning || (onboardingCompleted && showShell);
+      const base = shellMode ? SHELL_WINDOW_SIZE : ONBOARDING_WINDOW_SIZE;
       const current = useSessionStore.getState().guiScale;
       const clamped = guiScaleAfterWorkAreaClamp(current, base, area);
       if (clamped !== current) useSessionStore.getState().setGuiScale(clamped);
+      if (shellMode) {
+        await windowController.applyShellSize(clamped);
+      } else {
+        await windowController.applyOnboardingSize(clamped);
+      }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [ready, isTransitioning, onboardingCompleted, showShell]);
-
-  useEffect(() => {
-    if (!ready) return;
-    if (isTransitioning || (onboardingCompleted && showShell)) {
-      void windowController.applyShellSize(guiScale);
-    } else {
-      void windowController.applyOnboardingSize(guiScale);
-    }
   }, [
     ready,
     isTransitioning,

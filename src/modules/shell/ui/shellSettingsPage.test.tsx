@@ -104,6 +104,40 @@ describe("ShellSettingsPage", () => {
     );
   });
 
+  it("refreshes maxFit when settings reopens after work area changes", async () => {
+    vi.mocked(sessionWorkArea.readLogicalWorkArea).mockResolvedValue({
+      width: 1920,
+      height: 1080,
+    });
+    useSessionStore.setState({ guiScale: 2 });
+    const user = userEvent.setup();
+    render(<ShellScreen />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await waitFor(() => {
+      expect(useSessionStore.getState().guiScale).toBe(1.35);
+    });
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    dismissSettings();
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
+    });
+
+    vi.mocked(sessionWorkArea.readLogicalWorkArea).mockResolvedValue({
+      width: 1000,
+      height: 700,
+    });
+    useSessionStore.setState({ guiScale: 2 });
+
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await waitFor(() => {
+      expect(useSessionStore.getState().guiScale).toBeCloseTo(0.781, 2);
+    });
+    expect(screen.getByRole("slider", { name: "GUI scale" })).toHaveAttribute(
+      "max",
+      "0.78125",
+    );
+  });
+
   it("updates GUI scale from settings slider", async () => {
     const user = userEvent.setup();
     render(<ShellScreen />);
