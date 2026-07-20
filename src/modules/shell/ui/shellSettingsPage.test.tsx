@@ -158,6 +158,14 @@ describe("ShellSettingsPage", () => {
     expect(screen.getByText("125%")).toBeInTheDocument();
   });
 
+  it("keeps appearance rows from forcing horizontal overflow classes", async () => {
+    const user = userEvent.setup();
+    render(<ShellScreen />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    const scaleRow = screen.getByText(/gui scale/i).closest("div");
+    expect(scaleRow?.className ?? "").toMatch(/min-w-0|flex/);
+  });
+
   it("switches theme from settings", async () => {
     const user = userEvent.setup();
     render(<ShellScreen />);

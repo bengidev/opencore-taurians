@@ -93,7 +93,7 @@ function ShellPanelSettingRow({
   const checked = useShellStore(selectVisible);
 
   return (
-    <div className="flex items-start justify-between gap-4">
+    <div className="flex min-w-0 items-start justify-between gap-4">
       <div className="flex min-w-0 flex-col gap-1">
         <Label
           htmlFor={id}
@@ -143,30 +143,31 @@ export function ShellGuiScaleSetting({ open }: { open: boolean }) {
   }, [open]);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-4">
-        <Label
-          htmlFor="settings-gui-scale"
-          className="font-mono text-[11px] uppercase tracking-[0.08em]"
-        >
-          GUI scale
-        </Label>
-        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+    <div className="flex min-w-0 flex-col gap-2">
+      <Label
+        htmlFor="settings-gui-scale"
+        className="font-mono text-[11px] uppercase tracking-[0.08em]"
+      >
+        GUI scale
+      </Label>
+      <div className="flex min-w-0 items-center gap-4">
+        <Slider
+          id="settings-gui-scale"
+          aria-label="GUI scale"
+          className="min-w-0 flex-1"
+          min={GUI_SCALE_MIN}
+          max={maxFit}
+          step={GUI_SCALE_STEP}
+          value={[guiScale]}
+          onValueChange={(value) => {
+            const next = Array.isArray(value) ? value[0] : value;
+            if (typeof next === "number") setGuiScale(next);
+          }}
+        />
+        <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
           {percent}
         </span>
       </div>
-      <Slider
-        id="settings-gui-scale"
-        aria-label="GUI scale"
-        min={GUI_SCALE_MIN}
-        max={maxFit}
-        step={GUI_SCALE_STEP}
-        value={[guiScale]}
-        onValueChange={(value) => {
-          const next = Array.isArray(value) ? value[0] : value;
-          if (typeof next === "number") setGuiScale(next);
-        }}
-      />
     </div>
   );
 }
@@ -259,7 +260,7 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
         </Button>
       </header>
       <div
-        className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 overflow-y-auto p-6 motion-reduce:transition-none motion-reduce:opacity-100"
+        className="mx-auto flex w-full min-w-0 max-w-2xl flex-1 flex-col gap-8 overflow-y-auto p-6 motion-reduce:transition-none motion-reduce:opacity-100"
         style={{
           opacity: showMotion ? 1 : 0,
           transform: showMotion ? "translateY(0px)" : "translateY(4px)",
@@ -274,7 +275,7 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
                 : "0ms",
         }}
       >
-        <section className="flex flex-col gap-3">
+        <section className="flex min-w-0 flex-col gap-3">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
             Appearance
           </h2>
@@ -296,14 +297,14 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
           </div>
           <ShellGuiScaleSetting open={open} />
         </section>
-        <section className="flex flex-col gap-3">
+        <section className="flex min-w-0 flex-col gap-3">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
             Panels
           </h2>
           <p className="text-sm text-muted-foreground">
             Control which parts of the workspace shell are visible.
           </p>
-          <div className="flex flex-col gap-4 rounded-[6px] border border-border p-4">
+          <div className="flex min-w-0 flex-col gap-4 rounded-[6px] border border-border p-4">
             {PANEL_SETTINGS.map((setting) => (
               <ShellPanelSettingRow
                 key={setting.id}
@@ -325,7 +326,7 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
             Reset panel widths
           </Button>
         </section>
-        <section className="flex flex-col gap-3">
+        <section className="flex min-w-0 flex-col gap-3">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
             Explorer
           </h2>
