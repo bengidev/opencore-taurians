@@ -29,8 +29,12 @@ The bordered strip at the bottom of the **center column** — reserved status ar
 _Avoid_: Footer bar, status dock
 
 **Settings**:
-Full-page preferences overlay opened from the left panel header (or the tab row when the left panel is closed). Appearance includes theme and GUI scale; panel layout controls live here.
+Full-page preferences overlay opened from the left panel header (or the tab row when the left panel is closed). Appearance includes theme (default light) and GUI scale; Explorer auto-refresh defaults to live updates; panel layout controls live here. Segmented option buttons use a shared selected style (foreground fill) so Light and Live updates remain visible on light surfaces.
 _Avoid_: Settings sheet, settings drawer, preferences modal
+
+**Explorer Auto-Refresh**:
+How the file tree stays current: **live** (default) watches for changes, or **on-activate** refreshes when switching projects. Stored on the shell store; controlled from Settings → Explorer.
+_Avoid_: File watcher mode, poll interval (when referring to this preference)
 
 **Main Card Tabs**:
 The tab row in the unified top chrome with main-card switches (chat / terminal / editor). When a side panel is closed, its toggle (and settings, for the left side) appear at the leading/trailing edges of this row.

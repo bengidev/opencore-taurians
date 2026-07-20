@@ -5,7 +5,7 @@ Cross-cutting session lifecycle: persisted flags, window sizing, boot hydration,
 ## Language
 
 **Session**:
-The persisted app session — onboarding completion, workspace path, shell UI, and theme — backed by Tauri store (production) or in-memory storage (tests).
+The persisted app session — onboarding completion, workspace path, shell UI, and theme (default light) — backed by Tauri store (production) or in-memory storage (tests).
 _Avoid_: User session, auth session, login state
 
 **Session Root**:
