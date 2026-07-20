@@ -1,6 +1,10 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import {
+  distributeShellColumnWidths,
+  SHELL_LAYOUT_REFERENCE_WIDTH,
+} from "../state/shellColumnLayout";
 import { useShellStore } from "../state/shellStore";
 import { ShellLeftPanel } from "./panels/shellLeftPanel";
 import { ShellLeftPanelHeader } from "./panels/shellLeftPanelHeader";
@@ -70,6 +74,10 @@ function ShellPanelResizeGutter({
 }
 
 export function ShellScreen() {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [availableWidth, setAvailableWidth] = useState(
+    SHELL_LAYOUT_REFERENCE_WIDTH,
+  );
   const leftVisible = useShellStore((s) => s.leftVisible);
   const rightVisible = useShellStore((s) => s.rightVisible);
   const leftPanelWidth = useShellStore((s) => s.leftPanelWidth);
@@ -78,24 +86,52 @@ export function ShellScreen() {
   const setLeftPanelWidth = useShellStore((s) => s.setLeftPanelWidth);
   const setRightPanelWidth = useShellStore((s) => s.setRightPanelWidth);
 
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const width = Math.round(
+        entry.contentRect.width || entry.target.clientWidth,
+      );
+      setAvailableWidth(width);
+    });
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, []);
+
+  const columns = distributeShellColumnWidths({
+    available: availableWidth,
+    leftPreferred: leftPanelWidth,
+    rightPreferred: rightPanelWidth,
+    leftVisible,
+    rightVisible,
+  });
+
   return (
     <TooltipProvider delay={0}>
-      <div className="relative flex h-full min-h-0 flex-col bg-background text-foreground">
+      <div
+        ref={rootRef}
+        data-shell-available-width={String(availableWidth)}
+        className="relative flex h-full min-h-0 flex-col bg-background text-foreground"
+      >
         <div className="flex shrink-0 divide-x divide-border border-y border-border bg-background">
-          <ShellPanelSlot side="left" visible={leftVisible} width={leftPanelWidth}>
+          <ShellPanelSlot side="left" visible={leftVisible} width={columns.left}>
             <ShellLeftPanelHeader />
           </ShellPanelSlot>
           <ShellMainCardTabs />
-          <ShellPanelSlot side="right" visible={rightVisible} width={rightPanelWidth}>
+          <ShellPanelSlot side="right" visible={rightVisible} width={columns.right}>
             <ShellRightPanelHeader />
           </ShellPanelSlot>
         </div>
         <div className="flex min-h-0 flex-1 divide-x divide-border bg-background">
-          <ShellPanelSlot side="left" visible={leftVisible} width={leftPanelWidth}>
+          <ShellPanelSlot side="left" visible={leftVisible} width={columns.left}>
             <ShellLeftPanel />
           </ShellPanelSlot>
           <ShellCenterColumn />
-          <ShellPanelSlot side="right" visible={rightVisible} width={rightPanelWidth}>
+          <ShellPanelSlot side="right" visible={rightVisible} width={columns.right}>
             <ShellRightPanel />
           </ShellPanelSlot>
         </div>
@@ -105,7 +141,7 @@ export function ShellScreen() {
           ariaLabel="Resize left panel"
           getWidth={() => useShellStore.getState().leftPanelWidth}
           onResize={setLeftPanelWidth}
-          style={{ left: leftPanelWidth - RESIZE_HANDLE_WIDTH / 2 }}
+          style={{ left: columns.left - RESIZE_HANDLE_WIDTH / 2 }}
         />
         <ShellPanelResizeGutter
           visible={rightVisible}
@@ -113,7 +149,7 @@ export function ShellScreen() {
           ariaLabel="Resize right panel"
           getWidth={() => useShellStore.getState().rightPanelWidth}
           onResize={setRightPanelWidth}
-          style={{ right: rightPanelWidth - RESIZE_HANDLE_WIDTH / 2 }}
+          style={{ right: columns.right - RESIZE_HANDLE_WIDTH / 2 }}
         />
         <ShellSettingsPage open={settingsOpen} />
       </div>
