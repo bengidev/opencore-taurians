@@ -107,7 +107,7 @@ export function WorkspacePopup({
         aria-modal="true"
         aria-labelledby="workspace-popup-title"
         className={cn(
-          "relative w-full max-w-[420px] rounded-[6px] border border-border bg-background px-8 py-10",
+          "relative mx-4 w-full max-w-[420px] max-h-[min(100%,calc(100dvh-2rem))] overflow-y-auto rounded-[6px] border border-border bg-background px-6 py-8 sm:px-8 sm:py-10",
           "origin-center transition-[transform,opacity] duration-[var(--duration-ui-popover)] ease-[var(--ease-out)]",
           revealed ? "scale-100 opacity-100" : "scale-[0.95] opacity-0",
           "motion-reduce:scale-100 motion-reduce:opacity-100 motion-reduce:transition-none",

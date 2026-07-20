@@ -62,7 +62,7 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
 
   return (
     <div
-      className={`onboarding-screen relative min-h-dvh overflow-hidden bg-background text-foreground${
+      className={`onboarding-screen relative h-full min-h-full overflow-hidden bg-background text-foreground${
         themePulse ? " onboarding-theme-pulse" : ""
       }`}
       data-theme-mode={mode}
@@ -75,7 +75,7 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
         data-active={themePulse ? "true" : "false"}
       />
 
-      <div className="relative z-1 mx-auto grid min-h-dvh w-full max-w-[960px] grid-rows-[auto_1fr_auto] px-8 py-7 md:px-12 md:py-9">
+      <div className="relative z-1 mx-auto grid h-full min-h-full w-full max-w-[960px] grid-rows-[auto_1fr_auto] px-6 py-5 sm:px-8 sm:py-7 md:px-12 md:py-9">
         <header className="onboarding-enter onboarding-enter-1 flex items-start justify-between gap-8">
           <div className="flex flex-col gap-1.5">
             <span className="onboarding-brand text-[2.5rem] leading-none tracking-[-0.03em]">
@@ -87,14 +87,14 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
         </header>
 
         <section
-          className="grid items-center gap-10 py-10 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:gap-14 md:py-12"
+          className="grid items-center gap-6 py-6 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:gap-14 md:py-12"
           aria-labelledby="onboarding-headline"
         >
-          <div className="onboarding-enter onboarding-enter-2 h-[260px] w-full max-w-[480px] justify-self-start md:h-[300px]">
+          <div className="onboarding-enter onboarding-enter-2 h-[clamp(140px,32vh,300px)] w-full max-w-[480px] min-h-0 justify-self-start">
             <GalaxyOrbCanvas />
           </div>
 
-          <div className="onboarding-enter onboarding-enter-3 flex max-w-lg flex-col gap-5 justify-self-start md:pt-2">
+          <div className="onboarding-enter onboarding-enter-3 flex max-w-lg flex-col gap-4 justify-self-start md:gap-5 md:pt-2">
             <h1
               id="onboarding-headline"
               className="onboarding-brand text-[clamp(1.5rem,2.5vw,1.875rem)] leading-[1.15] tracking-[-0.02em] text-balance"
@@ -111,7 +111,7 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
           </div>
         </section>
 
-        <footer className="onboarding-enter onboarding-enter-4 flex items-center justify-between gap-6 border-t border-[color:var(--ds-border)] pt-6">
+        <footer className="onboarding-enter onboarding-enter-4 flex flex-wrap items-center justify-between gap-4 border-t border-[color:var(--ds-border)] pt-6">
           <span className="onboarding-label">Press Enter</span>
           <Button
             type="button"

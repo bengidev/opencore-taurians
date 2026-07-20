@@ -19,4 +19,18 @@ describe("createMemoryWindowController", () => {
     expect(controller.lastSize).toEqual(SHELL_WINDOW_SIZE);
     expect(controller.centerCount).toBe(1);
   });
+
+  it("applies scaled shell size", async () => {
+    const controller = createMemoryWindowController();
+    await controller.applyShellSize(1.5);
+    expect(controller.lastSize).toEqual({ width: 1920, height: 1200 });
+  });
+
+  it("clamps scaled size to injected work area", async () => {
+    const controller = createMemoryWindowController({
+      workArea: { width: 1400, height: 900 },
+    });
+    await controller.applyShellSize(2);
+    expect(controller.lastSize).toEqual({ width: 1400, height: 900 });
+  });
 });

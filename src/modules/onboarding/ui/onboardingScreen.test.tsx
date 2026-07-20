@@ -90,4 +90,19 @@ describe("OnboardingScreen", () => {
 
     expect(onEnter).not.toHaveBeenCalled();
   });
+
+  it("keeps onboarding content within a short narrow container", () => {
+    const { container } = render(
+      <div style={{ width: 480, height: 420, overflow: "hidden" }}>
+        <ThemeProvider>
+          <OnboardingScreen onEnter={vi.fn()} />
+        </ThemeProvider>
+      </div>,
+    );
+    const screenRoot = container.querySelector(".onboarding-screen") as HTMLElement;
+    const orb = screenRoot.querySelector(".onboarding-enter-2") as HTMLElement;
+    expect(orb.className).not.toMatch(/h-\[260px\]/);
+    expect(orb.className).not.toMatch(/md:h-\[300px\]/);
+    expect(orb.className).toMatch(/clamp|min-h-0|h-/);
+  });
 });
