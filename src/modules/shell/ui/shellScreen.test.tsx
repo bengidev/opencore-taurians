@@ -1,10 +1,33 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
+import { SHELL_LAYOUT_REFERENCE_WIDTH } from "../state/shellColumnLayout";
 import { DEFAULT_SHELL_PANEL_WIDTH } from "../state/shellPanelSizing";
 import { useShellStore } from "../state/shellStore";
 import { ShellScreen } from "./shellScreen";
+
+function mockShellWidth(width: number) {
+  class RO {
+    private cb: ResizeObserverCallback;
+    constructor(cb: ResizeObserverCallback) {
+      this.cb = cb;
+    }
+    observe(target: Element) {
+      Object.defineProperty(target, "clientWidth", {
+        configurable: true,
+        value: width,
+      });
+      this.cb(
+        [{ target, contentRect: { width } } as ResizeObserverEntry],
+        this as unknown as ResizeObserver,
+      );
+    }
+    unobserve() {}
+    disconnect() {}
+  }
+  vi.stubGlobal("ResizeObserver", RO);
+}
 
 function dismissPanelSlot(panelLabel: string) {
   const panel = screen.getByLabelText(panelLabel);
@@ -17,6 +40,7 @@ function dismissPanelSlot(panelLabel: string) {
 
 describe("ShellScreen", () => {
   afterEach(() => {
+    vi.unstubAllGlobals();
     cleanup();
   });
 
@@ -81,6 +105,36 @@ describe("ShellScreen", () => {
     fireEvent.pointerMove(handle, { clientX: 150, pointerId: 1 });
     fireEvent.pointerUp(handle, { pointerId: 1 });
 
+    expect(useShellStore.getState().leftPanelWidth).toBe(258);
+  });
+
+  it("uses preferred panel widths at the layout reference width", () => {
+    mockShellWidth(SHELL_LAYOUT_REFERENCE_WIDTH);
+    const { container } = render(<ShellScreen />);
+    const leftSlot = container.querySelector(
+      '[data-shell-panel-side="left"]',
+    ) as HTMLElement;
+    expect(leftSlot.style.width).toBe(`${DEFAULT_SHELL_PANEL_WIDTH}px`);
+  });
+
+  it("scales displayed panel widths below the reference width", () => {
+    mockShellWidth(1000);
+    const { container } = render(<ShellScreen />);
+    const scale = 1000 / SHELL_LAYOUT_REFERENCE_WIDTH;
+    const expected = Math.round(DEFAULT_SHELL_PANEL_WIDTH * scale);
+    const leftSlot = container.querySelector(
+      '[data-shell-panel-side="left"]',
+    ) as HTMLElement;
+    expect(leftSlot.style.width).toBe(`${expected}px`);
+  });
+
+  it("keeps preferred store width when dragging under a narrow shell", () => {
+    mockShellWidth(1000);
+    render(<ShellScreen />);
+    const handle = screen.getByRole("separator", { name: /resize left panel/i });
+    fireEvent.pointerDown(handle, { clientX: 100, pointerId: 1, button: 0 });
+    fireEvent.pointerMove(handle, { clientX: 150, pointerId: 1 });
+    fireEvent.pointerUp(handle, { pointerId: 1 });
     expect(useShellStore.getState().leftPanelWidth).toBe(258);
   });
 
