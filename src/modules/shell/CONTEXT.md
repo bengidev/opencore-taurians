@@ -16,6 +16,10 @@ _Avoid_: Tab, pane, view mode (when referring to chat/terminal/editor specifical
 The bordered sidebar on the left of the main card area. Can be toggled independently of the right panel.
 _Avoid_: Sidebar, navigator, file tree (until those features exist)
 
+**Preferred Panel Width**:
+The user-chosen left/right sidebar width stored in the shell store. Drag handles write this value. Below the shell layout reference width (1280px), the shell displays a proportionally smaller width so columns compress together.
+_Avoid_: Displayed width (when referring to the stored preference)
+
 **Right Panel**:
 The bordered sidebar on the right of the main card area. Can be toggled independently of the left panel.
 _Avoid_: Inspector, properties pane, secondary sidebar
