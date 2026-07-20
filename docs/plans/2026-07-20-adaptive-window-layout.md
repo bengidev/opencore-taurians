@@ -1,6 +1,6 @@
 # Adaptive Window Layout Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** Implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make shell columns and module UIs compress in place when the window shrinks (manual resize or GUI scale), with proportional left/center/right squeeze below the shell reference width, without changing GUI scale snap behavior.
 
@@ -21,7 +21,7 @@
 - Above reference width: panels stay at preferred; center absorbs extra space.
 - GUI scale snap (`base × scale`) stays unchanged — do not persist free-form window size across scale changes.
 - No width-redistribution animation on window resize (instant geometry). Panel open/close motion unchanged.
-- Plans/specs live under `docs/plans` and `docs/specs` (not `docs/superpowers/`, which is gitignored).
+- Plans/specs live under `docs/plans` and `docs/specs`.
 - Prefer `bun run test` / targeted Vitest file paths (repo uses Vitest via `bun`).
 
 ## File structure
@@ -597,15 +597,3 @@ If no fixes: no commit.
 2. **No placeholders:** Concrete code, commands, paths.
 3. **Types:** `distributeShellColumnWidths` signature consistent across Task 1–2.
 4. **Out of scope respected:** No auto-collapse, no window-size persistence, no vertical splitter, no scale snap changes.
-
----
-
-## Execution handoff
-
-Plan complete and saved to `docs/plans/2026-07-20-adaptive-window-layout.md`. Two execution options:
-
-**1. Subagent-Driven (recommended)** — dispatch a fresh subagent per task, review between tasks, fast iteration
-
-**2. Inline Execution** — execute tasks in this session using executing-plans, batch execution with checkpoints
-
-Which approach?
