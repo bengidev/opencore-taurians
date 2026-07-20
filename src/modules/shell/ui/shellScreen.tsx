@@ -80,7 +80,7 @@ export function ShellScreen() {
 
   return (
     <TooltipProvider delay={0}>
-      <div className="relative flex h-dvh min-h-0 flex-col bg-background text-foreground">
+      <div className="relative flex h-full min-h-0 flex-col bg-background text-foreground">
         <div className="flex shrink-0 divide-x divide-border border-y border-border bg-background">
           <ShellPanelSlot side="left" visible={leftVisible} width={leftPanelWidth}>
             <ShellLeftPanelHeader />

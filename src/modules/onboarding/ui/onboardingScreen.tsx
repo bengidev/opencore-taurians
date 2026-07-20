@@ -62,7 +62,7 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
 
   return (
     <div
-      className={`onboarding-screen relative min-h-dvh overflow-hidden bg-background text-foreground${
+      className={`onboarding-screen relative h-full min-h-full overflow-hidden bg-background text-foreground${
         themePulse ? " onboarding-theme-pulse" : ""
       }`}
       data-theme-mode={mode}
@@ -75,7 +75,7 @@ export function OnboardingScreen({ onEnter }: OnboardingScreenProps) {
         data-active={themePulse ? "true" : "false"}
       />
 
-      <div className="relative z-1 mx-auto grid min-h-dvh w-full max-w-[960px] grid-rows-[auto_1fr_auto] px-8 py-7 md:px-12 md:py-9">
+      <div className="relative z-1 mx-auto grid h-full min-h-full w-full max-w-[960px] grid-rows-[auto_1fr_auto] px-8 py-7 md:px-12 md:py-9">
         <header className="onboarding-enter onboarding-enter-1 flex items-start justify-between gap-8">
           <div className="flex flex-col gap-1.5">
             <span className="onboarding-brand text-[2.5rem] leading-none tracking-[-0.03em]">
