@@ -11,3 +11,7 @@ Five canonical triage labels, unmodified defaults. See `docs/agents/triage-label
 ### Domain docs
 
 Multi-context — `CONTEXT-MAP.md` maps the app, desktop, and feature-module contexts. See `docs/agents/domain.md`.
+
+### Desktop boundary
+
+Rust-first whenever possible; the React frontend is UI only. Native and I/O live in `src-tauri` as commands. See `src-tauri/docs/adr/0001-rust-first-desktop-boundary.md`.
