@@ -65,8 +65,9 @@ describe("ShellSettingsPage", () => {
       settingsOpen: false,
       leftPanelWidth: 320,
       rightPanelWidth: 320,
+      explorerAutoRefresh: "live",
     });
-    useThemeStore.setState({ mode: "dark" });
+    useThemeStore.setState({ mode: "light" });
     useSessionStore.setState({ guiScale: GUI_SCALE_DEFAULT, hasHydrated: true });
   });
 
@@ -78,12 +79,36 @@ describe("ShellSettingsPage", () => {
     expect(screen.getByRole("button", { name: "Back" })).toHaveTextContent("Settings");
   });
 
+  it("defaults to light theme and live explorer updates", async () => {
+    const user = userEvent.setup();
+    render(<ShellScreen />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByRole("button", { name: "Light" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Live updates" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(useThemeStore.getState().mode).toBe("light");
+    expect(useShellStore.getState().explorerAutoRefresh).toBe("live");
+  });
+
   it("persists explorer auto-refresh setting", async () => {
     const user = userEvent.setup();
     render(<ShellScreen />);
     await user.click(screen.getByRole("button", { name: "Settings" }));
     await user.click(screen.getByRole("button", { name: "On project switch" }));
     expect(useShellStore.getState().explorerAutoRefresh).toBe("on-activate");
+    expect(screen.getByRole("button", { name: "On project switch" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Live updates" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
   it("clamps gui scale and slider max to monitor fit", async () => {
@@ -164,14 +189,15 @@ describe("ShellSettingsPage", () => {
     await user.click(screen.getByRole("button", { name: "Settings" }));
     const scaleRow = screen.getByText(/gui scale/i).closest("div");
     expect(scaleRow?.className ?? "").toMatch(/min-w-0|flex/);
+    expect(scaleRow?.className ?? "").toMatch(/p-4/);
   });
 
   it("switches theme from settings", async () => {
     const user = userEvent.setup();
     render(<ShellScreen />);
     await user.click(screen.getByRole("button", { name: "Settings" }));
-    await user.click(screen.getByRole("button", { name: "Light" }));
-    expect(useThemeStore.getState().mode).toBe("light");
+    await user.click(screen.getByRole("button", { name: "Dark" }));
+    expect(useThemeStore.getState().mode).toBe("dark");
   });
 
   it("updates panel visibility, bottom panel, and resets widths", async () => {

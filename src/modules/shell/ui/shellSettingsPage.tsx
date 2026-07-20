@@ -5,7 +5,6 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import type { ThemeMode } from "../../onboarding/domain/onboardingTheme";
 import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
 import {
   GUI_SCALE_MAX,
@@ -35,21 +34,13 @@ const THEME_OPTIONS = [
   { value: "dark" as const, label: "Dark" },
 ];
 
-function themeOptionButtonClass(value: ThemeMode, selected: boolean) {
-  const base = "font-mono text-[11px] uppercase tracking-[0.08em]";
-  if (value === "light") {
-    return cn(
-      base,
-      selected
-        ? "border-[#e8e8e8] bg-[#f5f5f5] text-black [@media(hover:hover)_and_(pointer:fine)]:hover:border-[#ccc] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#ebebeb] [@media(hover:hover)_and_(pointer:fine)]:hover:text-black"
-        : "border-border bg-transparent text-muted-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:border-[#e8e8e8] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#f5f5f5] [@media(hover:hover)_and_(pointer:fine)]:hover:text-black",
-    );
-  }
+function settingsOptionButtonClass(selected: boolean) {
+  // Match outline’s border-[color:…] form so tw-merge replaces the variant border.
   return cn(
-    base,
+    "font-mono text-[11px] uppercase tracking-[0.08em]",
     selected
-      ? "border-[#333] bg-[#111] text-white [@media(hover:hover)_and_(pointer:fine)]:hover:border-[#444] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#1a1a1a] [@media(hover:hover)_and_(pointer:fine)]:hover:text-white"
-      : "border-border bg-transparent text-muted-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:border-[#333] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#111] [@media(hover:hover)_and_(pointer:fine)]:hover:text-white",
+      ? "border-[color:var(--foreground)] bg-foreground text-background [@media(hover:hover)_and_(pointer:fine)]:hover:border-[color:var(--foreground)] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:text-background"
+      : "border-[color:var(--border)] bg-transparent text-muted-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:border-[color:var(--foreground)] [@media(hover:hover)_and_(pointer:fine)]:hover:text-foreground",
   );
 }
 
@@ -143,7 +134,7 @@ export function ShellGuiScaleSetting({ open }: { open: boolean }) {
   }, [open]);
 
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <div className="mt-2 flex min-w-0 flex-col gap-3 rounded-[6px] border border-border p-4">
       <Label
         htmlFor="settings-gui-scale"
         className="font-mono text-[11px] uppercase tracking-[0.08em]"
@@ -288,7 +279,7 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
                 size="sm"
                 variant="outline"
                 aria-pressed={mode === value}
-                className={themeOptionButtonClass(value, mode === value)}
+                className={settingsOptionButtonClass(mode === value)}
                 onClick={() => setMode(value)}
               >
                 {label}
@@ -340,7 +331,9 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
                 size="sm"
                 variant="outline"
                 aria-pressed={explorerAutoRefresh === "live"}
-                className="font-mono text-[11px] uppercase tracking-[0.08em]"
+                className={settingsOptionButtonClass(
+                  explorerAutoRefresh === "live",
+                )}
                 onClick={() => setExplorerAutoRefresh("live")}
               >
                 Live updates
@@ -350,7 +343,9 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
                 size="sm"
                 variant="outline"
                 aria-pressed={explorerAutoRefresh === "on-activate"}
-                className="font-mono text-[11px] uppercase tracking-[0.08em]"
+                className={settingsOptionButtonClass(
+                  explorerAutoRefresh === "on-activate",
+                )}
                 onClick={() => setExplorerAutoRefresh("on-activate")}
               >
                 On project switch
