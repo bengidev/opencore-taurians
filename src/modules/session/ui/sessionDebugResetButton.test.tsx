@@ -58,17 +58,18 @@ describe("SessionDebugResetButton", () => {
     expect(onReset).not.toHaveBeenCalled();
   });
 
-  it("reclamps dragged position when the window shrinks", () => {
-    Object.defineProperty(window, "innerWidth", {
-      configurable: true,
-      value: 1280,
-    });
-    Object.defineProperty(window, "innerHeight", {
-      configurable: true,
-      value: 800,
-    });
-
-    render(<SessionDebugResetButton onReset={vi.fn()} />);
+  it("reclamps dragged position when the container shrinks", () => {
+    const { container: root } = render(
+      <div
+        data-testid="scale-root"
+        style={{ position: "relative", width: 1280, height: 800 }}
+      >
+        <SessionDebugResetButton onReset={vi.fn()} />
+      </div>,
+    );
+    const bounds = root.querySelector(
+      '[data-testid="scale-root"]',
+    ) as HTMLElement;
     const container = screen.getByRole("button", {
       name: /reset persisted data/i,
     }).parentElement as HTMLElement;
@@ -80,6 +81,18 @@ describe("SessionDebugResetButton", () => {
     Object.defineProperty(container, "offsetHeight", {
       configurable: true,
       value: 32,
+    });
+    Object.defineProperty(container, "offsetParent", {
+      configurable: true,
+      get: () => bounds,
+    });
+    Object.defineProperty(bounds, "clientWidth", {
+      configurable: true,
+      value: 1280,
+    });
+    Object.defineProperty(bounds, "clientHeight", {
+      configurable: true,
+      value: 800,
     });
 
     fireEvent.pointerDown(container, {
@@ -101,11 +114,11 @@ describe("SessionDebugResetButton", () => {
 
     expect(Number.parseFloat(container.style.left)).toBeGreaterThan(1000);
 
-    Object.defineProperty(window, "innerWidth", {
+    Object.defineProperty(bounds, "clientWidth", {
       configurable: true,
       value: 960,
     });
-    Object.defineProperty(window, "innerHeight", {
+    Object.defineProperty(bounds, "clientHeight", {
       configurable: true,
       value: 680,
     });

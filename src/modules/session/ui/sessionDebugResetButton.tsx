@@ -38,24 +38,47 @@ function unlockDocumentSelection(): void {
   body.style.removeProperty("-webkit-user-select");
 }
 
-function clampToViewport(
+function clampToBounds(
   el: HTMLElement,
   left: number,
   top: number,
+  boundsWidth: number,
+  boundsHeight: number,
 ): { left: number; top: number } {
   const maxLeft = Math.max(
     VIEWPORT_MARGIN_PX,
-    window.innerWidth - el.offsetWidth - VIEWPORT_MARGIN_PX,
+    boundsWidth - el.offsetWidth - VIEWPORT_MARGIN_PX,
   );
   const maxTop = Math.max(
     VIEWPORT_MARGIN_PX,
-    window.innerHeight - el.offsetHeight - VIEWPORT_MARGIN_PX,
+    boundsHeight - el.offsetHeight - VIEWPORT_MARGIN_PX,
   );
 
   return {
     left: Math.min(Math.max(VIEWPORT_MARGIN_PX, left), maxLeft),
     top: Math.min(Math.max(VIEWPORT_MARGIN_PX, top), maxTop),
   };
+}
+
+function readAncestorZoom(el: HTMLElement): number {
+  let node: HTMLElement | null = el;
+  while (node) {
+    const zoom = Number.parseFloat(getComputedStyle(node).zoom || "1");
+    if (Number.isFinite(zoom) && zoom > 0 && zoom !== 1) return zoom;
+    node = node.parentElement;
+  }
+  return 1;
+}
+
+function readPositionBounds(el: HTMLElement): {
+  width: number;
+  height: number;
+} {
+  const parent = el.offsetParent;
+  if (parent instanceof HTMLElement) {
+    return { width: parent.clientWidth, height: parent.clientHeight };
+  }
+  return { width: window.innerWidth, height: window.innerHeight };
 }
 
 export function SessionDebugResetButton({
@@ -73,7 +96,8 @@ export function SessionDebugResetButton({
   const clampPosition = useCallback((left: number, top: number) => {
     const el = containerRef.current;
     if (!el) return { left, top };
-    return clampToViewport(el, left, top);
+    const bounds = readPositionBounds(el);
+    return clampToBounds(el, left, top, bounds.width, bounds.height);
   }, []);
 
   useEffect(() => {
@@ -94,7 +118,14 @@ export function SessionDebugResetButton({
 
       setPosition((current) => {
         if (!current) return current;
-        const next = clampToViewport(el, current.left, current.top);
+        const bounds = readPositionBounds(el);
+        const next = clampToBounds(
+          el,
+          current.left,
+          current.top,
+          bounds.width,
+          bounds.height,
+        );
         if (next.left === current.left && next.top === current.top) {
           return current;
         }
@@ -113,8 +144,7 @@ export function SessionDebugResetButton({
 
     if (position) return position;
 
-    const rect = el.getBoundingClientRect();
-    return { left: rect.left, top: rect.top };
+    return { left: el.offsetLeft, top: el.offsetTop };
   };
 
   const beginPointerInteraction = (
@@ -153,11 +183,13 @@ export function SessionDebugResetButton({
 
     event.preventDefault();
 
-    const deltaX = event.clientX - drag.startX;
-    const deltaY = event.clientY - drag.startY;
+    const el = containerRef.current;
+    const zoom = el ? readAncestorZoom(el) : 1;
+    const deltaX = (event.clientX - drag.startX) / zoom;
+    const deltaY = (event.clientY - drag.startY) / zoom;
 
     if (!drag.dragging) {
-      if (Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD_PX) return;
+      if (Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD_PX / zoom) return;
       drag.dragging = true;
       suppressClickRef.current = true;
       setIsDragging(true);
@@ -203,7 +235,7 @@ export function SessionDebugResetButton({
     <div
       ref={containerRef}
       className={[
-        "fixed z-[100] touch-none select-none [-webkit-user-drag:none]",
+        "absolute z-[100] touch-none select-none [-webkit-user-drag:none]",
         position ? "" : "right-3 bottom-3",
         isDragging ? "cursor-grabbing" : "cursor-grab",
       ].join(" ")}
