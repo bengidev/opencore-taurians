@@ -47,8 +47,8 @@ describe("resetAllPersistedSession", () => {
     expect(useWorkspaceStore.getState().workspacePath).toBeNull();
     expect(useShellStore.getState().activeMainCard).toBe("chat");
     expect(useShellStore.getState().leftVisible).toBe(true);
-    expect(useThemeStore.getState().mode).toBe("dark");
-    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
+    expect(useThemeStore.getState().mode).toBe("light");
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
     const storage = getSessionStateStorage();
     for (const key of Object.values(SESSION_PERSIST_KEYS)) {
       await expect(storage.getItem(key)).resolves.toBeNull();
