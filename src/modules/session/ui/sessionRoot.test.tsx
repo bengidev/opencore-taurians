@@ -40,11 +40,42 @@ describe("SessionRoot", () => {
         <SessionRoot windowController={windowController} skipPersistBoot />
       </ThemeProvider>,
     );
-    const root = document.querySelector("[data-gui-scale]");
+    const root = document.querySelector("[data-gui-scale]") as HTMLElement;
     expect(root).toHaveAttribute("data-gui-scale", "1.5");
+    expect(root.style.zoom).toBe("1.5");
+    expect(root.style.width).toBe(`${100 / 1.5}vw`);
+    expect(root.style.height).toBe(`${100 / 1.5}vh`);
     await waitFor(() => {
       expect(windowController.lastSize).toEqual({ width: 1440, height: 1020 });
     });
+  });
+
+  it("expands root layout inversely at 50% so content is not double-shrunk", () => {
+    useSessionStore.setState({ guiScale: 0.5, hasHydrated: true });
+    render(
+      <ThemeProvider>
+        <SessionRoot windowController={windowController} skipPersistBoot />
+      </ThemeProvider>,
+    );
+    const root = document.querySelector("[data-gui-scale]") as HTMLElement;
+    expect(root).toHaveAttribute("data-gui-scale", "0.5");
+    expect(root.style.zoom).toBe("0.5");
+    expect(root.style.width).toBe("200vw");
+    expect(root.style.height).toBe("200vh");
+  });
+
+  it("keeps reset persisted data inside the scaled root", () => {
+    useSessionStore.setState({ guiScale: 0.5, hasHydrated: true });
+    render(
+      <ThemeProvider>
+        <SessionRoot windowController={windowController} skipPersistBoot />
+      </ThemeProvider>,
+    );
+    const root = document.querySelector("[data-gui-scale]");
+    const reset = screen.getByRole("button", {
+      name: /reset persisted data/i,
+    });
+    expect(root).toContainElement(reset);
   });
 
   it("shows onboarding until completed", () => {

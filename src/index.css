@@ -80,7 +80,7 @@
   html,
   body,
   #root {
-    @apply min-h-dvh;
+    @apply h-dvh min-h-dvh overflow-hidden;
     /* Keep window chrome and web content on the same opaque fill — no top seam. */
     background-color: var(--background);
   }
