@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { OnboardingScreen } from "../../onboarding";
 import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
 import { ShellScreen } from "../../shell";
@@ -20,7 +20,10 @@ import {
   createTauriWindowController,
   type WindowController,
 } from "../infrastructure/sessionWindowController";
-import { guiScaleAfterWorkAreaClamp } from "../domain/sessionGuiScale";
+import {
+  guiScaleAfterWorkAreaClamp,
+  guiScaleRootLayout,
+} from "../domain/sessionGuiScale";
 import { resetAllPersistedSession } from "../state/sessionReset";
 import { useSessionStore } from "../state/sessionStore";
 import { SessionDebugResetButton } from "./sessionDebugResetButton";
@@ -169,16 +172,18 @@ export function SessionRoot({
     );
   }
 
+  const scaleLayout = guiScaleRootLayout(guiScale);
+
   return (
     <div
-      className="session-screen-transition relative min-h-dvh overflow-hidden"
+      className="session-screen-transition relative h-full overflow-hidden"
       data-transitioning={isTransitioning ? "true" : "false"}
       data-gui-scale={String(guiScale)}
-      style={{ zoom: guiScale } as React.CSSProperties}
+      style={scaleLayout as CSSProperties}
     >
       {showShell ? (
         <div
-          className="session-shell-layer min-h-dvh"
+          className="session-shell-layer h-full min-h-full"
           data-visible={shellVisible ? "true" : "false"}
           data-instant={shellInstant ? "true" : "false"}
         >
