@@ -1,5 +1,5 @@
-import { cleanup, render } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ShellPanelSlot } from "./shellPanelSlot";
 
 function getSlot(container: HTMLElement) {
@@ -28,6 +28,40 @@ describe("ShellPanelSlot", () => {
     );
     expect(slot.style.transitionProperty).toBe("none");
     expect(slot.style.width).toBe("200px");
+  });
+
+  it("keeps width animation latched through reveal reset on steady-state close", () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+
+    try {
+      const { container, rerender } = render(
+        <ShellPanelSlot side="left" visible width={300}>
+          panel
+        </ShellPanelSlot>,
+      );
+
+      act(() => {});
+
+      rerender(
+        <ShellPanelSlot side="left" visible={false} width={300}>
+          panel
+        </ShellPanelSlot>,
+      );
+      const slot = getSlot(container);
+      expect(slot.style.transitionProperty).toBe("width");
+
+      rerender(
+        <ShellPanelSlot side="left" visible={false} width={300}>
+          panel
+        </ShellPanelSlot>,
+      );
+      expect(slot.style.transitionProperty).toBe("width");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("animates outer width when closing", () => {
@@ -89,6 +123,7 @@ describe("ShellPanelSlot", () => {
         panel
       </ShellPanelSlot>,
     );
+    fireEvent.transitionEnd(slot, { propertyName: "width" });
     rerender(
       <ShellPanelSlot side="left" visible width={250}>
         panel

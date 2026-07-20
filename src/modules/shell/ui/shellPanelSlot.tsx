@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import {
   SHELL_EASE_DRAWER,
@@ -29,7 +35,9 @@ export function ShellPanelSlot({
   const [mounted, setMounted] = useState(visible);
   const [revealed, setRevealed] = useState(visible);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [, syncWidthAnimation] = useReducer((version) => version + 1, 0);
   const prevVisibleRef = useRef(visible);
+  const animateOuterWidthRef = useRef(false);
 
   useEffect(() => {
     setReduceMotion(prefersReducedMotion());
@@ -58,17 +66,19 @@ export function ShellPanelSlot({
     }
   }, [visible, reduceMotion]);
 
-  useEffect(() => {
+  if (prevVisibleRef.current !== visible) {
     prevVisibleRef.current = visible;
-  }, [visible]);
+    if (!reduceMotion) {
+      animateOuterWidthRef.current = true;
+    }
+  }
 
   if (!mounted) return null;
 
   const displayWidth = visible ? width : 0;
   const outerDurationMs = visible ? SHELL_SHOW_MS : SHELL_HIDE_MS;
   const outerEase = visible ? SHELL_EASE_OUT : SHELL_EASE_DRAWER;
-  const animateOuterWidth =
-    !reduceMotion && prevVisibleRef.current !== visible;
+  const animateOuterWidth = !reduceMotion && animateOuterWidthRef.current;
   const contentOffset =
     side === "left" ? -CONTENT_OFFSET_PX : CONTENT_OFFSET_PX;
   const transformOrigin = side === "left" ? "left center" : "right center";
@@ -85,7 +95,10 @@ export function ShellPanelSlot({
         transitionTimingFunction: animateOuterWidth ? outerEase : undefined,
       }}
       onTransitionEnd={(event) => {
-        if (event.propertyName === "width" && !visible) {
+        if (event.propertyName !== "width") return;
+        animateOuterWidthRef.current = false;
+        syncWidthAnimation();
+        if (!visible) {
           setMounted(false);
         }
       }}
