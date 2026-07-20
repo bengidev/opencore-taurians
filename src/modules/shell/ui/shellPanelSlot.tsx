@@ -60,8 +60,10 @@ export function ShellPanelSlot({
   if (!mounted) return null;
 
   const displayWidth = visible ? width : 0;
+  const isClosing = mounted && !visible;
   const outerDurationMs = visible ? SHELL_SHOW_MS : SHELL_HIDE_MS;
   const outerEase = visible ? SHELL_EASE_OUT : SHELL_EASE_DRAWER;
+  const animateOuterWidth = isClosing && !reduceMotion;
   const contentOffset =
     side === "left" ? -CONTENT_OFFSET_PX : CONTENT_OFFSET_PX;
   const transformOrigin = side === "left" ? "left center" : "right center";
@@ -73,9 +75,9 @@ export function ShellPanelSlot({
       className="min-h-0 shrink-0 overflow-hidden motion-reduce:transition-none"
       style={{
         width: displayWidth,
-        transitionProperty: reduceMotion ? "none" : "width",
-        transitionDuration: reduceMotion ? "0ms" : `${outerDurationMs}ms`,
-        transitionTimingFunction: outerEase,
+        transitionProperty: animateOuterWidth ? "width" : "none",
+        transitionDuration: animateOuterWidth ? `${outerDurationMs}ms` : "0ms",
+        transitionTimingFunction: animateOuterWidth ? outerEase : undefined,
       }}
       onTransitionEnd={(event) => {
         if (event.propertyName === "width" && !visible) {
