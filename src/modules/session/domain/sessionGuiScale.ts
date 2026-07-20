@@ -21,6 +21,15 @@ export function maxGuiScaleForWorkArea(
   return clampGuiScale(Math.min(GUI_SCALE_MAX, byWidth, byHeight));
 }
 
+export function guiScaleAfterWorkAreaClamp(
+  scale: number,
+  base: GuiWindowSize,
+  workArea: GuiWindowSize | null,
+): number {
+  if (!workArea) return clampGuiScale(scale);
+  return clampGuiScale(scale, maxGuiScaleForWorkArea(base, workArea));
+}
+
 export function scaledWindowSize(
   base: GuiWindowSize,
   scale: number,

@@ -11,7 +11,11 @@ import {
   GUI_SCALE_MAX,
   GUI_SCALE_MIN,
   GUI_SCALE_STEP,
+  guiScaleAfterWorkAreaClamp,
+  maxGuiScaleForWorkArea,
 } from "../../session/domain/sessionGuiScale";
+import { readLogicalWorkArea } from "../../session/infrastructure/sessionWorkArea";
+import { SHELL_WINDOW_SIZE } from "../../session/infrastructure/sessionWindowController";
 import { useSessionStore } from "../../session/state/sessionStore";
 import { useShellStore } from "../state/shellStore";
 import {
@@ -113,7 +117,28 @@ function ShellPanelSettingRow({
 export function ShellGuiScaleSetting() {
   const guiScale = useSessionStore((s) => s.guiScale);
   const setGuiScale = useSessionStore((s) => s.setGuiScale);
+  const [maxFit, setMaxFit] = useState(GUI_SCALE_MAX);
   const percent = `${Math.round(guiScale * 100)}%`;
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const area = await readLogicalWorkArea();
+      if (cancelled || !area) return;
+      const next = maxGuiScaleForWorkArea(SHELL_WINDOW_SIZE, area);
+      setMaxFit(next);
+      const current = useSessionStore.getState().guiScale;
+      const clamped = guiScaleAfterWorkAreaClamp(
+        current,
+        SHELL_WINDOW_SIZE,
+        area,
+      );
+      if (clamped !== current) useSessionStore.getState().setGuiScale(clamped);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="flex flex-col gap-2">
@@ -132,7 +157,7 @@ export function ShellGuiScaleSetting() {
         id="settings-gui-scale"
         aria-label="GUI scale"
         min={GUI_SCALE_MIN}
-        max={GUI_SCALE_MAX}
+        max={maxFit}
         step={GUI_SCALE_STEP}
         value={[guiScale]}
         onValueChange={(value) => {
