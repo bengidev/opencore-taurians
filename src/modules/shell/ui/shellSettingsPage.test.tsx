@@ -3,11 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
 import { GUI_SCALE_DEFAULT } from "../../session/domain/sessionGuiScale";
+import * as sessionWorkArea from "../../session/infrastructure/sessionWorkArea";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useSessionStore } from "../../session/state/sessionStore";
 import { DEFAULT_SHELL_PANEL_WIDTH } from "../state/shellPanelSizing";
 import { useShellStore } from "../state/shellStore";
 import { ShellScreen } from "./shellScreen";
+
+vi.mock("../../session/infrastructure/sessionWorkArea", () => ({
+  readLogicalWorkArea: vi.fn(),
+}));
 
 vi.mock("@/components/ui/slider", () => ({
   Slider: ({
@@ -51,6 +56,7 @@ describe("ShellSettingsPage", () => {
   afterEach(() => cleanup());
 
   beforeEach(() => {
+    vi.mocked(sessionWorkArea.readLogicalWorkArea).mockResolvedValue(null);
     useMemoryPersistStorage();
     useShellStore.setState({
       leftVisible: true,
@@ -78,6 +84,24 @@ describe("ShellSettingsPage", () => {
     await user.click(screen.getByRole("button", { name: "Settings" }));
     await user.click(screen.getByRole("button", { name: "On project switch" }));
     expect(useShellStore.getState().explorerAutoRefresh).toBe("on-activate");
+  });
+
+  it("clamps gui scale and slider max to monitor fit", async () => {
+    vi.mocked(sessionWorkArea.readLogicalWorkArea).mockResolvedValue({
+      width: 1920,
+      height: 1080,
+    });
+    useSessionStore.setState({ guiScale: 2 });
+    const user = userEvent.setup();
+    render(<ShellScreen />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await waitFor(() => {
+      expect(useSessionStore.getState().guiScale).toBe(1.35);
+    });
+    expect(screen.getByRole("slider", { name: "GUI scale" })).toHaveAttribute(
+      "max",
+      "1.35",
+    );
   });
 
   it("updates GUI scale from settings slider", async () => {

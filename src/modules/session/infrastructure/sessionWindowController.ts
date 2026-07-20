@@ -1,4 +1,5 @@
 import { scaledWindowSize } from "../domain/sessionGuiScale";
+import { readLogicalWorkArea } from "./sessionWorkArea";
 
 export interface WindowSize {
   width: number;
@@ -39,24 +40,6 @@ export function createMemoryWindowController(options?: {
     },
   };
   return controller;
-}
-
-async function readLogicalWorkArea(): Promise<{
-  width: number;
-  height: number;
-} | null> {
-  try {
-    const { currentMonitor } = await import("@tauri-apps/api/window");
-    const monitor = await currentMonitor();
-    if (!monitor) return null;
-    const logical = monitor.workArea.size.toLogical(monitor.scaleFactor);
-    return {
-      width: Math.floor(logical.width),
-      height: Math.floor(logical.height),
-    };
-  } catch {
-    return null;
-  }
 }
 
 async function resizeAndCenter(

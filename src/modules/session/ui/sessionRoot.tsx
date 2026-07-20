@@ -13,10 +13,14 @@ import {
   useProjectStore,
 } from "../../project";
 import { useTauriPersistStorage } from "../infrastructure/sessionPersistStorage";
+import { readLogicalWorkArea } from "../infrastructure/sessionWorkArea";
 import {
+  ONBOARDING_WINDOW_SIZE,
+  SHELL_WINDOW_SIZE,
   createTauriWindowController,
   type WindowController,
 } from "../infrastructure/sessionWindowController";
+import { guiScaleAfterWorkAreaClamp } from "../domain/sessionGuiScale";
 import { resetAllPersistedSession } from "../state/sessionReset";
 import { useSessionStore } from "../state/sessionStore";
 import { SessionDebugResetButton } from "./sessionDebugResetButton";
@@ -111,6 +115,27 @@ export function SessionRoot({
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+
+    let cancelled = false;
+    void (async () => {
+      const area = await readLogicalWorkArea();
+      if (cancelled) return;
+      const base =
+        isTransitioning || (onboardingCompleted && showShell)
+          ? SHELL_WINDOW_SIZE
+          : ONBOARDING_WINDOW_SIZE;
+      const current = useSessionStore.getState().guiScale;
+      const clamped = guiScaleAfterWorkAreaClamp(current, base, area);
+      if (clamped !== current) useSessionStore.getState().setGuiScale(clamped);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, isTransitioning, onboardingCompleted, showShell]);
 
   useEffect(() => {
     if (!ready) return;
