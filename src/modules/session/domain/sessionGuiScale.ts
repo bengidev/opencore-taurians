@@ -44,3 +44,23 @@ export function scaledWindowSize(
   }
   return { width, height };
 }
+
+/**
+ * CSS zoom + a window sized to `base × scale` would double-shrink layout if
+ * children use viewport units (`dvh`). Expand the zoomed root inversely so
+ * layout stays at the unscaled base size and only the painted result shrinks.
+ */
+export function guiScaleRootLayout(scale: number): {
+  zoom: number;
+  width: string;
+  height: string;
+} {
+  const zoom =
+    Number.isFinite(scale) && scale > 0 ? scale : GUI_SCALE_DEFAULT;
+  const pct = 100 / zoom;
+  return {
+    zoom,
+    width: `${pct}vw`,
+    height: `${pct}vh`,
+  };
+}

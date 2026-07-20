@@ -5,6 +5,7 @@ import {
   GUI_SCALE_MIN,
   clampGuiScale,
   guiScaleAfterWorkAreaClamp,
+  guiScaleRootLayout,
   maxGuiScaleForWorkArea,
   scaledWindowSize,
 } from "./sessionGuiScale";
@@ -61,5 +62,23 @@ describe("sessionGuiScale", () => {
         { width: 1800, height: 1000 },
       ),
     ).toEqual({ width: 1800, height: 1000 });
+  });
+
+  it("expands zoomed root layout inversely so viewport units stay at base size", () => {
+    expect(guiScaleRootLayout(1)).toEqual({
+      zoom: 1,
+      width: "100vw",
+      height: "100vh",
+    });
+    expect(guiScaleRootLayout(0.5)).toEqual({
+      zoom: 0.5,
+      width: "200vw",
+      height: "200vh",
+    });
+    expect(guiScaleRootLayout(2)).toEqual({
+      zoom: 2,
+      width: "50vw",
+      height: "50vh",
+    });
   });
 });
