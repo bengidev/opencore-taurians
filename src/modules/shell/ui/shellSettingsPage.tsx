@@ -2,10 +2,17 @@ import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { ThemeMode } from "../../onboarding/domain/onboardingTheme";
 import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
+import {
+  GUI_SCALE_MAX,
+  GUI_SCALE_MIN,
+  GUI_SCALE_STEP,
+} from "../../session/domain/sessionGuiScale";
+import { useSessionStore } from "../../session/state/sessionStore";
 import { useShellStore } from "../state/shellStore";
 import {
   SHELL_EASE_DRAWER,
@@ -98,6 +105,40 @@ function ShellPanelSettingRow({
         onCheckedChange={onCheckedChange}
         aria-label={label}
         className="mt-0.5 shrink-0"
+      />
+    </div>
+  );
+}
+
+export function ShellGuiScaleSetting() {
+  const guiScale = useSessionStore((s) => s.guiScale);
+  const setGuiScale = useSessionStore((s) => s.setGuiScale);
+  const percent = `${Math.round(guiScale * 100)}%`;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-4">
+        <Label
+          htmlFor="settings-gui-scale"
+          className="font-mono text-[11px] uppercase tracking-[0.08em]"
+        >
+          GUI scale
+        </Label>
+        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          {percent}
+        </span>
+      </div>
+      <Slider
+        id="settings-gui-scale"
+        aria-label="GUI scale"
+        min={GUI_SCALE_MIN}
+        max={GUI_SCALE_MAX}
+        step={GUI_SCALE_STEP}
+        value={[guiScale]}
+        onValueChange={(value) => {
+          const next = Array.isArray(value) ? value[0] : value;
+          if (typeof next === "number") setGuiScale(next);
+        }}
       />
     </div>
   );
@@ -226,6 +267,7 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
               </Button>
             ))}
           </div>
+          <ShellGuiScaleSetting />
         </section>
         <section className="flex flex-col gap-3">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
