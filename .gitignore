@@ -53,6 +53,7 @@ coverage/
 .extract-design-system/
 
 # Local agent planning docs (not for version control)
+superpowers/
 impeccable/
 
 # Git worktrees
