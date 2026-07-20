@@ -71,9 +71,13 @@ describe("SessionRoot", () => {
         />
       </ThemeProvider>,
     );
-    expect(windowController.lastSize).toEqual({ width: 960, height: 680 });
+    await waitFor(() => {
+      expect(windowController.lastSize).toEqual({ width: 960, height: 680 });
+    });
     await user.click(screen.getByRole("button", { name: "Enter OpenCore" }));
-    expect(windowController.lastSize).toEqual({ width: 1280, height: 800 });
+    await waitFor(() => {
+      expect(windowController.lastSize).toEqual({ width: 1280, height: 800 });
+    });
     await waitFor(() => {
       expect(screen.getByText(/welcome back to/i)).toBeInTheDocument();
     });
@@ -152,7 +156,9 @@ describe("SessionRoot", () => {
       </ThemeProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Enter OpenCore" }));
-    expect(windowController.lastSize).toEqual({ width: 1280, height: 800 });
+    await waitFor(() => {
+      expect(windowController.lastSize).toEqual({ width: 1280, height: 800 });
+    });
     expect(
       screen.getByRole("button", { name: "Enter OpenCore" }),
     ).toBeInTheDocument();
@@ -244,6 +250,23 @@ describe("SessionRoot", () => {
     );
     await waitFor(() => {
       expect(useSessionStore.getState().guiScale).toBe(1.35);
+    });
+  });
+
+  it("sizes window with clamped scale on ready, not stale persisted scale", async () => {
+    vi.mocked(sessionWorkArea.readLogicalWorkArea).mockResolvedValue({
+      width: 1920,
+      height: 1080,
+    });
+    useSessionStore.setState({ guiScale: 2, hasHydrated: true, onboardingCompleted: true });
+    useWorkspaceStore.setState({ workspacePath: "/tmp/x" });
+    render(
+      <ThemeProvider>
+        <SessionRoot windowController={windowController} skipPersistBoot />
+      </ThemeProvider>,
+    );
+    await waitFor(() => {
+      expect(windowController.lastSize).toEqual({ width: 1728, height: 1080 });
     });
   });
 });

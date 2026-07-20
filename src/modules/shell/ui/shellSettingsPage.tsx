@@ -114,13 +114,15 @@ function ShellPanelSettingRow({
   );
 }
 
-export function ShellGuiScaleSetting() {
+export function ShellGuiScaleSetting({ open }: { open: boolean }) {
   const guiScale = useSessionStore((s) => s.guiScale);
   const setGuiScale = useSessionStore((s) => s.setGuiScale);
   const [maxFit, setMaxFit] = useState(GUI_SCALE_MAX);
   const percent = `${Math.round(guiScale * 100)}%`;
 
   useEffect(() => {
+    if (!open) return;
+
     let cancelled = false;
     void (async () => {
       const area = await readLogicalWorkArea();
@@ -138,7 +140,7 @@ export function ShellGuiScaleSetting() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [open]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -292,7 +294,7 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
               </Button>
             ))}
           </div>
-          <ShellGuiScaleSetting />
+          <ShellGuiScaleSetting open={open} />
         </section>
         <section className="flex flex-col gap-3">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
