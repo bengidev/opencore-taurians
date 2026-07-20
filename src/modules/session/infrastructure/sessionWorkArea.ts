@@ -14,9 +14,3 @@ export async function readLogicalWorkArea(): Promise<GuiWindowSize | null> {
     return null;
   }
 }
-
-export function createMemoryWorkAreaReader(
-  size: GuiWindowSize | null,
-): () => Promise<GuiWindowSize | null> {
-  return async () => size;
-}
