@@ -4,6 +4,7 @@ import {
   getSessionStateStorage,
 } from "../infrastructure/sessionPersistStorage";
 import { SESSION_PERSIST_KEYS } from "../infrastructure/sessionPersistKeys";
+import { GUI_SCALE_DEFAULT } from "../domain/sessionGuiScale";
 import { useSessionStore } from "./sessionStore";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { useShellStore } from "../../shell/state/shellStore";
@@ -17,6 +18,7 @@ describe("resetAllPersistedSession", () => {
   beforeEach(async () => {
     useMemoryPersistStorage();
     useSessionStore.getState().completeOnboarding();
+    useSessionStore.getState().setGuiScale(1.5);
     useWorkspaceStore.getState().setWorkspace("/tmp/x");
     useShellStore.getState().setActiveMainCard("editor");
     useShellStore.setState({ leftVisible: false, rightVisible: false });
@@ -41,6 +43,7 @@ describe("resetAllPersistedSession", () => {
 
     await resetAllPersistedSession();
     expect(useSessionStore.getState().onboardingCompleted).toBe(false);
+    expect(useSessionStore.getState().guiScale).toBe(GUI_SCALE_DEFAULT);
     expect(useWorkspaceStore.getState().workspacePath).toBeNull();
     expect(useShellStore.getState().activeMainCard).toBe("chat");
     expect(useShellStore.getState().leftVisible).toBe(true);
