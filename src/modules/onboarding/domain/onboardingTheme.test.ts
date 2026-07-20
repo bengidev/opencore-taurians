@@ -23,12 +23,16 @@ describe("nextThemeMode", () => {
 
 describe("theme tokens", () => {
   it("uses ink-deep as the dark primary surface", () => {
-    expect(surface(DEFAULT_THEME_MODE, "primary")).toEqual({
+    expect(surface("dark", "primary")).toEqual({
       r: 0,
       g: 0,
       b: 0,
       a: 1,
     });
+  });
+
+  it("defaults to light theme", () => {
+    expect(DEFAULT_THEME_MODE).toBe("light");
   });
 });
 

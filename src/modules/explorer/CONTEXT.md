@@ -5,7 +5,7 @@ Right-panel file tree for the active project — browse folders, open files in t
 ## Language
 
 **Explorer**:
-The explorer module and its behavior: listing the active project's directory tree, opening files in the editor, inline create/rename, context-menu actions, external drop copy, and auto-refresh. Scoped to the active project's root path; shows an empty state when no project is selected.
+The explorer module and its behavior: listing the active project's directory tree, opening files in the editor, inline create/rename, context-menu actions, external drop copy, and auto-refresh. Auto-refresh defaults to **live** updates (shell store); **on-activate** refreshes when the active project changes. Scoped to the active project's root path; shows an empty state when no project is selected.
 _Avoid_: File tree (when referring to the left panel), sidebar, navigator, project list
 
 **Explorer Panel**:

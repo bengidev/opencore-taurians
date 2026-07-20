@@ -5,7 +5,7 @@ Cross-cutting session lifecycle: persisted flags, window sizing, boot hydration,
 ## Language
 
 **Session**:
-The persisted app session — onboarding completion, workspace path, shell UI, and theme — backed by Tauri store (production) or in-memory storage (tests).
+The persisted app session — onboarding completion, workspace path, shell UI, and theme (default light) — backed by Tauri store (production) or in-memory storage (tests).
 _Avoid_: User session, auth session, login state
 
 **Session Root**:
@@ -19,3 +19,7 @@ _Avoid_: Logout, factory reset, clear cache (when referring to this button speci
 **Window Controller**:
 Infrastructure port (`applyOnboardingSize` / `applyShellSize`) abstracting Tauri window resize and center. Production uses the Tauri window API; tests inject `createMemoryWindowController`.
 _Avoid_: Window manager, resize handler, OS chrome
+
+**GUI scale**:
+Persisted zoom factor applied on the session root; drives window size with the active mode base.
+_Avoid_: Zoom level, UI scale, display scale
