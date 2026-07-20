@@ -30,7 +30,7 @@ describe("ShellPanelSlot", () => {
     expect(slot.style.width).toBe("200px");
   });
 
-  it("animates outer width only while closing", () => {
+  it("animates outer width when closing", () => {
     const { container, rerender } = render(
       <ShellPanelSlot side="left" visible width={300}>
         panel
@@ -45,5 +45,56 @@ describe("ShellPanelSlot", () => {
     );
     expect(slot.style.transitionProperty).toBe("width");
     expect(slot.style.width).toBe("0px");
+  });
+
+  it("animates outer width when reopening mid-close", () => {
+    const { container, rerender } = render(
+      <ShellPanelSlot side="left" visible width={300}>
+        panel
+      </ShellPanelSlot>,
+    );
+
+    rerender(
+      <ShellPanelSlot side="left" visible={false} width={300}>
+        panel
+      </ShellPanelSlot>,
+    );
+    const slot = getSlot(container);
+    expect(slot.style.transitionProperty).toBe("width");
+
+    rerender(
+      <ShellPanelSlot side="left" visible width={300}>
+        panel
+      </ShellPanelSlot>,
+    );
+    expect(slot.style.transitionProperty).toBe("width");
+    expect(slot.style.width).toBe("300px");
+  });
+
+  it("stops animating outer width after a visibility transition settles", () => {
+    const { container, rerender } = render(
+      <ShellPanelSlot side="left" visible width={300}>
+        panel
+      </ShellPanelSlot>,
+    );
+    const slot = getSlot(container);
+
+    rerender(
+      <ShellPanelSlot side="left" visible={false} width={300}>
+        panel
+      </ShellPanelSlot>,
+    );
+    rerender(
+      <ShellPanelSlot side="left" visible width={300}>
+        panel
+      </ShellPanelSlot>,
+    );
+    rerender(
+      <ShellPanelSlot side="left" visible width={250}>
+        panel
+      </ShellPanelSlot>,
+    );
+    expect(slot.style.transitionProperty).toBe("none");
+    expect(slot.style.width).toBe("250px");
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import {
   SHELL_EASE_DRAWER,
@@ -29,6 +29,7 @@ export function ShellPanelSlot({
   const [mounted, setMounted] = useState(visible);
   const [revealed, setRevealed] = useState(visible);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const prevVisibleRef = useRef(visible);
 
   useEffect(() => {
     setReduceMotion(prefersReducedMotion());
@@ -57,13 +58,17 @@ export function ShellPanelSlot({
     }
   }, [visible, reduceMotion]);
 
+  useEffect(() => {
+    prevVisibleRef.current = visible;
+  }, [visible]);
+
   if (!mounted) return null;
 
   const displayWidth = visible ? width : 0;
-  const isClosing = mounted && !visible;
   const outerDurationMs = visible ? SHELL_SHOW_MS : SHELL_HIDE_MS;
   const outerEase = visible ? SHELL_EASE_OUT : SHELL_EASE_DRAWER;
-  const animateOuterWidth = isClosing && !reduceMotion;
+  const animateOuterWidth =
+    !reduceMotion && prevVisibleRef.current !== visible;
   const contentOffset =
     side === "left" ? -CONTENT_OFFSET_PX : CONTENT_OFFSET_PX;
   const transformOrigin = side === "left" ? "left center" : "right center";
