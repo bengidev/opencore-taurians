@@ -18,7 +18,7 @@ Multi-context layout for this repo:
 ├── CONTEXT-MAP.md
 ├── docs/adr/                              ← system-wide decisions
 ├── src/
-│   ├── CONTEXT.md                         ← app shell (created lazily)
+│   ├── CONTEXT.md                         ← app: UI-only frontend, module layout
 │   ├── docs/adr/
 │   └── modules/
 │       ├── onboarding/
@@ -31,23 +31,32 @@ Multi-context layout for this repo:
 │       ├── chat/CONTEXT.md
 │       └── explorer/CONTEXT.md
 └── src-tauri/
-    ├── CONTEXT.md                         ← desktop shell (created lazily)
+    ├── CONTEXT.md                         ← desktop: Rust-first, commands, native I/O
     └── docs/adr/
+        └── 0001-rust-first-desktop-boundary.md
 ```
 
 ## Context guide
 
 | Context | When to read |
 | ------- | ------------ |
-| **onboarding** | Onboarding Screen, Theme Mode, Galaxy Orb, Scene Backdrop, Enter action |
-| **session** | Session lifecycle, persistence, boot hydration, root UI, window sizing |
-| **shell** | Workspace chrome, Main Cards, panels, Settings, Main Card Tabs |
+| **onboarding** | Onboarding Screen, Theme Mode (default light), Galaxy Orb, Scene Backdrop, Enter action |
+| **session** | Session lifecycle, persistence, boot hydration, root UI, window sizing, GUI scale |
+| **shell** | Workspace chrome, Main Cards, panels, Settings (theme / GUI scale / explorer auto-refresh), Main Card Tabs |
 | **workspace-popup** | Workspace Popup, Open Project, Folder Picker |
 | **project** | Projects, ProjectTrunks, ProjectGroups, activation, retention |
 | **chat** | ChatMessage persistence and trunk-scoped history |
-| **explorer** | Explorer, Explorer Panel, Explorer Tree, active-project file browsing |
+| **explorer** | Explorer, Explorer Panel, Explorer Tree, live / on-activate auto-refresh |
 | **app** | `App.tsx`, routing, shared components, design-system integration |
 | **desktop** | Tauri config, Rust commands, window management, native plugins |
+
+## Rust-first / UI-only boundary
+
+Read **`src-tauri/CONTEXT.md`**, **`src/CONTEXT.md`**, and **`src-tauri/docs/adr/0001-rust-first-desktop-boundary.md`** before adding features that touch the filesystem, OS, or processes.
+
+- **Desktop (Rust):** commands, validation, watchers, drag-drop handling, trash, and other native I/O.
+- **App (React):** UI, view state, typed `invoke` wrappers, and event listeners — not direct `@tauri-apps/plugin-fs` or filesystem logic in feature modules.
+- **Whenever possible** applies to all new work; legacy session ports using Tauri plugins are exceptions until migrated.
 
 ## Use the glossary's vocabulary
 

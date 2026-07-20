@@ -9,7 +9,7 @@ The single welcome surface shown before the workspace. Not a multi-step wizard.
 _Avoid_: Setup wizard, first-run flow, onboarding funnel
 
 **Theme Mode**:
-Light or dark appearance for the onboarding surface and document root. Both modes are first-class.
+Light or dark appearance for the onboarding surface and document root. Both modes are first-class. Default is **light** (`DEFAULT_THEME_MODE`, mirrored in `public/theme-boot.js` before hydrate).
 _Avoid_: Color scheme, appearance preference (when referring to this toggle)
 
 **Galaxy Orb**:

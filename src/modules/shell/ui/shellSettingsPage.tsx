@@ -2,10 +2,20 @@ import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import type { ThemeMode } from "../../onboarding/domain/onboardingTheme";
 import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
+import {
+  GUI_SCALE_MAX,
+  GUI_SCALE_MIN,
+  GUI_SCALE_STEP,
+  guiScaleAfterWorkAreaClamp,
+  maxGuiScaleForWorkArea,
+} from "../../session/domain/sessionGuiScale";
+import { readLogicalWorkArea } from "../../session/infrastructure/sessionWorkArea";
+import { SHELL_WINDOW_SIZE } from "../../session/infrastructure/sessionWindowController";
+import { useSessionStore } from "../../session/state/sessionStore";
 import { useShellStore } from "../state/shellStore";
 import {
   SHELL_EASE_DRAWER,
@@ -24,21 +34,13 @@ const THEME_OPTIONS = [
   { value: "dark" as const, label: "Dark" },
 ];
 
-function themeOptionButtonClass(value: ThemeMode, selected: boolean) {
-  const base = "font-mono text-[11px] uppercase tracking-[0.08em]";
-  if (value === "light") {
-    return cn(
-      base,
-      selected
-        ? "border-[#e8e8e8] bg-[#f5f5f5] text-black [@media(hover:hover)_and_(pointer:fine)]:hover:border-[#ccc] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#ebebeb] [@media(hover:hover)_and_(pointer:fine)]:hover:text-black"
-        : "border-border bg-transparent text-muted-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:border-[#e8e8e8] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#f5f5f5] [@media(hover:hover)_and_(pointer:fine)]:hover:text-black",
-    );
-  }
+function settingsOptionButtonClass(selected: boolean) {
+  // Match outline’s border-[color:…] form so tw-merge replaces the variant border.
   return cn(
-    base,
+    "font-mono text-[11px] uppercase tracking-[0.08em]",
     selected
-      ? "border-[#333] bg-[#111] text-white [@media(hover:hover)_and_(pointer:fine)]:hover:border-[#444] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#1a1a1a] [@media(hover:hover)_and_(pointer:fine)]:hover:text-white"
-      : "border-border bg-transparent text-muted-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:border-[#333] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#111] [@media(hover:hover)_and_(pointer:fine)]:hover:text-white",
+      ? "border-[color:var(--foreground)] bg-foreground text-background [@media(hover:hover)_and_(pointer:fine)]:hover:border-[color:var(--foreground)] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:text-background"
+      : "border-[color:var(--border)] bg-transparent text-muted-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:border-[color:var(--foreground)] [@media(hover:hover)_and_(pointer:fine)]:hover:text-foreground",
   );
 }
 
@@ -82,7 +84,7 @@ function ShellPanelSettingRow({
   const checked = useShellStore(selectVisible);
 
   return (
-    <div className="flex items-start justify-between gap-4">
+    <div className="flex min-w-0 items-start justify-between gap-4">
       <div className="flex min-w-0 flex-col gap-1">
         <Label
           htmlFor={id}
@@ -99,6 +101,64 @@ function ShellPanelSettingRow({
         aria-label={label}
         className="mt-0.5 shrink-0"
       />
+    </div>
+  );
+}
+
+export function ShellGuiScaleSetting({ open }: { open: boolean }) {
+  const guiScale = useSessionStore((s) => s.guiScale);
+  const setGuiScale = useSessionStore((s) => s.setGuiScale);
+  const [maxFit, setMaxFit] = useState(GUI_SCALE_MAX);
+  const percent = `${Math.round(guiScale * 100)}%`;
+
+  useEffect(() => {
+    if (!open) return;
+
+    let cancelled = false;
+    void (async () => {
+      const area = await readLogicalWorkArea();
+      if (cancelled || !area) return;
+      const next = maxGuiScaleForWorkArea(SHELL_WINDOW_SIZE, area);
+      setMaxFit(next);
+      const current = useSessionStore.getState().guiScale;
+      const clamped = guiScaleAfterWorkAreaClamp(
+        current,
+        SHELL_WINDOW_SIZE,
+        area,
+      );
+      if (clamped !== current) useSessionStore.getState().setGuiScale(clamped);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  return (
+    <div className="mt-2 flex min-w-0 flex-col gap-3 rounded-[6px] border border-border p-4">
+      <Label
+        htmlFor="settings-gui-scale"
+        className="font-mono text-[11px] uppercase tracking-[0.08em]"
+      >
+        GUI scale
+      </Label>
+      <div className="flex min-w-0 items-center gap-4">
+        <Slider
+          id="settings-gui-scale"
+          aria-label="GUI scale"
+          className="min-w-0 flex-1"
+          min={GUI_SCALE_MIN}
+          max={maxFit}
+          step={GUI_SCALE_STEP}
+          value={[guiScale]}
+          onValueChange={(value) => {
+            const next = Array.isArray(value) ? value[0] : value;
+            if (typeof next === "number") setGuiScale(next);
+          }}
+        />
+        <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+          {percent}
+        </span>
+      </div>
     </div>
   );
 }
@@ -191,7 +251,7 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
         </Button>
       </header>
       <div
-        className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 overflow-y-auto p-6 motion-reduce:transition-none motion-reduce:opacity-100"
+        className="mx-auto flex w-full min-w-0 max-w-2xl flex-1 flex-col gap-8 overflow-y-auto p-6 motion-reduce:transition-none motion-reduce:opacity-100"
         style={{
           opacity: showMotion ? 1 : 0,
           transform: showMotion ? "translateY(0px)" : "translateY(4px)",
@@ -206,7 +266,7 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
                 : "0ms",
         }}
       >
-        <section className="flex flex-col gap-3">
+        <section className="flex min-w-0 flex-col gap-3">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
             Appearance
           </h2>
@@ -219,22 +279,23 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
                 size="sm"
                 variant="outline"
                 aria-pressed={mode === value}
-                className={themeOptionButtonClass(value, mode === value)}
+                className={settingsOptionButtonClass(mode === value)}
                 onClick={() => setMode(value)}
               >
                 {label}
               </Button>
             ))}
           </div>
+          <ShellGuiScaleSetting open={open} />
         </section>
-        <section className="flex flex-col gap-3">
+        <section className="flex min-w-0 flex-col gap-3">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
             Panels
           </h2>
           <p className="text-sm text-muted-foreground">
             Control which parts of the workspace shell are visible.
           </p>
-          <div className="flex flex-col gap-4 rounded-[6px] border border-border p-4">
+          <div className="flex min-w-0 flex-col gap-4 rounded-[6px] border border-border p-4">
             {PANEL_SETTINGS.map((setting) => (
               <ShellPanelSettingRow
                 key={setting.id}
@@ -256,7 +317,7 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
             Reset panel widths
           </Button>
         </section>
-        <section className="flex flex-col gap-3">
+        <section className="flex min-w-0 flex-col gap-3">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
             Explorer
           </h2>
@@ -270,7 +331,9 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
                 size="sm"
                 variant="outline"
                 aria-pressed={explorerAutoRefresh === "live"}
-                className="font-mono text-[11px] uppercase tracking-[0.08em]"
+                className={settingsOptionButtonClass(
+                  explorerAutoRefresh === "live",
+                )}
                 onClick={() => setExplorerAutoRefresh("live")}
               >
                 Live updates
@@ -280,7 +343,9 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
                 size="sm"
                 variant="outline"
                 aria-pressed={explorerAutoRefresh === "on-activate"}
-                className="font-mono text-[11px] uppercase tracking-[0.08em]"
+                className={settingsOptionButtonClass(
+                  explorerAutoRefresh === "on-activate",
+                )}
                 onClick={() => setExplorerAutoRefresh("on-activate")}
               >
                 On project switch

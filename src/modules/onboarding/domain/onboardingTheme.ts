@@ -87,7 +87,7 @@ const ACTION: Record<ThemeMode, Record<ActionToken, Rgba>> = {
   },
 };
 
-export const DEFAULT_THEME_MODE: ThemeMode = "dark";
+export const DEFAULT_THEME_MODE: ThemeMode = "light";
 
 export function foreground(mode: ThemeMode, token: ForegroundToken): Rgba {
   return FOREGROUND[mode][token];

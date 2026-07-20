@@ -118,6 +118,20 @@ describe("WorkspacePopup", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("keeps the dialog within a narrow short viewport", () => {
+    const { container } = render(
+      <ThemeProvider>
+        <div style={{ width: 360, height: 400 }}>
+          <WorkspacePopup onClose={vi.fn()} />
+        </div>
+      </ThemeProvider>,
+    );
+    const dialog = container.querySelector('[role="dialog"]') as HTMLElement;
+    expect(dialog.className).toMatch(/max-h-/);
+    expect(dialog.className).toMatch(/overflow-y-auto|overflow-auto/);
+    expect(dialog.className).toMatch(/mx-/);
+  });
+
   it("calls onClose immediately when reduced motion is enabled", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

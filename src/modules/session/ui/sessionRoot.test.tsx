@@ -3,19 +3,26 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../onboarding";
 import { useMemoryPersistStorage } from "../infrastructure/sessionPersistStorage";
+import * as sessionWorkArea from "../infrastructure/sessionWorkArea";
 import { createMemoryWindowController } from "../infrastructure/sessionWindowController";
 import { useSessionStore } from "../state/sessionStore";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { SessionRoot } from "./sessionRoot";
 
+vi.mock("../infrastructure/sessionWorkArea", () => ({
+  readLogicalWorkArea: vi.fn(),
+}));
+
 describe("SessionRoot", () => {
   const windowController = createMemoryWindowController();
 
   beforeEach(() => {
+    vi.mocked(sessionWorkArea.readLogicalWorkArea).mockResolvedValue(null);
     useMemoryPersistStorage();
     useSessionStore.setState({
       onboardingCompleted: false,
       hasHydrated: true,
+      guiScale: 1,
     });
     useWorkspaceStore.setState({ workspacePath: null });
     windowController.lastSize = null;
@@ -24,6 +31,51 @@ describe("SessionRoot", () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it("applies gui zoom and scaled onboarding window size", async () => {
+    useSessionStore.setState({ guiScale: 1.5, hasHydrated: true });
+    render(
+      <ThemeProvider>
+        <SessionRoot windowController={windowController} skipPersistBoot />
+      </ThemeProvider>,
+    );
+    const root = document.querySelector("[data-gui-scale]") as HTMLElement;
+    expect(root).toHaveAttribute("data-gui-scale", "1.5");
+    expect(root.style.zoom).toBe("1.5");
+    expect(root.style.width).toBe(`${100 / 1.5}vw`);
+    expect(root.style.height).toBe(`${100 / 1.5}vh`);
+    await waitFor(() => {
+      expect(windowController.lastSize).toEqual({ width: 1440, height: 1020 });
+    });
+  });
+
+  it("expands root layout inversely at 50% so content is not double-shrunk", () => {
+    useSessionStore.setState({ guiScale: 0.5, hasHydrated: true });
+    render(
+      <ThemeProvider>
+        <SessionRoot windowController={windowController} skipPersistBoot />
+      </ThemeProvider>,
+    );
+    const root = document.querySelector("[data-gui-scale]") as HTMLElement;
+    expect(root).toHaveAttribute("data-gui-scale", "0.5");
+    expect(root.style.zoom).toBe("0.5");
+    expect(root.style.width).toBe("200vw");
+    expect(root.style.height).toBe("200vh");
+  });
+
+  it("keeps reset persisted data inside the scaled root", () => {
+    useSessionStore.setState({ guiScale: 0.5, hasHydrated: true });
+    render(
+      <ThemeProvider>
+        <SessionRoot windowController={windowController} skipPersistBoot />
+      </ThemeProvider>,
+    );
+    const root = document.querySelector("[data-gui-scale]");
+    const reset = screen.getByRole("button", {
+      name: /reset persisted data/i,
+    });
+    expect(root).toContainElement(reset);
   });
 
   it("shows onboarding until completed", () => {
@@ -50,9 +102,13 @@ describe("SessionRoot", () => {
         />
       </ThemeProvider>,
     );
-    expect(windowController.lastSize).toEqual({ width: 960, height: 680 });
+    await waitFor(() => {
+      expect(windowController.lastSize).toEqual({ width: 960, height: 680 });
+    });
     await user.click(screen.getByRole("button", { name: "Enter OpenCore" }));
-    expect(windowController.lastSize).toEqual({ width: 1280, height: 800 });
+    await waitFor(() => {
+      expect(windowController.lastSize).toEqual({ width: 1280, height: 800 });
+    });
     await waitFor(() => {
       expect(screen.getByText(/welcome back to/i)).toBeInTheDocument();
     });
@@ -131,7 +187,9 @@ describe("SessionRoot", () => {
       </ThemeProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Enter OpenCore" }));
-    expect(windowController.lastSize).toEqual({ width: 1280, height: 800 });
+    await waitFor(() => {
+      expect(windowController.lastSize).toEqual({ width: 1280, height: 800 });
+    });
     expect(
       screen.getByRole("button", { name: "Enter OpenCore" }),
     ).toBeInTheDocument();
@@ -191,5 +249,55 @@ describe("SessionRoot", () => {
     });
     await user.click(screen.getByRole("button", { name: "Enter OpenCore" }));
     expect(windowController.lastSize).toEqual({ width: 1280, height: 800 });
+  });
+
+  it("clamps gui scale on ready for onboarding base", async () => {
+    vi.mocked(sessionWorkArea.readLogicalWorkArea).mockResolvedValue({
+      width: 1000,
+      height: 700,
+    });
+    useSessionStore.setState({ guiScale: 2, hasHydrated: true, onboardingCompleted: false });
+    render(
+      <ThemeProvider>
+        <SessionRoot windowController={windowController} skipPersistBoot />
+      </ThemeProvider>,
+    );
+    await waitFor(() => {
+      expect(useSessionStore.getState().guiScale).toBeCloseTo(1.029, 2);
+    });
+  });
+
+  it("clamps gui scale on ready for shell base", async () => {
+    vi.mocked(sessionWorkArea.readLogicalWorkArea).mockResolvedValue({
+      width: 1920,
+      height: 1080,
+    });
+    useSessionStore.setState({ guiScale: 2, hasHydrated: true, onboardingCompleted: true });
+    useWorkspaceStore.setState({ workspacePath: "/tmp/x" });
+    render(
+      <ThemeProvider>
+        <SessionRoot windowController={windowController} skipPersistBoot />
+      </ThemeProvider>,
+    );
+    await waitFor(() => {
+      expect(useSessionStore.getState().guiScale).toBe(1.35);
+    });
+  });
+
+  it("sizes window with clamped scale on ready, not stale persisted scale", async () => {
+    vi.mocked(sessionWorkArea.readLogicalWorkArea).mockResolvedValue({
+      width: 1920,
+      height: 1080,
+    });
+    useSessionStore.setState({ guiScale: 2, hasHydrated: true, onboardingCompleted: true });
+    useWorkspaceStore.setState({ workspacePath: "/tmp/x" });
+    render(
+      <ThemeProvider>
+        <SessionRoot windowController={windowController} skipPersistBoot />
+      </ThemeProvider>,
+    );
+    await waitFor(() => {
+      expect(windowController.lastSize).toEqual({ width: 1728, height: 1080 });
+    });
   });
 });

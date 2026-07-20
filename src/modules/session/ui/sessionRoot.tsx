@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { OnboardingScreen } from "../../onboarding";
 import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
 import { ShellScreen } from "../../shell";
@@ -13,10 +13,17 @@ import {
   useProjectStore,
 } from "../../project";
 import { useTauriPersistStorage } from "../infrastructure/sessionPersistStorage";
+import { readLogicalWorkArea } from "../infrastructure/sessionWorkArea";
 import {
+  ONBOARDING_WINDOW_SIZE,
+  SHELL_WINDOW_SIZE,
   createTauriWindowController,
   type WindowController,
 } from "../infrastructure/sessionWindowController";
+import {
+  guiScaleAfterWorkAreaClamp,
+  guiScaleRootLayout,
+} from "../domain/sessionGuiScale";
 import { resetAllPersistedSession } from "../state/sessionReset";
 import { useSessionStore } from "../state/sessionStore";
 import { SessionDebugResetButton } from "./sessionDebugResetButton";
@@ -41,6 +48,7 @@ export function SessionRoot({
   const [persistReady, setPersistReady] = useState(skipPersistBoot);
   const [workspacePopupOpen, setWorkspacePopupOpen] = useState(true);
   const onboardingCompleted = useSessionStore((s) => s.onboardingCompleted);
+  const guiScale = useSessionStore((s) => s.guiScale);
   const completeOnboarding = useSessionStore((s) => s.completeOnboarding);
   const workspacePath = useWorkspaceStore((s) => s.workspacePath);
 
@@ -113,17 +121,34 @@ export function SessionRoot({
 
   useEffect(() => {
     if (!ready) return;
-    if (isTransitioning || (onboardingCompleted && showShell)) {
-      void windowController.applyShellSize();
-    } else {
-      void windowController.applyOnboardingSize();
-    }
+
+    let cancelled = false;
+    void (async () => {
+      const area = await readLogicalWorkArea();
+      if (cancelled) return;
+      const shellMode =
+        isTransitioning || (onboardingCompleted && showShell);
+      const base = shellMode ? SHELL_WINDOW_SIZE : ONBOARDING_WINDOW_SIZE;
+      const current = useSessionStore.getState().guiScale;
+      const clamped = guiScaleAfterWorkAreaClamp(current, base, area);
+      if (clamped !== current) useSessionStore.getState().setGuiScale(clamped);
+      if (shellMode) {
+        await windowController.applyShellSize(clamped);
+      } else {
+        await windowController.applyOnboardingSize(clamped);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     ready,
     isTransitioning,
     onboardingCompleted,
     showShell,
     windowController,
+    guiScale,
   ]);
 
   const handleEnter = (options?: { instant?: boolean }) => {
@@ -147,14 +172,18 @@ export function SessionRoot({
     );
   }
 
+  const scaleLayout = guiScaleRootLayout(guiScale);
+
   return (
     <div
-      className="session-screen-transition relative min-h-dvh overflow-hidden"
+      className="session-screen-transition relative h-full overflow-hidden"
       data-transitioning={isTransitioning ? "true" : "false"}
+      data-gui-scale={String(guiScale)}
+      style={scaleLayout as CSSProperties}
     >
       {showShell ? (
         <div
-          className="session-shell-layer min-h-dvh"
+          className="session-shell-layer h-full min-h-full"
           data-visible={shellVisible ? "true" : "false"}
           data-instant={shellInstant ? "true" : "false"}
         >
