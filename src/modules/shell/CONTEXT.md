@@ -25,7 +25,7 @@ The bordered strip at the bottom of the **center column** — reserved status ar
 _Avoid_: Footer bar, status dock
 
 **Settings**:
-Full-page preferences overlay opened from the left panel header (or the tab row when the left panel is closed). Theme and panel layout controls live here.
+Full-page preferences overlay opened from the left panel header (or the tab row when the left panel is closed). Appearance includes theme and GUI scale; panel layout controls live here.
 _Avoid_: Settings sheet, settings drawer, preferences modal
 
 **Main Card Tabs**:

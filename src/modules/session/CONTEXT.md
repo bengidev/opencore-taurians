@@ -19,3 +19,7 @@ _Avoid_: Logout, factory reset, clear cache (when referring to this button speci
 **Window Controller**:
 Infrastructure port (`applyOnboardingSize` / `applyShellSize`) abstracting Tauri window resize and center. Production uses the Tauri window API; tests inject `createMemoryWindowController`.
 _Avoid_: Window manager, resize handler, OS chrome
+
+**GUI scale**:
+Persisted zoom factor applied on the session root; drives window size with the active mode base.
+_Avoid_: Zoom level, UI scale, display scale
