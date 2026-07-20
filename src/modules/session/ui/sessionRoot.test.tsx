@@ -16,6 +16,7 @@ describe("SessionRoot", () => {
     useSessionStore.setState({
       onboardingCompleted: false,
       hasHydrated: true,
+      guiScale: 1,
     });
     useWorkspaceStore.setState({ workspacePath: null });
     windowController.lastSize = null;
@@ -24,6 +25,20 @@ describe("SessionRoot", () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it("applies gui zoom and scaled onboarding window size", async () => {
+    useSessionStore.setState({ guiScale: 1.5, hasHydrated: true });
+    render(
+      <ThemeProvider>
+        <SessionRoot windowController={windowController} skipPersistBoot />
+      </ThemeProvider>,
+    );
+    const root = document.querySelector("[data-gui-scale]");
+    expect(root).toHaveAttribute("data-gui-scale", "1.5");
+    await waitFor(() => {
+      expect(windowController.lastSize).toEqual({ width: 1440, height: 1020 });
+    });
   });
 
   it("shows onboarding until completed", () => {
