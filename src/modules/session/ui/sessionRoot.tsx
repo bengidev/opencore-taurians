@@ -41,6 +41,7 @@ export function SessionRoot({
   const [persistReady, setPersistReady] = useState(skipPersistBoot);
   const [workspacePopupOpen, setWorkspacePopupOpen] = useState(true);
   const onboardingCompleted = useSessionStore((s) => s.onboardingCompleted);
+  const guiScale = useSessionStore((s) => s.guiScale);
   const completeOnboarding = useSessionStore((s) => s.completeOnboarding);
   const workspacePath = useWorkspaceStore((s) => s.workspacePath);
 
@@ -114,9 +115,9 @@ export function SessionRoot({
   useEffect(() => {
     if (!ready) return;
     if (isTransitioning || (onboardingCompleted && showShell)) {
-      void windowController.applyShellSize();
+      void windowController.applyShellSize(guiScale);
     } else {
-      void windowController.applyOnboardingSize();
+      void windowController.applyOnboardingSize(guiScale);
     }
   }, [
     ready,
@@ -124,6 +125,7 @@ export function SessionRoot({
     onboardingCompleted,
     showShell,
     windowController,
+    guiScale,
   ]);
 
   const handleEnter = (options?: { instant?: boolean }) => {
@@ -151,6 +153,8 @@ export function SessionRoot({
     <div
       className="session-screen-transition relative min-h-dvh overflow-hidden"
       data-transitioning={isTransitioning ? "true" : "false"}
+      data-gui-scale={String(guiScale)}
+      style={{ zoom: guiScale } as React.CSSProperties}
     >
       {showShell ? (
         <div
