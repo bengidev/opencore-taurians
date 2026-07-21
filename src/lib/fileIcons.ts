@@ -1,141 +1,73 @@
-import type { LucideIcon } from "lucide-react";
-import {
-  BookOpen,
-  Box,
-  Container,
-  Database,
-  File,
-  FileArchive,
-  FileCode,
-  FileJson,
-  FileText,
-  GitBranch,
-  Hammer,
-  Image,
-  KeyRound,
-  Lock,
-  Package,
-  Palette,
-  Scale,
-  Settings,
-  Settings2,
-  Terminal,
-} from "lucide-react";
+import { generateManifest, type Manifest } from "material-icon-theme";
 
-const SPECIAL_BASENAMES: Record<string, LucideIcon> = {
-  dockerfile: Container,
-  containerfile: Container,
-  "docker-compose.yml": Container,
-  "docker-compose.yaml": Container,
-  makefile: Hammer,
-  gnumakefile: Hammer,
-  ".gitignore": GitBranch,
-  ".gitattributes": GitBranch,
-  ".gitmodules": GitBranch,
-  license: Scale,
-  licence: Scale,
-  copying: Scale,
-  "package.json": Package,
-  "package-lock.json": Package,
-  "pnpm-lock.yaml": Package,
-  "yarn.lock": Package,
-  "bun.lock": Package,
-  "bun.lockb": Package,
-  "cargo.toml": Box,
-  "cargo.lock": Box,
-  "tsconfig.json": Settings2,
-  "jsconfig.json": Settings2,
-  ".editorconfig": Settings2,
-  readme: BookOpen,
-  "readme.md": BookOpen,
+export type ResolveExplorerIconInput = {
+  name: string;
+  isDir: boolean;
+  isOpen?: boolean;
 };
 
-const EXTENSION_ICONS: Record<string, LucideIcon> = {
-  ts: FileCode,
-  tsx: FileCode,
-  js: FileCode,
-  jsx: FileCode,
-  mjs: FileCode,
-  cjs: FileCode,
-  rs: FileCode,
-  py: FileCode,
-  go: FileCode,
-  java: FileCode,
-  c: FileCode,
-  cpp: FileCode,
-  h: FileCode,
-  cs: FileCode,
-  php: FileCode,
-  rb: FileCode,
-  swift: FileCode,
-  kt: FileCode,
-  html: FileCode,
-  htm: FileCode,
-  xml: FileCode,
-  json: FileJson,
-  jsonc: FileJson,
-  md: FileText,
-  mdx: FileText,
-  txt: FileText,
-  rst: FileText,
-  css: Palette,
-  scss: Palette,
-  sass: Palette,
-  less: Palette,
-  svg: Image,
-  png: Image,
-  jpg: Image,
-  jpeg: Image,
-  gif: Image,
-  webp: Image,
-  ico: Image,
-  bmp: Image,
-  yml: Settings,
-  yaml: Settings,
-  toml: Settings,
-  ini: Settings,
-  cfg: Settings,
-  conf: Settings,
-  sh: Terminal,
-  bash: Terminal,
-  zsh: Terminal,
-  fish: Terminal,
-  ps1: Terminal,
-  bat: Terminal,
-  cmd: Terminal,
-  sql: Database,
-  zip: FileArchive,
-  tar: FileArchive,
-  gz: FileArchive,
-  "7z": FileArchive,
-  rar: FileArchive,
-  lock: Lock,
+export type ResolvedExplorerIcon = {
+  src: string;
+  iconId: string;
 };
 
-function isEnvFile(lowerName: string): boolean {
-  return lowerName === ".env" || lowerName.startsWith(".env.");
+const manifest: Manifest = generateManifest();
+
+const iconUrlModules = import.meta.glob(
+  "../../node_modules/material-icon-theme/icons/*.svg",
+  { eager: true, query: "?url&no-inline", import: "default" },
+) as Record<string, string>;
+
+const srcByIconId = new Map<string, string>();
+for (const [modulePath, url] of Object.entries(iconUrlModules)) {
+  const file = modulePath.split("/").pop();
+  if (!file || !file.endsWith(".svg")) continue;
+  srcByIconId.set(file.slice(0, -4), url);
 }
 
-export function getFileIcon(fileName: string): LucideIcon {
-  const lowerName = fileName.toLowerCase();
+function srcForIconId(iconId: string): string {
+  return (
+    srcByIconId.get(iconId) ??
+    srcByIconId.get("file") ??
+    srcByIconId.get("folder") ??
+    ""
+  );
+}
 
-  if (isEnvFile(lowerName)) {
-    return KeyRound;
+function resolveFileIconId(fileName: string): string {
+  const lower = fileName.toLowerCase();
+  const byName = manifest.fileNames?.[lower];
+  if (byName) return byName;
+
+  // Match Material/VS Code compound extensions: foo.test.ts → test.ts → ts
+  const parts = lower.split(".");
+  for (let i = 1; i < parts.length; i++) {
+    const ext = parts.slice(i).join(".");
+    const byExt = manifest.fileExtensions?.[ext];
+    if (byExt) return byExt;
   }
 
-  const special = SPECIAL_BASENAMES[lowerName];
-  if (special) {
-    return special;
-  }
+  return manifest.file ?? "file";
+}
 
-  const dot = lowerName.lastIndexOf(".");
-  if (dot > 0 && dot < lowerName.length - 1) {
-    const ext = lowerName.slice(dot + 1);
-    const byExt = EXTENSION_ICONS[ext];
-    if (byExt) {
-      return byExt;
-    }
+function resolveFolderIconId(folderName: string, isOpen: boolean): string {
+  const lower = folderName.toLowerCase();
+  if (isOpen) {
+    return (
+      manifest.folderNamesExpanded?.[lower] ??
+      manifest.folderExpanded ??
+      "folder-open"
+    );
   }
+  return manifest.folderNames?.[lower] ?? manifest.folder ?? "folder";
+}
 
-  return File;
+export function resolveExplorerIcon(
+  input: ResolveExplorerIconInput,
+): ResolvedExplorerIcon {
+  const iconId = input.isDir
+    ? resolveFolderIconId(input.name, Boolean(input.isOpen))
+    : resolveFileIconId(input.name);
+
+  return { iconId, src: srcForIconId(iconId) };
 }
