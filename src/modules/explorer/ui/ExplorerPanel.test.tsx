@@ -280,4 +280,99 @@ describe("ExplorerPanel", () => {
     expect(await screen.findByText("a.ts")).toBeInTheDocument();
     expect(useExplorerStore.getState().expandedPaths.has(subDir)).toBe(true);
   });
+
+  it("filters the loaded tree by basename and keeps ancestors visible", async () => {
+    const user = userEvent.setup();
+    const folderPath = "/proj";
+    const subDir = "/proj/src";
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [
+          { name: "src", path: subDir, isDir: true },
+          { name: "README.md", path: "/proj/README.md", isDir: false },
+        ],
+        [subDir]: [
+          { name: "main.dart", path: "/proj/src/main.dart", isDir: false },
+        ],
+      },
+    });
+
+    render(<ExplorerPanel explorerApi={api} />);
+    await user.click(await screen.findByRole("button", { name: "src" }));
+    expect(await screen.findByText("main.dart")).toBeInTheDocument();
+
+    const expandedBefore = new Set(useExplorerStore.getState().expandedPaths);
+    await user.type(screen.getByRole("searchbox", { name: "Search files" }), "main");
+
+    expect(screen.getByText("main.dart")).toBeInTheDocument();
+    expect(screen.getByText("src")).toBeInTheDocument();
+    expect(screen.queryByText("README.md")).not.toBeInTheDocument();
+
+    const expandedAfter = useExplorerStore.getState().expandedPaths;
+    expect([...expandedAfter].sort()).toEqual([...expandedBefore].sort());
+  });
+
+  it("clears the filter and restores the full loaded tree", async () => {
+    const user = userEvent.setup();
+    const folderPath = "/proj";
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [
+          { name: "a.ts", path: "/proj/a.ts", isDir: false },
+          { name: "b.ts", path: "/proj/b.ts", isDir: false },
+        ],
+      },
+    });
+
+    render(<ExplorerPanel explorerApi={api} />);
+    expect(await screen.findByText("a.ts")).toBeInTheDocument();
+
+    const search = screen.getByRole("searchbox", { name: "Search files" });
+    await user.type(search, "a.ts");
+    expect(screen.queryByText("b.ts")).not.toBeInTheDocument();
+
+    await user.clear(search);
+    expect(screen.getByText("a.ts")).toBeInTheDocument();
+    expect(screen.getByText("b.ts")).toBeInTheDocument();
+  });
+
+  it("shows no-matching hint when the filter matches nothing", async () => {
+    const user = userEvent.setup();
+    const folderPath = "/proj";
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "a.ts", path: "/proj/a.ts", isDir: false }],
+      },
+    });
+
+    render(<ExplorerPanel explorerApi={api} />);
+    expect(await screen.findByText("a.ts")).toBeInTheDocument();
+
+    await user.type(
+      screen.getByRole("searchbox", { name: "Search files" }),
+      "zzz",
+    );
+    expect(screen.getByText(/no matching files/i)).toBeInTheDocument();
+  });
 });
