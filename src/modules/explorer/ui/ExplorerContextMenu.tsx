@@ -1,5 +1,15 @@
 import { useState, type ReactNode } from "react";
 import {
+  ClipboardCopy,
+  Copy,
+  FilePlus,
+  FolderOpen,
+  FolderPlus,
+  Pencil,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -178,7 +188,7 @@ export function ExplorerContextMenu({
       }}
     >
       <ContextMenuTrigger
-        className="min-h-0 flex-1"
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         onContextMenu={(event) => {
           setContextTarget(resolveContextTarget(event, targetPath));
         }}
@@ -193,11 +203,13 @@ export function ExplorerContextMenu({
                 <ContextMenuItem
                   onClick={() => void handleNewFile(parentForTarget(contextTarget))}
                 >
+                  <FilePlus className="size-3.5" aria-hidden />
                   New File
                 </ContextMenuItem>
                 <ContextMenuItem
                   onClick={() => void handleNewFolder(parentForTarget(contextTarget))}
                 >
+                  <FolderPlus className="size-3.5" aria-hidden />
                   New Folder
                 </ContextMenuItem>
               </>
@@ -208,24 +220,29 @@ export function ExplorerContextMenu({
                 <ContextMenuItem
                   onClick={() => useExplorerStore.getState().startRename(contextTarget.path)}
                 >
+                  <Pencil className="size-3.5" aria-hidden />
                   Rename
                 </ContextMenuItem>
                 <ContextMenuItem
                   onClick={() => void handleDuplicate(contextTarget.path)}
                 >
+                  <Copy className="size-3.5" aria-hidden />
                   Duplicate
                 </ContextMenuItem>
                 <ContextMenuItem
                   variant="destructive"
                   onClick={() => void handleDelete(contextTarget.path)}
                 >
+                  <Trash2 className="size-3.5" aria-hidden />
                   Delete
                 </ContextMenuItem>
                 <ContextMenuSeparator />
                 <ContextMenuItem onClick={() => void handleReveal(contextTarget.path)}>
+                  <FolderOpen className="size-3.5" aria-hidden />
                   Reveal in Finder
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => void handleCopyPath(contextTarget.path)}>
+                  <ClipboardCopy className="size-3.5" aria-hidden />
                   Copy Path
                 </ContextMenuItem>
               </>
@@ -234,6 +251,7 @@ export function ExplorerContextMenu({
               <>
                 {kind === "folder" ? <ContextMenuSeparator /> : null}
                 <ContextMenuItem onClick={() => void handleRefresh()}>
+                  <RefreshCw className="size-3.5" aria-hidden />
                   Refresh
                 </ContextMenuItem>
               </>
