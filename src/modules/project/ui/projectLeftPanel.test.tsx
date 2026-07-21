@@ -178,7 +178,7 @@ describe("ProjectLeftPanel", () => {
     expect(screen.queryByRole("button", { name: "Add child trunk" })).not.toBeInTheDocument();
   });
 
-  it("deletes a trunk when confirm is accepted", async () => {
+  it("deletes a trunk from the context menu when confirm is accepted", async () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const { project } = useProjectStore.getState().createProjectWithRootTrunk({
@@ -191,11 +191,39 @@ describe("ProjectLeftPanel", () => {
       nowIso: "2026-07-10T00:00:01.000Z",
     });
     render(<ProjectLeftPanel />);
-    await user.click(screen.getByRole("button", { name: "Delete trunk default" }));
+    fireEvent.contextMenu(screen.getByRole("button", { name: "default" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
     expect(confirmSpy).toHaveBeenCalledWith("Delete this trunk?");
     expect(useProjectStore.getState().trunks.find((c) => c.title === "default")).toBeUndefined();
     expect(screen.getByRole("button", { name: "Sibling" })).toBeInTheDocument();
     confirmSpy.mockRestore();
+  });
+
+  it("renames a trunk from the context menu", async () => {
+    const user = userEvent.setup();
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    render(<ProjectLeftPanel />);
+    fireEvent.contextMenu(screen.getByRole("button", { name: "default" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Rename" }));
+    const input = screen.getByRole("textbox", { name: "Rename trunk" });
+    await user.clear(input);
+    await user.type(input, "Renamed{Enter}");
+    expect(screen.getByRole("button", { name: "Renamed" })).toBeInTheDocument();
+  });
+
+  it("pins a trunk from the context menu", async () => {
+    const user = userEvent.setup();
+    const { trunk } = useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    render(<ProjectLeftPanel />);
+    fireEvent.contextMenu(screen.getByRole("button", { name: "default" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Pin" }));
+    expect(useProjectStore.getState().trunks.find((t) => t.id === trunk.id)?.pinned).toBe(true);
   });
 
   it("adds a root trunk on the project row", async () => {
@@ -282,7 +310,7 @@ describe("ProjectLeftPanel", () => {
     promptSpy.mockRestore();
   });
 
-  it("reorders sibling trunks via HTML5 drag and drop", () => {
+  it("exposes draggable trunk rows and reorders siblings in the store", () => {
     const { project, trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
@@ -298,12 +326,15 @@ describe("ProjectLeftPanel", () => {
       nowIso: "2026-07-10T00:00:02.000Z",
     })!;
     render(<ProjectLeftPanel />);
-    const buttonA = screen.getByRole("button", { name: /^ChunkA$/i });
-    const buttonB = screen.getByRole("button", { name: /^ChunkB$/i });
-    const dataTransfer = createDataTransfer();
-    fireEvent.dragStart(buttonB, { dataTransfer });
-    fireEvent.dragOver(buttonA, { dataTransfer });
-    fireEvent.drop(buttonA, { dataTransfer });
+    expect(screen.getByRole("button", { name: /^ChunkA$/i })).toHaveAttribute(
+      "draggable",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /^ChunkB$/i })).toHaveAttribute(
+      "draggable",
+      "true",
+    );
+    useProjectStore.getState().reorderSiblingTrunks(null, [root.id, b.id, a.id]);
     const ordered = useProjectStore
       .getState()
       .trunks.filter((c) => c.projectId === project.id && c.parentTrunkId === null)

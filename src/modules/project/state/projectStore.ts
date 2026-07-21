@@ -68,6 +68,7 @@ export interface ProjectState {
   }) => ProjectTrunk | null;
   setProjectPinned: (projectId: string, pinned: boolean) => void;
   setTrunkPinned: (trunkId: string, pinned: boolean) => void;
+  renameTrunk: (trunkId: string, title: string) => void;
   setTrunkRestore: (trunkId: string, restore: ProjectTrunkRestore) => void;
   touchTrunkActivity: (trunkId: string, nowIso: string) => void;
   setActiveIds: (projectId: string | null, trunkId: string | null) => void;
@@ -159,6 +160,15 @@ export const useProjectStore = create<ProjectState>()(
             c.id === trunkId ? { ...c, pinned } : c,
           ),
         })),
+      renameTrunk: (trunkId, title) => {
+        const trimmed = title.trim();
+        if (!trimmed) return;
+        set((state) => ({
+          trunks: state.trunks.map((t) =>
+            t.id === trunkId ? { ...t, title: trimmed } : t,
+          ),
+        }));
+      },
       setTrunkRestore: (trunkId, restore) =>
         set((state) => ({
           trunks: state.trunks.map((c) =>
