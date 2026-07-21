@@ -1,6 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { FileCode } from "lucide-react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEditorStore } from "../../editor/state/editorStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
@@ -40,7 +39,7 @@ describe("ExplorerTree", () => {
     expect(await screen.findByText("a.ts")).toBeInTheDocument();
   });
 
-  it("uses a type-specific Lucide icon for known file extensions", async () => {
+  it("renders grayscale Material icons for files and folders", async () => {
     const folderPath = "/proj";
     useProjectStore.getState().createProjectWithRootTrunk({
       folderPath,
@@ -50,19 +49,34 @@ describe("ExplorerTree", () => {
     const api = createMemoryExplorerApi({
       projectRoot: folderPath,
       dirs: {
-        [folderPath]: [{ name: "a.ts", path: "/proj/a.ts", isDir: false }],
+        [folderPath]: [
+          { name: "main.dart", path: "/proj/main.dart", isDir: false },
+          { name: "src", path: "/proj/src", isDir: true },
+        ],
+        ["/proj/src"]: [],
       },
     });
     useExplorerStore.getState().bindApi(api);
     await useExplorerStore.getState().loadRoot();
 
     const { container } = render(<ExplorerTree />);
-    expect(await screen.findByText("a.ts")).toBeInTheDocument();
+    expect(await screen.findByText("main.dart")).toBeInTheDocument();
+    expect(screen.getByText("src")).toBeInTheDocument();
 
-    const icon = container.querySelector("svg.lucide-file-code");
-    expect(icon).not.toBeNull();
-    // Sanity: helper agreement (same component Lucide would render)
-    expect(FileCode).toBeTruthy();
+    const fileRow = screen.getByText("main.dart").closest("button");
+    const fileImg = fileRow?.querySelector("img");
+    expect(fileImg).not.toBeNull();
+    expect(fileImg?.getAttribute("src") ?? "").toMatch(/dart\.svg/i);
+    expect(fileImg?.className ?? "").toMatch(/grayscale/);
+
+    const folderRow = screen.getByText("src").closest("button");
+    const folderImg = folderRow?.querySelector("img");
+    expect(folderImg).not.toBeNull();
+    expect(folderImg?.getAttribute("src") ?? "").toMatch(/folder-src\.svg/i);
+    expect(folderImg?.className ?? "").toMatch(/grayscale/);
+
+    expect(container.querySelector("svg.lucide-file")).toBeNull();
+    expect(container.querySelector("svg.lucide-folder")).toBeNull();
   });
 
   it("file click sets editor card and openFilePath", async () => {
