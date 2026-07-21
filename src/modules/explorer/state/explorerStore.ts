@@ -147,6 +147,16 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
     }
 
     const projectRoot = projectNormalizeFolderPath(project.folderPath);
+
+    // Remounting the explorer (e.g. hide/show right panel) calls loadRoot again.
+    // Keep expansion/selection when the active project root is unchanged.
+    if (
+      get().projectRoot === projectRoot &&
+      get().childrenByPath[projectRoot]
+    ) {
+      return;
+    }
+
     set({
       projectRoot,
       childrenByPath: {},
