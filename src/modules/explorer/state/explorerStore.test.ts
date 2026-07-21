@@ -30,6 +30,69 @@ describe("explorerStore", () => {
     expect(useExplorerStore.getState().childrenByPath["/proj"]).toHaveLength(1);
   });
 
+  it("loadRoot keeps expanded folders when reloading the same project", async () => {
+    const folderPath = "/proj";
+    const subDir = "/proj/src";
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "src", path: subDir, isDir: true }],
+        [subDir]: [{ name: "a.ts", path: "/proj/src/a.ts", isDir: false }],
+      },
+    });
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
+    await useExplorerStore.getState().toggleExpanded(subDir);
+    useExplorerStore.getState().selectPath("/proj/src/a.ts");
+
+    await useExplorerStore.getState().loadRoot();
+
+    const state = useExplorerStore.getState();
+    expect(state.expandedPaths.has(subDir)).toBe(true);
+    expect(state.selectedPath).toBe("/proj/src/a.ts");
+    expect(state.childrenByPath[subDir]).toEqual([
+      { name: "a.ts", path: "/proj/src/a.ts", isDir: false },
+    ]);
+  });
+
+  it("loadRoot resets when the active project changes", async () => {
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/proj-a",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const api = createMemoryExplorerApi({
+      dirs: {
+        "/proj-a": [{ name: "src", path: "/proj-a/src", isDir: true }],
+        "/proj-a/src": [],
+        "/proj-b": [{ name: "lib", path: "/proj-b/lib", isDir: true }],
+        "/proj-b/lib": [],
+      },
+    });
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
+    await useExplorerStore.getState().toggleExpanded("/proj-a/src");
+    useExplorerStore.getState().selectPath("/proj-a/src");
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/proj-b",
+      nowIso: "2026-07-10T00:00:01.000Z",
+    });
+    await useExplorerStore.getState().loadRoot();
+
+    const state = useExplorerStore.getState();
+    expect(state.projectRoot).toBe("/proj-b");
+    expect(state.expandedPaths.size).toBe(0);
+    expect(state.selectedPath).toBeNull();
+    expect(state.childrenByPath["/proj-b"]).toHaveLength(1);
+  });
+
   it("commitRename remaps expanded folder cache when renaming a directory", async () => {
     const folderPath = "/proj";
     const oldDir = "/proj/foo";

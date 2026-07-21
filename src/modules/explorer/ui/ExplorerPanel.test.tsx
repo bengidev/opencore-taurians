@@ -179,6 +179,25 @@ describe("ExplorerPanel", () => {
     expect(useExplorerStore.getState().renamingPath).toBeNull();
   });
 
+  it("keeps the tree area scrollable inside a height-constrained panel", () => {
+    const { container } = render(<ExplorerPanel />);
+    const panel = screen.getByLabelText("explorer panel");
+    expect(panel.className).toMatch(/min-h-0/);
+    expect(panel.className).toMatch(/flex-col/);
+
+    const trigger = container.querySelector('[data-slot="context-menu-trigger"]');
+    expect(trigger).not.toBeNull();
+    expect(trigger!.className).toMatch(/flex-1/);
+    expect(trigger!.className).toMatch(/flex-col/);
+    expect(trigger!.className).toMatch(/min-h-0/);
+    expect(trigger!.className).toMatch(/overflow-hidden/);
+
+    const scrollArea = container.querySelector(".overflow-y-auto");
+    expect(scrollArea).not.toBeNull();
+    expect(scrollArea!.className).toMatch(/min-h-0/);
+    expect(scrollArea!.className).toMatch(/flex-1/);
+  });
+
   it("context menu Copy Path writes to clipboard", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
