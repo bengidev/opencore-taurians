@@ -1,11 +1,17 @@
-import { Pin, Trash2 } from "lucide-react";
+import { useState } from "react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
 import { projectFlattenTrunks, projectListChildTrunks } from "../domain/projectTrunkTree";
 import type { ProjectTrunk } from "../domain/projectTypes";
 import { projectActivateTrunk } from "../state/projectActivation";
 import { useProjectStore } from "../state/projectStore";
-import { PanelToolButton } from "./panelToolButton";
-import { PanelTooltip } from "./panelTooltip";
+import { ProjectTrunkRenameInput } from "./projectTrunkRenameInput";
 
 export interface ProjectTrunkTreeProps {
   projectId: string;
@@ -17,6 +23,8 @@ export interface ProjectTrunkTreeProps {
 const DELETE_TRUNK_CONFIRM = "Delete this trunk?";
 const TRUNK_DRAG_ID_MIME = "application/x-project-trunk-id";
 const TRUNK_DRAG_PARENT_MIME = "application/x-project-trunk-parent-id";
+const trunkContextMenuClassName =
+  "min-w-40 font-mono text-[11px] tracking-[0.08em]";
 
 function reorderTrunkSiblings(
   trunks: readonly ProjectTrunk[],
@@ -31,7 +39,7 @@ function reorderTrunkSiblings(
   if (sourceIndex === -1 || targetIndex === -1) return;
   const reordered = [...ids];
   reordered.splice(sourceIndex, 1);
-  reordered.splice(targetIndex, 0, sourceId);
+  reordered.splice(targetIndex, 0, targetId);
   useProjectStore.getState().reorderSiblingTrunks(null, reordered);
 }
 
@@ -39,63 +47,95 @@ interface TrunkRowProps {
   trunk: ProjectTrunk;
   trunks: readonly ProjectTrunk[];
   activeTrunkId: string | null;
+  renaming: boolean;
+  onStartRename: () => void;
+  onCancelRename: () => void;
 }
 
-function TrunkRow({ trunk, trunks, activeTrunkId }: TrunkRowProps) {
+function TrunkRow({
+  trunk,
+  trunks,
+  activeTrunkId,
+  renaming,
+  onStartRename,
+  onCancelRename,
+}: TrunkRowProps) {
+  const renameTrunk = useProjectStore((s) => s.renameTrunk);
+
+  if (renaming) {
+    return (
+      <li className="min-w-0 px-2 py-0.5">
+        <ProjectTrunkRenameInput
+          initialTitle={trunk.title}
+          onCommit={(title) => {
+            renameTrunk(trunk.id, title);
+            onCancelRename();
+          }}
+          onCancel={onCancelRename}
+        />
+      </li>
+    );
+  }
+
   return (
     <li className="min-w-0">
-      <div className="flex min-w-0 w-full items-center gap-0.5 px-2">
-        <PanelTooltip label={trunk.title}>
-          <button
-            type="button"
-            draggable
-            aria-current={activeTrunkId === trunk.id ? "true" : undefined}
-            className={cn(
-              "min-w-0 flex-1 overflow-hidden rounded-sm px-2 py-1 text-left font-mono text-[11px] tracking-[0.08em]",
-              activeTrunkId === trunk.id
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-            )}
+      <ContextMenu>
+        <div
+          className="flex min-w-0 w-full items-center gap-0.5 px-2"
+          onDragOver={(event) => {
+            event.preventDefault();
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            const sourceId = event.dataTransfer.getData(TRUNK_DRAG_ID_MIME);
+            reorderTrunkSiblings(trunks, sourceId, trunk.id);
+          }}
+        >
+          <ContextMenuTrigger
+            render={
+              <button
+                type="button"
+                draggable
+                title={trunk.title}
+                aria-current={activeTrunkId === trunk.id ? "true" : undefined}
+                className={cn(
+                  "min-w-0 flex-1 overflow-hidden rounded-sm px-2 py-1 text-left font-mono text-[11px] tracking-[0.08em]",
+                  activeTrunkId === trunk.id
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                )}
+              />
+            }
             onClick={() => projectActivateTrunk(trunk.id)}
             onDragStart={(event) => {
               event.dataTransfer.effectAllowed = "move";
               event.dataTransfer.setData(TRUNK_DRAG_ID_MIME, trunk.id);
               event.dataTransfer.setData(TRUNK_DRAG_PARENT_MIME, "");
             }}
-            onDragOver={(event) => {
-              event.preventDefault();
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              const sourceId = event.dataTransfer.getData(TRUNK_DRAG_ID_MIME);
-              reorderTrunkSiblings(trunks, sourceId, trunk.id);
-            }}
           >
             <span className="block truncate">{trunk.title}</span>
-          </button>
-        </PanelTooltip>
-        <PanelToolButton
-          label={
-            trunk.pinned ? `Unpin trunk ${trunk.title}` : `Pin trunk ${trunk.title}`
-          }
-          onClick={(event) => {
-            event.stopPropagation();
-            useProjectStore.getState().setTrunkPinned(trunk.id, !trunk.pinned);
-          }}
-        >
-          <Pin className="size-3" aria-hidden />
-        </PanelToolButton>
-        <PanelToolButton
-          label={`Delete trunk ${trunk.title}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (!window.confirm(DELETE_TRUNK_CONFIRM)) return;
-            useProjectStore.getState().deleteTrunkCascade(trunk.id);
-          }}
-        >
-          <Trash2 className="size-3" aria-hidden />
-        </PanelToolButton>
-      </div>
+          </ContextMenuTrigger>
+        </div>
+        <ContextMenuContent className={trunkContextMenuClassName}>
+          <ContextMenuItem onClick={onStartRename}>Rename</ContextMenuItem>
+          <ContextMenuItem
+            onClick={() =>
+              useProjectStore.getState().setTrunkPinned(trunk.id, !trunk.pinned)
+            }
+          >
+            {trunk.pinned ? "Unpin" : "Pin"}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            onClick={() => {
+              if (!window.confirm(DELETE_TRUNK_CONFIRM)) return;
+              useProjectStore.getState().deleteTrunkCascade(trunk.id);
+            }}
+          >
+            Delete
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
     </li>
   );
 }
@@ -106,6 +146,7 @@ export function ProjectTrunkTree({
   activeTrunkId,
   visibleTrunkIds,
 }: ProjectTrunkTreeProps) {
+  const [renamingTrunkId, setRenamingTrunkId] = useState<string | null>(null);
   const projectTrunks = projectFlattenTrunks(
     trunks.filter((trunk) => trunk.projectId === projectId),
   );
@@ -121,6 +162,9 @@ export function ProjectTrunkTree({
           trunk={trunk}
           trunks={projectTrunks}
           activeTrunkId={activeTrunkId}
+          renaming={renamingTrunkId === trunk.id}
+          onStartRename={() => setRenamingTrunkId(trunk.id)}
+          onCancelRename={() => setRenamingTrunkId(null)}
         />
       ))}
     </ul>

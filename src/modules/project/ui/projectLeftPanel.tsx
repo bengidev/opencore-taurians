@@ -204,14 +204,22 @@ function ProjectRow({
           <FolderSync className="size-3" aria-hidden />
         </PanelToolButton>
       </div>
-      {expanded ? (
-        <ProjectTrunkTree
-          projectId={project.id}
-          trunks={trunks}
-          activeTrunkId={activeTrunkId}
-          visibleTrunkIds={visibleTrunkIds}
-        />
-      ) : null}
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-[180ms] ease-out motion-reduce:transition-none",
+          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr] pointer-events-none",
+        )}
+        aria-hidden={!expanded}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <ProjectTrunkTree
+            projectId={project.id}
+            trunks={trunks}
+            activeTrunkId={activeTrunkId}
+            visibleTrunkIds={visibleTrunkIds}
+          />
+        </div>
+      </div>
     </li>
   );
 }
