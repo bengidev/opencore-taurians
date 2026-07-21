@@ -8,26 +8,6 @@ import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { useProjectStore } from "../state/projectStore";
 import { ProjectLeftPanel } from "./projectLeftPanel";
 
-function createDataTransfer() {
-  const store = new Map<string, string>();
-  return {
-    effectAllowed: "none" as DataTransfer["effectAllowed"],
-    dropEffect: "none" as DataTransfer["dropEffect"],
-    files: [] as unknown as FileList,
-    items: [] as unknown as DataTransferItemList,
-    types: [] as readonly string[],
-    clearData: (format?: string) => {
-      if (format) store.delete(format);
-      else store.clear();
-    },
-    getData: (format: string) => store.get(format) ?? "",
-    setData: (format: string, data: string) => {
-      store.set(format, data);
-    },
-    setDragImage: vi.fn(),
-  };
-}
-
 describe("ProjectLeftPanel", () => {
   afterEach(() => cleanup());
   beforeEach(() => {
