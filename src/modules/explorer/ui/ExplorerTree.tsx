@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo } from "react";
 import { ChevronRight } from "lucide-react";
 import { resolveExplorerIcon } from "@/lib/fileIcons";
 import { cn } from "@/lib/utils";
@@ -176,6 +176,16 @@ export function ExplorerTree() {
   const expandedPaths = useExplorerStore((s) => s.expandedPaths);
   const loadingPaths = useExplorerStore((s) => s.loadingPaths);
   const searchQuery = useExplorerStore((s) => s.searchQuery);
+  const searchIndexing = useExplorerStore((s) => s.searchIndexing);
+  const ensureSearchTreeLoaded = useExplorerStore((s) => s.ensureSearchTreeLoaded);
+  const hasSearchQuery = searchQuery.trim().length > 0;
+
+  useEffect(() => {
+    if (!projectRoot || !hasSearchQuery) {
+      return;
+    }
+    void ensureSearchTreeLoaded();
+  }, [projectRoot, hasSearchQuery, ensureSearchTreeLoaded]);
 
   const treeView = useMemo<ExplorerTreeView | null>(() => {
     if (!projectRoot) {
@@ -210,7 +220,11 @@ export function ExplorerTree() {
   if (rootChildren.length === 0 && !isLoadingRoot) {
     return (
       <p className="px-3 py-6 text-center font-mono text-[11px] tracking-[0.08em] text-muted-foreground">
-        {isFiltering ? "No matching files." : "This folder is empty."}
+        {isFiltering
+          ? searchIndexing
+            ? "Searching…"
+            : "No matching files."
+          : "This folder is empty."}
         {!isFiltering ? (
           <span className="mt-1 block text-[10px] text-muted-foreground/70">
             Right-click to create a file or folder.

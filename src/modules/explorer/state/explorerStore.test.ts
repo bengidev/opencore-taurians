@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useProjectStore } from "../../project/state/projectStore";
 import { createMemoryExplorerApi } from "../api/createMemoryExplorerApi";
@@ -179,5 +179,83 @@ describe("explorerStore", () => {
 
     expect(useExplorerStore.getState().searchQuery).toBe("");
     expect(useExplorerStore.getState().projectRoot).toBe("/proj-b");
+  });
+
+  it("setSearchQuery loads nested folders for search without expanding them", async () => {
+    const folderPath = "/proj";
+    const subDir = "/proj/src";
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "src", path: subDir, isDir: true }],
+        [subDir]: [
+          { name: "main.dart", path: "/proj/src/main.dart", isDir: false },
+        ],
+      },
+    });
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
+
+    expect(useExplorerStore.getState().childrenByPath[subDir]).toBeUndefined();
+
+    useExplorerStore.getState().setSearchQuery("main");
+    await vi.waitFor(() => {
+      expect(useExplorerStore.getState().childrenByPath[subDir]).toEqual([
+        { name: "main.dart", path: "/proj/src/main.dart", isDir: false },
+      ]);
+    });
+    expect(useExplorerStore.getState().expandedPaths.size).toBe(0);
+  });
+
+  it("search indexing skips descending into build and .dart_tool", async () => {
+    const folderPath = "/proj";
+    const listDir = vi.fn(async (_root: string, dirPath: string) => {
+      const dirs: Record<string, { name: string; path: string; isDir: boolean }[]> = {
+        [folderPath]: [
+          { name: "build", path: "/proj/build", isDir: true },
+          { name: ".dart_tool", path: "/proj/.dart_tool", isDir: true },
+          { name: "lib", path: "/proj/lib", isDir: true },
+        ],
+        "/proj/lib": [
+          { name: "main.dart", path: "/proj/lib/main.dart", isDir: false },
+        ],
+        "/proj/build": [
+          { name: "secret.dart", path: "/proj/build/secret.dart", isDir: false },
+        ],
+        "/proj/.dart_tool": [
+          { name: "main.dart", path: "/proj/.dart_tool/main.dart", isDir: false },
+        ],
+      };
+      return dirs[dirPath] ?? [];
+    });
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    const api = {
+      ...createMemoryExplorerApi({ projectRoot: folderPath }),
+      listDir,
+    };
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
+    listDir.mockClear();
+
+    useExplorerStore.getState().setSearchQuery("main");
+    await vi.waitFor(() => {
+      expect(useExplorerStore.getState().childrenByPath["/proj/lib"]).toBeDefined();
+      expect(useExplorerStore.getState().searchIndexing).toBe(false);
+    });
+
+    expect(listDir.mock.calls.map((call) => call[1])).not.toContain("/proj/build");
+    expect(listDir.mock.calls.map((call) => call[1])).not.toContain(
+      "/proj/.dart_tool",
+    );
+    expect(useExplorerStore.getState().childrenByPath["/proj/build"]).toBeUndefined();
   });
 });
