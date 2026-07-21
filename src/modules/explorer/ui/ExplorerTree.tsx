@@ -1,4 +1,5 @@
-import { ChevronRight, File, Folder, FolderOpen } from "lucide-react";
+import { ChevronRight, Folder, FolderOpen } from "lucide-react";
+import { getFileIcon } from "@/lib/fileIcons";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "../../editor/state/editorStore";
 import { useShellStore } from "../../shell/state/shellStore";
@@ -101,6 +102,8 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
     );
   }
 
+  const FileIcon = getFileIcon(entry.name);
+
   return (
     <li className="min-w-0">
       <div
@@ -111,7 +114,7 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
         <span className="size-3 shrink-0" aria-hidden />
         {isRenaming ? (
           <div className={cn(rowButtonClassName, "w-full")}>
-            <File className={explorerIconClassName} aria-hidden />
+            <FileIcon className={explorerIconClassName} aria-hidden />
             <ExplorerRenameInput initialName={entry.name} />
           </div>
         ) : (
@@ -124,7 +127,7 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
               openFile(entry.path);
             }}
           >
-            <File className={explorerIconClassName} aria-hidden />
+            <FileIcon className={explorerIconClassName} aria-hidden />
             <span className="truncate">{entry.name}</span>
           </button>
         )}
