@@ -129,4 +129,55 @@ describe("explorerStore", () => {
     expect(state.expandedPaths.has(oldDir)).toBe(false);
     expect(state.selectedPath).toBe(newChild);
   });
+
+  it("setSearchQuery updates searchQuery", () => {
+    useExplorerStore.getState().setSearchQuery("dart");
+    expect(useExplorerStore.getState().searchQuery).toBe("dart");
+  });
+
+  it("keeps searchQuery on same-project loadRoot remount", async () => {
+    const folderPath = "/proj";
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "a.ts", path: "/proj/a.ts", isDir: false }],
+      },
+    });
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
+    useExplorerStore.getState().setSearchQuery("a.ts");
+
+    await useExplorerStore.getState().loadRoot();
+
+    expect(useExplorerStore.getState().searchQuery).toBe("a.ts");
+  });
+
+  it("clears searchQuery when loadRoot switches projects", async () => {
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/proj-a",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    const api = createMemoryExplorerApi({
+      dirs: {
+        "/proj-a": [{ name: "a.ts", path: "/proj-a/a.ts", isDir: false }],
+        "/proj-b": [{ name: "b.ts", path: "/proj-b/b.ts", isDir: false }],
+      },
+    });
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
+    useExplorerStore.getState().setSearchQuery("a.ts");
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/proj-b",
+      nowIso: "2026-07-10T00:00:01.000Z",
+    });
+    await useExplorerStore.getState().loadRoot();
+
+    expect(useExplorerStore.getState().searchQuery).toBe("");
+    expect(useExplorerStore.getState().projectRoot).toBe("/proj-b");
+  });
 });

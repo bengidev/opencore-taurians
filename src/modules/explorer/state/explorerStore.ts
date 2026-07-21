@@ -61,6 +61,7 @@ function createEmptyState() {
     renamingPath: null as string | null,
     error: null as string | null,
     loadingPaths: new Set<string>(),
+    searchQuery: "",
   };
 }
 
@@ -73,6 +74,7 @@ export interface ExplorerState {
   renamingPath: string | null;
   error: string | null;
   loadingPaths: Set<string>;
+  searchQuery: string;
   resetExplorerState: () => void;
   bindApi: (api: ExplorerApi) => void;
   loadRoot: () => Promise<void>;
@@ -84,6 +86,7 @@ export interface ExplorerState {
   cancelRename: () => void;
   clearError: () => void;
   refresh: () => Promise<void>;
+  setSearchQuery: (query: string) => void;
 }
 
 let projectSubscription: (() => void) | undefined;
@@ -165,6 +168,7 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
       renamingPath: null,
       error: null,
       loadingPaths: new Set<string>(),
+      searchQuery: "",
     });
 
     await loadDir(projectRoot);
@@ -259,6 +263,7 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
     },
     cancelRename: () => set({ renamingPath: null }),
     clearError: () => set({ error: null }),
+    setSearchQuery: (query) => set({ searchQuery: query }),
     refresh: async () => {
       const { projectRoot, expandedPaths } = get();
       if (!projectRoot) {
