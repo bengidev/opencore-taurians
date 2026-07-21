@@ -77,6 +77,8 @@ export function ExplorerPanel({
   );
   const error = useExplorerStore((s) => s.error);
   const clearError = useExplorerStore((s) => s.clearError);
+  const searchQuery = useExplorerStore((s) => s.searchQuery);
+  const setSearchQuery = useExplorerStore((s) => s.setSearchQuery);
 
   useEffect(() => {
     const api = explorerApi;
@@ -161,6 +163,18 @@ export function ExplorerPanel({
           {project?.name ?? "Explorer"}
         </p>
       </header>
+      {project ? (
+        <div className="shrink-0 border-b border-border px-3 py-2">
+          <input
+            type="search"
+            aria-label="Search files"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search"
+            className="w-full border border-border bg-background px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em] text-foreground placeholder:text-muted-foreground"
+          />
+        </div>
+      ) : null}
       {error ? (
         <div
           className="flex items-start gap-2 border-b border-destructive/20 bg-destructive/5 px-3 py-2"
