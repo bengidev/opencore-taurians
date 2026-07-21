@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -24,7 +25,7 @@ const DELETE_TRUNK_CONFIRM = "Delete this trunk?";
 const TRUNK_DRAG_ID_MIME = "application/x-project-trunk-id";
 const TRUNK_DRAG_PARENT_MIME = "application/x-project-trunk-parent-id";
 const trunkContextMenuClassName =
-  "min-w-40 font-mono text-[11px] tracking-[0.08em]";
+  "min-w-36 font-mono text-xs tracking-[0.08em]";
 
 function reorderTrunkSiblings(
   trunks: readonly ProjectTrunk[],
@@ -117,21 +118,31 @@ function TrunkRow({
           </ContextMenuTrigger>
         </div>
         <ContextMenuContent className={trunkContextMenuClassName}>
-          <ContextMenuItem onClick={onStartRename}>Rename</ContextMenuItem>
+          <ContextMenuItem onClick={onStartRename}>
+            <Pencil className="size-3.5" aria-hidden />
+            Rename
+          </ContextMenuItem>
           <ContextMenuItem
             onClick={() =>
               useProjectStore.getState().setTrunkPinned(trunk.id, !trunk.pinned)
             }
           >
+            {trunk.pinned ? (
+              <PinOff className="size-3.5" aria-hidden />
+            ) : (
+              <Pin className="size-3.5" aria-hidden />
+            )}
             {trunk.pinned ? "Unpin" : "Pin"}
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
+            variant="destructive"
             onClick={() => {
               if (!window.confirm(DELETE_TRUNK_CONFIRM)) return;
               useProjectStore.getState().deleteTrunkCascade(trunk.id);
             }}
           >
+            <Trash2 className="size-3.5" aria-hidden />
             Delete
           </ContextMenuItem>
         </ContextMenuContent>
