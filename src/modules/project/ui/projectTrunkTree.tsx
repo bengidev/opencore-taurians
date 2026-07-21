@@ -166,7 +166,7 @@ export function ProjectTrunkTree({
   );
 
   return (
-    <ul className="list-none">
+    <ul className="list-none" style={{ paddingLeft: "20px" }}>
       {rows.map((trunk) => (
         <TrunkRow
           key={trunk.id}
