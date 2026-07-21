@@ -51,6 +51,31 @@ function remapExpandedPaths(
   return next;
 }
 
+/** Do not descend into these while building the search index (still listed as siblings). */
+const SEARCH_SKIP_DESCEND_NAMES = new Set([
+  ".git",
+  ".svn",
+  ".hg",
+  "node_modules",
+  ".dart_tool",
+  "build",
+  "Pods",
+  ".idea",
+  "target",
+  "dist",
+  ".next",
+  ".turbo",
+  "coverage",
+  "__pycache__",
+  ".worktrees",
+  ".superpowers",
+]);
+
+function normalizeEntry(entry: ExplorerEntry): ExplorerEntry {
+  const path = projectNormalizeFolderPath(entry.path);
+  return path === entry.path ? entry : { ...entry, path };
+}
+
 function createEmptyState() {
   return {
     api: null as ExplorerApi | null,
@@ -62,6 +87,7 @@ function createEmptyState() {
     error: null as string | null,
     loadingPaths: new Set<string>(),
     searchQuery: "",
+    searchIndexing: false,
   };
 }
 
@@ -75,6 +101,7 @@ export interface ExplorerState {
   error: string | null;
   loadingPaths: Set<string>;
   searchQuery: string;
+  searchIndexing: boolean;
   resetExplorerState: () => void;
   bindApi: (api: ExplorerApi) => void;
   loadRoot: () => Promise<void>;
@@ -87,6 +114,7 @@ export interface ExplorerState {
   clearError: () => void;
   refresh: () => Promise<void>;
   setSearchQuery: (query: string) => void;
+  ensureSearchTreeLoaded: () => Promise<void>;
 }
 
 let projectSubscription: (() => void) | undefined;
@@ -106,6 +134,9 @@ function subscribeToActiveProject(loadRoot: () => Promise<void>): void {
   });
 }
 
+/** Cancels in-flight search tree loads when the query is cleared or a forced reload starts. */
+let searchLoadToken = 0;
+
 export const useExplorerStore = create<ExplorerState>()((set, get) => {
   const loadDir = async (dirPath: string): Promise<void> => {
     const { api, projectRoot } = get();
@@ -113,26 +144,93 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
       return;
     }
 
+    const normalizedDir = projectNormalizeFolderPath(dirPath);
     const loadingPaths = new Set(get().loadingPaths);
-    loadingPaths.add(dirPath);
+    loadingPaths.add(normalizedDir);
     set({ loadingPaths, error: null });
 
     try {
-      const children = await api.listDir(projectRoot, dirPath);
+      const children = (await api.listDir(projectRoot, normalizedDir)).map(
+        normalizeEntry,
+      );
       const nextLoading = new Set(get().loadingPaths);
-      nextLoading.delete(dirPath);
+      nextLoading.delete(normalizedDir);
       set((state) => ({
-        childrenByPath: { ...state.childrenByPath, [dirPath]: children },
+        childrenByPath: {
+          ...state.childrenByPath,
+          [normalizedDir]: children,
+        },
         loadingPaths: nextLoading,
         error: null,
       }));
     } catch (error) {
       const nextLoading = new Set(get().loadingPaths);
-      nextLoading.delete(dirPath);
+      nextLoading.delete(normalizedDir);
       set({
         loadingPaths: nextLoading,
         error: error instanceof Error ? error.message : String(error),
       });
+    }
+  };
+
+  /**
+   * BFS listDir into childrenByPath so search can match nested basenames.
+   * Skips heavy/tooling directories. Does not touch expandedPaths.
+   */
+  const loadDescendantsForSearch = async (): Promise<void> => {
+    const { api, projectRoot } = get();
+    if (!api || !projectRoot || !get().searchQuery.trim()) {
+      return;
+    }
+
+    const token = ++searchLoadToken;
+    set({ searchIndexing: true });
+
+    try {
+      const pending = [projectRoot];
+      const seen = new Set<string>();
+
+      while (pending.length > 0) {
+        if (token !== searchLoadToken || !get().searchQuery.trim()) {
+          return;
+        }
+
+        const dirPath = pending.shift()!;
+        if (seen.has(dirPath)) {
+          continue;
+        }
+        seen.add(dirPath);
+
+        let children = get().childrenByPath[dirPath];
+        if (!children) {
+          try {
+            children = (await api.listDir(projectRoot, dirPath)).map(
+              normalizeEntry,
+            );
+            if (token !== searchLoadToken || !get().searchQuery.trim()) {
+              return;
+            }
+            set((state) => ({
+              childrenByPath: {
+                ...state.childrenByPath,
+                [dirPath]: children!,
+              },
+            }));
+          } catch {
+            continue;
+          }
+        }
+
+        for (const entry of children) {
+          if (entry.isDir && !SEARCH_SKIP_DESCEND_NAMES.has(entry.name)) {
+            pending.push(entry.path);
+          }
+        }
+      }
+    } finally {
+      if (token === searchLoadToken) {
+        set({ searchIndexing: false });
+      }
     }
   };
 
@@ -263,9 +361,26 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
     },
     cancelRename: () => set({ renamingPath: null }),
     clearError: () => set({ error: null }),
-    setSearchQuery: (query) => set({ searchQuery: query }),
+    setSearchQuery: (query) => {
+      const wasEmpty = !get().searchQuery.trim();
+      set({ searchQuery: query });
+      if (!query.trim()) {
+        searchLoadToken += 1;
+        set({ searchIndexing: false });
+        return;
+      }
+      if (wasEmpty) {
+        void loadDescendantsForSearch();
+      }
+    },
+    ensureSearchTreeLoaded: async () => {
+      if (get().searchIndexing || !get().searchQuery.trim()) {
+        return;
+      }
+      await loadDescendantsForSearch();
+    },
     refresh: async () => {
-      const { projectRoot, expandedPaths } = get();
+      const { projectRoot, expandedPaths, searchQuery } = get();
       if (!projectRoot) {
         return;
       }
@@ -283,6 +398,11 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
           continue;
         }
         await loadDir(path);
+      }
+
+      if (searchQuery.trim()) {
+        searchLoadToken += 1;
+        void loadDescendantsForSearch();
       }
     },
   };
