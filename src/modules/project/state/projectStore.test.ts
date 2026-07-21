@@ -69,6 +69,28 @@ describe("projectStore", () => {
     expect(useProjectStore.getState().trunks.find((c) => c.id === trunk.id)?.pinned).toBe(true);
   });
 
+  it("renameTrunk updates title", () => {
+    const { trunk } = useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    useProjectStore.getState().renameTrunk(trunk.id, "Renamed");
+    expect(useProjectStore.getState().trunks.find((t) => t.id === trunk.id)?.title).toBe(
+      "Renamed",
+    );
+  });
+
+  it("renameTrunk ignores empty or whitespace titles", () => {
+    const { trunk } = useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    useProjectStore.getState().renameTrunk(trunk.id, "  ");
+    expect(useProjectStore.getState().trunks.find((t) => t.id === trunk.id)?.title).toBe(
+      "default",
+    );
+  });
+
   it("deleting a trunk removes it and its chat messages", () => {
     const { project, trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",

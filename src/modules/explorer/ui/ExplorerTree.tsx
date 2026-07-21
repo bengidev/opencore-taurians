@@ -1,12 +1,15 @@
-import { ChevronRight, File, Folder, FolderOpen } from "lucide-react";
+import { createContext, useContext, useEffect, useMemo } from "react";
+import { ChevronRight } from "lucide-react";
+import { resolveExplorerIcon } from "@/lib/fileIcons";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "../../editor/state/editorStore";
 import { useShellStore } from "../../shell/state/shellStore";
 import type { ExplorerEntry } from "../domain/explorerTypes";
+import { filterExplorerTree } from "../domain/filterExplorerTree";
 import { useExplorerStore } from "../state/explorerStore";
 import {
   explorerChevronClassName,
-  explorerIconClassName,
+  explorerMaterialIconClassName,
   explorerRowButtonClassName,
   explorerTreeChildrenGridClassName,
   explorerTreeChildrenInnerClassName,
@@ -18,24 +21,58 @@ interface ExplorerEntryRowProps {
   depth: number;
 }
 
+type ExplorerTreeView = {
+  childrenByPath: Record<string, ExplorerEntry[]>;
+  isExpanded: (path: string) => boolean;
+};
+
+const ExplorerTreeViewContext = createContext<ExplorerTreeView | null>(null);
+
+function useExplorerTreeView(): ExplorerTreeView {
+  const value = useContext(ExplorerTreeViewContext);
+  if (!value) {
+    throw new Error("ExplorerEntryRow must render inside ExplorerTree");
+  }
+  return value;
+}
+
 function openFile(path: string): void {
   useShellStore.getState().setActiveMainCard("editor");
   useEditorStore.getState().setOpenFilePath(path);
 }
 
+function ExplorerEntryIcon({
+  name,
+  isDir,
+  isOpen,
+}: {
+  name: string;
+  isDir: boolean;
+  isOpen?: boolean;
+}) {
+  const { src } = resolveExplorerIcon({ name, isDir, isOpen });
+  return (
+    <img
+      src={src}
+      alt=""
+      aria-hidden
+      className={explorerMaterialIconClassName}
+    />
+  );
+}
+
 function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
-  const expandedPaths = useExplorerStore((s) => s.expandedPaths);
+  const treeView = useExplorerTreeView();
   const selectedPath = useExplorerStore((s) => s.selectedPath);
   const renamingPath = useExplorerStore((s) => s.renamingPath);
-  const childrenByPath = useExplorerStore((s) => s.childrenByPath);
   const loadingPaths = useExplorerStore((s) => s.loadingPaths);
   const toggleExpanded = useExplorerStore((s) => s.toggleExpanded);
   const selectPath = useExplorerStore((s) => s.selectPath);
 
-  const expanded = expandedPaths.has(entry.path);
+  const expanded = treeView.isExpanded(entry.path);
   const isSelected = selectedPath === entry.path;
   const isRenaming = renamingPath === entry.path;
-  const children = childrenByPath[entry.path] ?? [];
+  const children = treeView.childrenByPath[entry.path] ?? [];
   const isLoadingChildren = loadingPaths.has(entry.path);
   const rowButtonClassName = explorerRowButtonClassName(isSelected);
 
@@ -49,7 +86,7 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
         >
           {isRenaming ? (
             <div className={cn(rowButtonClassName, "w-full")}>
-              <Folder className={explorerIconClassName} aria-hidden />
+              <ExplorerEntryIcon name={entry.name} isDir isOpen={false} />
               <ExplorerRenameInput initialName={entry.name} />
             </div>
           ) : (
@@ -68,11 +105,11 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
                 className={explorerChevronClassName(expanded)}
                 aria-hidden
               />
-              {expanded ? (
-                <FolderOpen className={explorerIconClassName} aria-hidden />
-              ) : (
-                <Folder className={explorerIconClassName} aria-hidden />
-              )}
+              <ExplorerEntryIcon
+                name={entry.name}
+                isDir
+                isOpen={expanded}
+              />
               <span className="truncate">{entry.name}</span>
             </button>
           )}
@@ -111,7 +148,7 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
         <span className="size-3 shrink-0" aria-hidden />
         {isRenaming ? (
           <div className={cn(rowButtonClassName, "w-full")}>
-            <File className={explorerIconClassName} aria-hidden />
+            <ExplorerEntryIcon name={entry.name} isDir={false} />
             <ExplorerRenameInput initialName={entry.name} />
           </div>
         ) : (
@@ -124,7 +161,7 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
               openFile(entry.path);
             }}
           >
-            <File className={explorerIconClassName} aria-hidden />
+            <ExplorerEntryIcon name={entry.name} isDir={false} />
             <span className="truncate">{entry.name}</span>
           </button>
         )}
@@ -136,31 +173,74 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
 export function ExplorerTree() {
   const projectRoot = useExplorerStore((s) => s.projectRoot);
   const childrenByPath = useExplorerStore((s) => s.childrenByPath);
+  const expandedPaths = useExplorerStore((s) => s.expandedPaths);
   const loadingPaths = useExplorerStore((s) => s.loadingPaths);
+  const searchQuery = useExplorerStore((s) => s.searchQuery);
+  const searchIndexing = useExplorerStore((s) => s.searchIndexing);
+  const ensureSearchTreeLoaded = useExplorerStore((s) => s.ensureSearchTreeLoaded);
+  const hasSearchQuery = searchQuery.trim().length > 0;
 
-  if (!projectRoot) {
+  useEffect(() => {
+    if (!projectRoot || !hasSearchQuery) {
+      return;
+    }
+    void ensureSearchTreeLoaded();
+  }, [projectRoot, hasSearchQuery, ensureSearchTreeLoaded]);
+
+  const treeView = useMemo<ExplorerTreeView | null>(() => {
+    if (!projectRoot) {
+      return null;
+    }
+    const filtered = filterExplorerTree({
+      childrenByPath,
+      rootPath: projectRoot,
+      query: searchQuery,
+    });
+    if (!filtered) {
+      return {
+        childrenByPath,
+        isExpanded: (path) => expandedPaths.has(path),
+      };
+    }
+    return {
+      childrenByPath: filtered.childrenByPath,
+      isExpanded: (path) =>
+        expandedPaths.has(path) || filtered.displayOpenPaths.has(path),
+    };
+  }, [projectRoot, childrenByPath, expandedPaths, searchQuery]);
+
+  if (!projectRoot || !treeView) {
     return null;
   }
 
-  const rootChildren = childrenByPath[projectRoot] ?? [];
+  const rootChildren = treeView.childrenByPath[projectRoot] ?? [];
   const isLoadingRoot = loadingPaths.has(projectRoot);
+  const isFiltering = searchQuery.trim().length > 0;
 
   if (rootChildren.length === 0 && !isLoadingRoot) {
     return (
       <p className="px-3 py-6 text-center font-mono text-[11px] tracking-[0.08em] text-muted-foreground">
-        This folder is empty.
-        <span className="mt-1 block text-[10px] text-muted-foreground/70">
-          Right-click to create a file or folder.
-        </span>
+        {isFiltering
+          ? searchIndexing
+            ? "Searching…"
+            : "No matching files."
+          : "This folder is empty."}
+        {!isFiltering ? (
+          <span className="mt-1 block text-[10px] text-muted-foreground/70">
+            Right-click to create a file or folder.
+          </span>
+        ) : null}
       </p>
     );
   }
 
   return (
-    <ul aria-label="explorer tree" className="list-none py-0.5">
-      {rootChildren.map((entry) => (
-        <ExplorerEntryRow key={entry.path} entry={entry} depth={0} />
-      ))}
-    </ul>
+    <ExplorerTreeViewContext.Provider value={treeView}>
+      <ul aria-label="explorer tree" className="list-none py-0.5">
+        {rootChildren.map((entry) => (
+          <ExplorerEntryRow key={entry.path} entry={entry} depth={0} />
+        ))}
+      </ul>
+    </ExplorerTreeViewContext.Provider>
   );
 }
