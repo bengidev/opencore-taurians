@@ -1,5 +1,4 @@
 import {
-  ChevronDown,
   ChevronRight,
   FolderInput,
   FolderOpen,
@@ -27,25 +26,45 @@ import {
 } from "../../workspace-popup/infrastructure/workspaceFolderPicker";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { projectBuildAutoGroups } from "../domain/projectAutoGroup";
+import { DEFAULT_NEW_TRUNK_TITLE } from "../domain/projectDefaults";
 import type { Project } from "../domain/projectTypes";
 import { projectMergeSearchResults } from "../domain/projectSearch";
 import { projectActivateTrunk } from "../state/projectActivation";
-import { projectRequestOpenFolder } from "./projectAddButton";
 import { useProjectStore } from "../state/projectStore";
 import { PanelToolButton } from "./panelToolButton";
-import { ProjectAddButton } from "./projectAddButton";
 import { PanelTooltip } from "./panelTooltip";
-import { ProjectTrunkTree } from "./projectTrunkTree";
+import {
+  ProjectAddButton,
+  projectRequestOpenFolder,
+} from "./projectAddButton";
 import {
   projectExpandTrunkAncestors,
   projectProjectHasVisibleTrunks,
   projectSearchTitleTrunkIds,
 } from "./projectPanelSearch";
+import { ProjectTrunkTree } from "./projectTrunkTree";
 
-import { DEFAULT_NEW_TRUNK_TITLE } from "../domain/projectDefaults";
 const PROJECT_DRAG_ID_MIME = "application/x-project-id";
 const PROJECT_DRAG_GROUP_MIME = "application/x-project-group-id";
 
+function projectChevronClassName(expanded: boolean): string {
+  return cn(
+    "size-3 shrink-0 text-muted-foreground motion-reduce:transition-none",
+    "transition-transform ease-[var(--ease-out)]",
+    expanded
+      ? "rotate-90 duration-[var(--duration-ui-panel-show)]"
+      : "duration-[var(--duration-ui-panel-hide)]",
+  );
+}
+
+function projectTrunkListGridClassName(expanded: boolean): string {
+  return cn(
+    "grid motion-reduce:transition-none",
+    expanded
+      ? "grid-rows-[1fr] opacity-100 transition-[grid-template-rows,opacity] duration-[var(--duration-ui-panel-show)] ease-[var(--ease-out)]"
+      : "grid-rows-[0fr] opacity-0 pointer-events-none transition-[grid-template-rows,opacity] duration-[var(--duration-ui-panel-hide)] ease-[var(--ease-out)]",
+  );
+}
 function reorderProjectsInManualGroup(
   groupId: string,
   sourceProjectId: string,
@@ -140,11 +159,10 @@ function ProjectRow({
                 : undefined
             }
           >
-            {expanded ? (
-              <ChevronDown className="size-3 shrink-0" aria-hidden />
-            ) : (
-              <ChevronRight className="size-3 shrink-0" aria-hidden />
-            )}
+            <ChevronRight
+              className={projectChevronClassName(expanded)}
+              aria-hidden
+            />
             <span className="truncate">{project.name}</span>
           </button>
         </PanelTooltip>
@@ -204,14 +222,19 @@ function ProjectRow({
           <FolderSync className="size-3" aria-hidden />
         </PanelToolButton>
       </div>
-      {expanded ? (
-        <ProjectTrunkTree
-          projectId={project.id}
-          trunks={trunks}
-          activeTrunkId={activeTrunkId}
-          visibleTrunkIds={visibleTrunkIds}
-        />
-      ) : null}
+      <div
+        className={projectTrunkListGridClassName(expanded)}
+        aria-hidden={!expanded}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <ProjectTrunkTree
+            projectId={project.id}
+            trunks={trunks}
+            activeTrunkId={activeTrunkId}
+            visibleTrunkIds={visibleTrunkIds}
+          />
+        </div>
+      </div>
     </li>
   );
 }

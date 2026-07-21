@@ -36,10 +36,15 @@ export function explorerTreeChildrenGridClassName(expanded: boolean): string {
 
 export const explorerTreeChildrenInnerClassName = "min-h-0 overflow-hidden";
 
+/** Lucide prefixes (chevrons, etc.) */
 export const explorerIconClassName = "size-3 shrink-0 opacity-80";
 
+/** Material file/folder <img> prefixes — fixed grayscale, not currentColor */
+export const explorerMaterialIconClassName =
+  "size-3 shrink-0 opacity-80 [filter:grayscale(1)]";
+
 export const explorerContextMenuClassName =
-  "min-w-40 font-mono text-[11px] tracking-[0.08em]";
+  "min-w-36 font-mono text-xs tracking-[0.08em]";
 
 export const explorerPanelDismissClassName = cn(
   "shrink-0 rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground",
