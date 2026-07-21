@@ -171,7 +171,7 @@ export function ExplorerPanel({
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search"
-            className="w-full border border-border bg-background px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em] text-foreground placeholder:text-muted-foreground"
+            className="w-full border border-border bg-background px-2 py-1 font-mono text-[11px] tracking-[0.08em] text-foreground placeholder:text-muted-foreground"
           />
         </div>
       ) : null}

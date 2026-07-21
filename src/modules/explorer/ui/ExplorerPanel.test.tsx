@@ -319,6 +319,39 @@ describe("ExplorerPanel", () => {
     expect([...expandedAfter].sort()).toEqual([...expandedBefore].sort());
   });
 
+  it("finds nested files without expanding folders first and keeps typed case", async () => {
+    const user = userEvent.setup();
+    const folderPath = "/proj";
+    const subDir = "/proj/src";
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "src", path: subDir, isDir: true }],
+        [subDir]: [
+          { name: "main.dart", path: "/proj/src/main.dart", isDir: false },
+        ],
+      },
+    });
+
+    render(<ExplorerPanel explorerApi={api} />);
+    expect(await screen.findByText("src")).toBeInTheDocument();
+
+    const search = screen.getByRole("searchbox", { name: "Search files" });
+    expect(search.className).not.toMatch(/\buppercase\b/);
+
+    await user.type(search, "Main");
+    expect(search).toHaveValue("Main");
+    expect(await screen.findByText("main.dart")).toBeInTheDocument();
+    expect(screen.getByText("src")).toBeInTheDocument();
+    expect(useExplorerStore.getState().expandedPaths.size).toBe(0);
+  });
+
   it("clears the filter and restores the full loaded tree", async () => {
     const user = userEvent.setup();
     const folderPath = "/proj";
