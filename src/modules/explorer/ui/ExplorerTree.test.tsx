@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { FileCode } from "lucide-react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEditorStore } from "../../editor/state/editorStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
@@ -37,6 +38,31 @@ describe("ExplorerTree", () => {
 
     render(<ExplorerTree />);
     expect(await screen.findByText("a.ts")).toBeInTheDocument();
+  });
+
+  it("uses a type-specific Lucide icon for known file extensions", async () => {
+    const folderPath = "/proj";
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "a.ts", path: "/proj/a.ts", isDir: false }],
+      },
+    });
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
+
+    const { container } = render(<ExplorerTree />);
+    expect(await screen.findByText("a.ts")).toBeInTheDocument();
+
+    const icon = container.querySelector("svg.lucide-file-code");
+    expect(icon).not.toBeNull();
+    // Sanity: helper agreement (same component Lucide would render)
+    expect(FileCode).toBeTruthy();
   });
 
   it("file click sets editor card and openFilePath", async () => {
