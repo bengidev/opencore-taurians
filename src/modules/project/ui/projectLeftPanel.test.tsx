@@ -323,6 +323,19 @@ describe("ProjectLeftPanel", () => {
     expect(ordered).toEqual([root.id, b.id, a.id]);
   });
 
+  it("indents trunks under the project like explorer depth-1", async () => {
+    const { trunk } = useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    render(<ProjectLeftPanel />);
+
+    const trunkButton = await screen.findByRole("button", { name: trunk.title });
+    const list = trunkButton.closest("ul");
+    expect(list).not.toBeNull();
+    expect(list).toHaveStyle({ paddingLeft: "20px" });
+  });
+
   it("relinks folder and updates workspace when project is active", async () => {
     const user = userEvent.setup();
     const { project } = useProjectStore.getState().createProjectWithRootTrunk({
