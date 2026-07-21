@@ -1,5 +1,5 @@
-import { ChevronRight, Folder, FolderOpen } from "lucide-react";
-import { getFileIcon } from "@/lib/fileIcons";
+import { ChevronRight } from "lucide-react";
+import { resolveExplorerIcon } from "@/lib/fileIcons";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "../../editor/state/editorStore";
 import { useShellStore } from "../../shell/state/shellStore";
@@ -7,7 +7,7 @@ import type { ExplorerEntry } from "../domain/explorerTypes";
 import { useExplorerStore } from "../state/explorerStore";
 import {
   explorerChevronClassName,
-  explorerIconClassName,
+  explorerMaterialIconClassName,
   explorerRowButtonClassName,
   explorerTreeChildrenGridClassName,
   explorerTreeChildrenInnerClassName,
@@ -22,6 +22,26 @@ interface ExplorerEntryRowProps {
 function openFile(path: string): void {
   useShellStore.getState().setActiveMainCard("editor");
   useEditorStore.getState().setOpenFilePath(path);
+}
+
+function ExplorerEntryIcon({
+  name,
+  isDir,
+  isOpen,
+}: {
+  name: string;
+  isDir: boolean;
+  isOpen?: boolean;
+}) {
+  const { src } = resolveExplorerIcon({ name, isDir, isOpen });
+  return (
+    <img
+      src={src}
+      alt=""
+      aria-hidden
+      className={explorerMaterialIconClassName}
+    />
+  );
 }
 
 function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
@@ -50,7 +70,7 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
         >
           {isRenaming ? (
             <div className={cn(rowButtonClassName, "w-full")}>
-              <Folder className={explorerIconClassName} aria-hidden />
+              <ExplorerEntryIcon name={entry.name} isDir isOpen={false} />
               <ExplorerRenameInput initialName={entry.name} />
             </div>
           ) : (
@@ -69,11 +89,11 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
                 className={explorerChevronClassName(expanded)}
                 aria-hidden
               />
-              {expanded ? (
-                <FolderOpen className={explorerIconClassName} aria-hidden />
-              ) : (
-                <Folder className={explorerIconClassName} aria-hidden />
-              )}
+              <ExplorerEntryIcon
+                name={entry.name}
+                isDir
+                isOpen={expanded}
+              />
               <span className="truncate">{entry.name}</span>
             </button>
           )}
@@ -102,8 +122,6 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
     );
   }
 
-  const FileIcon = getFileIcon(entry.name);
-
   return (
     <li className="min-w-0">
       <div
@@ -114,7 +132,7 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
         <span className="size-3 shrink-0" aria-hidden />
         {isRenaming ? (
           <div className={cn(rowButtonClassName, "w-full")}>
-            <FileIcon className={explorerIconClassName} aria-hidden />
+            <ExplorerEntryIcon name={entry.name} isDir={false} />
             <ExplorerRenameInput initialName={entry.name} />
           </div>
         ) : (
@@ -127,7 +145,7 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
               openFile(entry.path);
             }}
           >
-            <FileIcon className={explorerIconClassName} aria-hidden />
+            <ExplorerEntryIcon name={entry.name} isDir={false} />
             <span className="truncate">{entry.name}</span>
           </button>
         )}
