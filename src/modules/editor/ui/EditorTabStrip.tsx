@@ -1,20 +1,34 @@
 import { useState, type DragEvent } from "react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { useShellStore } from "../../shell/state/shellStore";
 import {
   EXPLORER_FILE_PATH_MIME,
   getExplorerFileDragPath,
 } from "../dnd/explorerFileDrag";
-import { tabLabel } from "../state/editorTabId";
+import { isUntitledId, tabLabel } from "../state/editorTabId";
 import { useEditorStore } from "../state/editorStore";
+
+const editorTabContextMenuClassName =
+  "min-w-36 font-mono text-xs tracking-[0.08em]";
 
 export interface EditorTabStripProps {
   onRequestCloseTab: (id: string) => void;
-  onRequestSaveAs: () => void;
+  onRequestSaveAs: (id: string) => void;
+  onRequestCloseOthers: (keepId: string) => void;
+  onRequestCloseAll: () => void;
 }
 
 export function EditorTabStrip({
   onRequestCloseTab,
   onRequestSaveAs,
+  onRequestCloseOthers,
+  onRequestCloseAll,
 }: EditorTabStripProps) {
   const tabs = useEditorStore((s) => s.tabs);
   const activeTabId = useEditorStore((s) => s.activeTabId);
@@ -80,26 +94,63 @@ export function EditorTabStrip({
         const displayLabel = dirty ? `${label} •` : label;
 
         return (
-          <div key={tab.id} className="flex min-w-0 items-center">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              aria-label={displayLabel}
-              className="rounded-[6px] border border-transparent px-2 py-0.5 font-mono text-[11px] tracking-[0.02em] text-muted-foreground aria-selected:border-border aria-selected:bg-muted aria-selected:text-foreground"
-              onClick={() => setActiveTabId(tab.id)}
-            >
-              {displayLabel}
-            </button>
-            <button
-              type="button"
-              aria-label={`Close ${label}`}
-              className="rounded-[6px] px-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
-              onClick={() => onRequestCloseTab(tab.id)}
-            >
-              ×
-            </button>
-          </div>
+          <ContextMenu
+            key={tab.id}
+            onOpenChange={(open) => {
+              if (open) setActiveTabId(tab.id);
+            }}
+          >
+            <div className="flex min-w-0 items-center">
+              <ContextMenuTrigger
+                render={
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    aria-label={displayLabel}
+                    className="rounded-[6px] border border-transparent px-2 py-0.5 font-mono text-[11px] tracking-[0.02em] text-muted-foreground aria-selected:border-border aria-selected:bg-muted aria-selected:text-foreground"
+                  />
+                }
+                onClick={() => setActiveTabId(tab.id)}
+              >
+                {displayLabel}
+              </ContextMenuTrigger>
+              <button
+                type="button"
+                aria-label={`Close ${label}`}
+                className="rounded-[6px] px-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+                onClick={() => onRequestCloseTab(tab.id)}
+              >
+                ×
+              </button>
+            </div>
+            <ContextMenuContent className={editorTabContextMenuClassName}>
+              <ContextMenuItem
+                onClick={() => {
+                  if (isUntitledId(tab.id)) onRequestSaveAs(tab.id);
+                  else void useEditorStore.getState().saveTab(tab.id);
+                }}
+              >
+                Save
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => onRequestSaveAs(tab.id)}>
+                Save As…
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem onClick={() => onRequestCloseTab(tab.id)}>
+                Close
+              </ContextMenuItem>
+              <ContextMenuItem
+                disabled={tabs.length < 2}
+                onClick={() => onRequestCloseOthers(tab.id)}
+              >
+                Close Others
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => onRequestCloseAll()}>
+                Close All
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
         );
       })}
       <button
@@ -115,15 +166,6 @@ export function EditorTabStrip({
         }}
       >
         +
-      </button>
-      <button
-        type="button"
-        disabled={!activeTabId}
-        aria-label="Save As…"
-        className="rounded-[6px] border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground disabled:opacity-50"
-        onClick={() => onRequestSaveAs()}
-      >
-        Save As…
       </button>
     </div>
   );
