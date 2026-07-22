@@ -24,8 +24,9 @@ describe("ExplorerTree", () => {
       api: null,
       projectRoot: null,
       tabs: [],
-      activePath: null,
+      activeTabId: null,
       buffers: {},
+      nextUntitled: 1,
     });
     useShellStore.setState({ activeMainCard: "chat" });
   });
@@ -122,8 +123,8 @@ describe("ExplorerTree", () => {
       expect(useShellStore.getState().activeMainCard).toBe("editor");
     });
     const editorState = useEditorStore.getState();
-    expect(editorState.activePath).toBe(filePath);
-    expect(editorState.tabs).toEqual([{ path: filePath }]);
+    expect(editorState.activeTabId).toBe(filePath);
+    expect(editorState.tabs.map((t) => t.id)).toEqual([filePath]);
     expect(editorState.buffers[filePath]?.content).toBe(fileContent);
     expect(editorState.buffers[filePath]?.status).toBe("ready");
   });
