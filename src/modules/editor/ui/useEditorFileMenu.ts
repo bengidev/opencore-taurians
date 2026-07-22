@@ -15,7 +15,25 @@ export function useEditorFileMenu(picker?: EditorFilePicker) {
   useEffect(() => {
     let disposed = false;
     void (async () => {
-      const { Menu, MenuItem, Submenu } = await import("@tauri-apps/api/menu");
+      const { Menu, MenuItem, PredefinedMenuItem, Submenu } = await import(
+        "@tauri-apps/api/menu"
+      );
+      // macOS absorbs the first root submenu into the app-name menu regardless of
+      // its text — keep a dedicated App submenu first so File stays its own menu.
+      const app = await Submenu.new({
+        text: "App",
+        items: [
+          await PredefinedMenuItem.new({ item: { About: null } }),
+          await PredefinedMenuItem.new({ item: "Separator" }),
+          await PredefinedMenuItem.new({ item: "Services" }),
+          await PredefinedMenuItem.new({ item: "Separator" }),
+          await PredefinedMenuItem.new({ item: "Hide" }),
+          await PredefinedMenuItem.new({ item: "HideOthers" }),
+          await PredefinedMenuItem.new({ item: "ShowAll" }),
+          await PredefinedMenuItem.new({ item: "Separator" }),
+          await PredefinedMenuItem.new({ item: "Quit" }),
+        ],
+      });
       const newItem = await MenuItem.new({
         id: "editor-new",
         text: "New",
@@ -52,7 +70,7 @@ export function useEditorFileMenu(picker?: EditorFilePicker) {
         text: "File",
         items: [newItem, openItem, saveItem, saveAsItem],
       });
-      const menu = await Menu.new({ items: [file] });
+      const menu = await Menu.new({ items: [app, file] });
       if (!disposed) {
         await menu.setAsAppMenu();
       }

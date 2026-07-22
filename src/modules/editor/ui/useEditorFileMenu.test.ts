@@ -13,24 +13,31 @@ type MenuItemOptions = {
   action?: () => void;
 };
 
-const actions: Record<string, (() => void) | undefined> = {};
+const { actions, menuMocks } = vi.hoisted(() => {
+  const actions: Record<string, (() => void) | undefined> = {};
+  const menuMocks = {
+    Menu: {
+      new: vi.fn(async () => ({
+        setAsAppMenu: vi.fn(),
+      })),
+    },
+    MenuItem: {
+      new: vi.fn(async (opts: MenuItemOptions) => {
+        if (opts.id) actions[opts.id] = opts.action;
+        return opts;
+      }),
+    },
+    PredefinedMenuItem: {
+      new: vi.fn(async (opts: { item: unknown }) => opts),
+    },
+    Submenu: {
+      new: vi.fn(async (opts: { text: string; items: unknown[] }) => opts),
+    },
+  };
+  return { actions, menuMocks };
+});
 
-vi.mock("@tauri-apps/api/menu", () => ({
-  Menu: {
-    new: vi.fn(async () => ({
-      setAsAppMenu: vi.fn(),
-    })),
-  },
-  MenuItem: {
-    new: vi.fn(async (opts: MenuItemOptions) => {
-      if (opts.id) actions[opts.id] = opts.action;
-      return opts;
-    }),
-  },
-  Submenu: {
-    new: vi.fn(async (opts: { text: string; items: unknown[] }) => opts),
-  },
-}));
+vi.mock("@tauri-apps/api/menu", () => menuMocks);
 
 function resetEditorStore(): void {
   useEditorStore.setState({
@@ -52,6 +59,23 @@ describe("useEditorFileMenu", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("places File after an App submenu so macOS does not absorb File items", async () => {
+    renderHook(() => useEditorFileMenu(createMemoryEditorFilePicker([])));
+    await waitFor(() => expect(menuMocks.Menu.new).toHaveBeenCalled());
+    const [options] = menuMocks.Menu.new.mock.calls[0] as [
+      { items: Array<{ text: string; items: unknown[] }> },
+    ];
+    expect(options.items.map((item) => item.text)).toEqual(["App", "File"]);
+    expect(options.items[1]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "editor-new", text: "New" }),
+        expect.objectContaining({ id: "editor-open", text: "Open…" }),
+        expect.objectContaining({ id: "editor-save", text: "Save" }),
+        expect.objectContaining({ id: "editor-save-as", text: "Save As…" }),
+      ]),
+    );
   });
 
   it("Open… menu action calls openPaths with picked files", async () => {
