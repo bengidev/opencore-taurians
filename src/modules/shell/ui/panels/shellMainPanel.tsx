@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useChatStore } from "../../../chat/state/chatStore";
+import { EditorCardHeader } from "../../../editor/ui/EditorCardHeader";
 import { EditorPanel } from "../../../editor/ui/EditorPanel";
 import { appendTrunkMessage } from "../../../project/state/projectChat";
 import { useProjectStore } from "../../../project/state/projectStore";
@@ -81,9 +82,13 @@ export function ShellMainPanel() {
           aria-hidden={activeMainCard !== card}
           className="absolute inset-0 flex flex-col p-3"
         >
-          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-            {card}
-          </p>
+          {card === "editor" ? (
+            <EditorCardHeader />
+          ) : (
+            <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+              {card}
+            </p>
+          )}
           {card === "chat" ? (
             <ChatCard />
           ) : card === "editor" ? (
