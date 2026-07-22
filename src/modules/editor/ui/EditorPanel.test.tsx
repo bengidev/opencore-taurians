@@ -52,4 +52,27 @@ describe("EditorPanel", () => {
     render(<EditorPanel />);
     expect(await screen.findByTestId("monaco-host")).toBeInTheDocument();
   });
+
+  it("keeps Monaco host mounted while saving", async () => {
+    useEditorStore.setState({
+      path: "/proj/a.ts",
+      content: "hello",
+      status: "saving",
+    });
+    render(<EditorPanel />);
+    expect(await screen.findByTestId("monaco-host")).toBeInTheDocument();
+    expect(screen.getByText("Saving…")).toBeInTheDocument();
+  });
+
+  it("shows saveError inline without unmounting Monaco", async () => {
+    useEditorStore.setState({
+      path: "/proj/a.ts",
+      content: "hello",
+      status: "ready",
+      saveError: "disk full",
+    });
+    render(<EditorPanel />);
+    expect(await screen.findByTestId("monaco-host")).toBeInTheDocument();
+    expect(screen.getByText("disk full")).toBeInTheDocument();
+  });
 });
