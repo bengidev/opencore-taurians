@@ -10,10 +10,10 @@ const MonacoEditorHost = lazy(() =>
 export function EditorPanel() {
   useEditorSaveTriggers();
 
-  const path = useEditorStore((s) => s.path);
-  const status = useEditorStore((s) => s.status);
-  const errorMessage = useEditorStore((s) => s.errorMessage);
-  const saveError = useEditorStore((s) => s.saveError);
+  const activePath = useEditorStore((s) => s.activePath);
+  const buffer = useEditorStore((s) =>
+    s.activePath ? (s.buffers[s.activePath] ?? null) : null,
+  );
 
   useEffect(() => {
     const { api, bindApi } = useEditorStore.getState();
@@ -22,7 +22,7 @@ export function EditorPanel() {
     }
   }, []);
 
-  if (!path) {
+  if (!activePath || !buffer) {
     return (
       <p className="mt-2 font-mono text-sm text-muted-foreground">
         Open a file from the explorer
@@ -30,29 +30,29 @@ export function EditorPanel() {
     );
   }
 
-  if (status === "loading") {
+  if (buffer.status === "loading") {
     return (
       <p className="mt-2 font-mono text-sm text-muted-foreground">Loading…</p>
     );
   }
 
-  if (status === "error") {
+  if (buffer.status === "error") {
     return (
-      <p className="mt-2 font-mono text-sm text-destructive">{errorMessage}</p>
+      <p className="mt-2 font-mono text-sm text-destructive">{buffer.errorMessage}</p>
     );
   }
 
-  if (status !== "ready" && status !== "saving") {
+  if (buffer.status !== "ready" && buffer.status !== "saving") {
     return null;
   }
 
   return (
     <div className="mt-2 flex min-h-0 flex-1 flex-col">
-      {status === "saving" ? (
+      {buffer.status === "saving" ? (
         <p className="mb-1 font-mono text-xs text-muted-foreground">Saving…</p>
       ) : null}
-      {saveError ? (
-        <p className="mb-1 font-mono text-xs text-muted-foreground">{saveError}</p>
+      {buffer.saveError ? (
+        <p className="mb-1 font-mono text-xs text-muted-foreground">{buffer.saveError}</p>
       ) : null}
       <Suspense
         fallback={
