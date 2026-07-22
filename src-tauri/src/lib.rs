@@ -21,8 +21,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             editor::read::editor_read_file,
+            editor::read_external::editor_read_external_file,
             editor::write::editor_write_file,
             editor::create::editor_create_file,
+            editor::path_query::editor_is_under_root,
+            editor::path_query::editor_paths_include_directory,
             explorer::list_dir::explorer_list_dir,
             explorer::create::explorer_create_file,
             explorer::create::explorer_create_dir,
