@@ -103,6 +103,35 @@ describe("EditorDropZone", () => {
     });
   });
 
+  it("Explorer MIME drop does not focus Editor card when openFile returns false", async () => {
+    useEditorStore.setState({ projectRoot: PROJECT_ROOT });
+    const openFile = vi
+      .spyOn(useEditorStore.getState(), "openFile")
+      .mockResolvedValue(false);
+
+    render(
+      <EditorDropZone>
+        <div data-testid="panel-body">body</div>
+      </EditorDropZone>,
+    );
+
+    await vi.waitFor(() => {
+      expect(dropHandler).toBeDefined();
+      expect(dragHandler).toBeDefined();
+    });
+
+    const body = screen.getByTestId("panel-body");
+    const dataTransfer = createExplorerFileDataTransfer(FILE_C);
+    fireEvent.dragOver(body, { dataTransfer });
+    fireEvent.drop(body, { dataTransfer });
+
+    expect(openFile).toHaveBeenCalledWith(PROJECT_ROOT, FILE_C);
+    await vi.waitFor(() => {
+      expect(openFile.mock.settledResults.length).toBeGreaterThan(0);
+    });
+    expect(useShellStore.getState().activeMainCard).toBe("chat");
+  });
+
   it("OS drop hitting panel body calls openPaths and focuses Editor card", async () => {
     const openPaths = vi
       .spyOn(useEditorStore.getState(), "openPaths")
@@ -130,6 +159,35 @@ describe("EditorDropZone", () => {
       expect(openPaths).toHaveBeenCalledWith(["/tmp/a.ts"]);
     });
     expect(useShellStore.getState().activeMainCard).toBe("editor");
+  });
+
+  it("OS drop does not focus Editor card when openPaths returns false", async () => {
+    const openPaths = vi
+      .spyOn(useEditorStore.getState(), "openPaths")
+      .mockResolvedValue(false);
+
+    render(
+      <EditorDropZone>
+        <div data-testid="panel-body">body</div>
+      </EditorDropZone>,
+    );
+
+    await vi.waitFor(() => {
+      expect(dropHandler).toBeDefined();
+      expect(dragHandler).toBeDefined();
+    });
+
+    const body = screen.getByTestId("panel-body");
+    vi.mocked(document.elementFromPoint).mockReturnValue(body);
+
+    dropHandler!({
+      payload: { paths: ["/tmp/a.ts"], x: 10, y: 20 },
+    });
+
+    await vi.waitFor(() => {
+      expect(openPaths).toHaveBeenCalledWith(["/tmp/a.ts"]);
+    });
+    expect(useShellStore.getState().activeMainCard).toBe("chat");
   });
 
   it("marks the zone with data-editor-drop-zone", async () => {

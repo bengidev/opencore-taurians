@@ -62,12 +62,15 @@ export function EditorDropZone({ children }: { children: ReactNode }) {
       return;
     }
 
-    void (async () => {
-      const ok = await useEditorStore.getState().openFile(projectRoot, path);
-      if (ok) {
-        focusEditorCard();
-      }
-    })();
+    void useEditorStore
+      .getState()
+      .openFile(projectRoot, path)
+      .then((ok) => {
+        if (ok) {
+          focusEditorCard();
+        }
+      })
+      .catch(() => {});
   };
 
   return (
