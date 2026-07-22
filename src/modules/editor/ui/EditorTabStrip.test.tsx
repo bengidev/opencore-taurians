@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
 import type { EditorBuffer } from "../state/editorStore";
 import { useEditorStore } from "../state/editorStore";
 import {
@@ -68,7 +69,9 @@ describe("EditorTabStrip", () => {
       },
     });
 
-    render(<EditorTabStrip onRequestCloseTab={vi.fn()} />);
+    render(
+      <EditorTabStrip onRequestCloseTab={vi.fn()} onRequestSaveAs={vi.fn()} />,
+    );
 
     expect(screen.getByRole("tab", { name: /a\.ts/i })).toHaveTextContent("•");
     expect(screen.getByRole("tab", { name: /b\.ts/i })).toHaveAttribute(
@@ -90,7 +93,9 @@ describe("EditorTabStrip", () => {
     });
     const setActiveTabId = vi.spyOn(useEditorStore.getState(), "setActiveTabId");
 
-    render(<EditorTabStrip onRequestCloseTab={vi.fn()} />);
+    render(
+      <EditorTabStrip onRequestCloseTab={vi.fn()} onRequestSaveAs={vi.fn()} />,
+    );
 
     await user.click(screen.getByRole("tab", { name: /a\.ts/i }));
 
@@ -107,17 +112,30 @@ describe("EditorTabStrip", () => {
       buffers: { [FILE_A]: seedBuffer(FILE_A) },
     });
 
-    render(<EditorTabStrip onRequestCloseTab={onRequestCloseTab} />);
+    render(
+      <EditorTabStrip
+        onRequestCloseTab={onRequestCloseTab}
+        onRequestSaveAs={vi.fn()}
+      />,
+    );
 
     await user.click(screen.getByRole("button", { name: /close a\.ts/i }));
 
     expect(onRequestCloseTab).toHaveBeenCalledWith(FILE_A);
   });
 
-  it("renders a disabled + button", () => {
-    render(<EditorTabStrip onRequestCloseTab={vi.fn()} />);
-
-    expect(screen.getByRole("button", { name: /new untitled file/i })).toBeDisabled();
+  it("enables + and opens an untitled tab", async () => {
+    const user = userEvent.setup();
+    useEditorStore.getState().bindApi(createMemoryEditorApi());
+    useEditorStore.setState({ projectRoot: "/proj" });
+    render(
+      <EditorTabStrip onRequestCloseTab={() => {}} onRequestSaveAs={() => {}} />,
+    );
+    const add = screen.getByRole("button", { name: /new untitled file/i });
+    expect(add).toBeEnabled();
+    await user.click(add);
+    expect(useEditorStore.getState().tabs[0]?.id).toBe("untitled:1");
+    expect(screen.getByRole("tab", { name: /untitled-1/i })).toBeTruthy();
   });
 
   it("drop of explorer file MIME calls openFile", async () => {
@@ -126,7 +144,9 @@ describe("EditorTabStrip", () => {
       .spyOn(useEditorStore.getState(), "openFile")
       .mockResolvedValue(true);
 
-    render(<EditorTabStrip onRequestCloseTab={vi.fn()} />);
+    render(
+      <EditorTabStrip onRequestCloseTab={vi.fn()} onRequestSaveAs={vi.fn()} />,
+    );
 
     const strip = screen.getByRole("tablist", { name: /editor tabs/i });
     const dataTransfer = createExplorerFileDataTransfer(FILE_C);

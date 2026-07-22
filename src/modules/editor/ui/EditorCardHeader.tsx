@@ -5,6 +5,9 @@ import { EditorTabStrip } from "./EditorTabStrip";
 
 export function EditorCardHeader() {
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
+  const [pendingSaveAsSourceId, setPendingSaveAsSourceId] = useState<
+    string | null
+  >(null);
 
   const onRequestCloseTab = (id: string) => {
     const buf = useEditorStore.getState().buffers[id];
@@ -15,9 +18,20 @@ export function EditorCardHeader() {
     setPendingCloseId(id);
   };
 
+  const onRequestSaveAs = () => {
+    const activeTabId = useEditorStore.getState().activeTabId;
+    if (!activeTabId) {
+      return;
+    }
+    setPendingSaveAsSourceId(activeTabId);
+  };
+
   return (
     <>
-      <EditorTabStrip onRequestCloseTab={onRequestCloseTab} />
+      <EditorTabStrip
+        onRequestCloseTab={onRequestCloseTab}
+        onRequestSaveAs={onRequestSaveAs}
+      />
       <EditorCloseTabDialog
         id={pendingCloseId}
         onOpenChange={(open) => {
