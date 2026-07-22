@@ -1,11 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { EditorFilePicker } from "../infrastructure/editorFilePicker";
 import { createTauriEditorFilePicker } from "../infrastructure/editorFilePicker";
 import { openEditorFilesFromPicker } from "./openEditorFiles";
 
-export function useEditorFileMenu(
-  picker: EditorFilePicker = createTauriEditorFilePicker(),
-) {
+export function useEditorFileMenu(picker?: EditorFilePicker) {
+  const defaultPickerRef = useRef<EditorFilePicker | null>(null);
+  if (!defaultPickerRef.current) {
+    defaultPickerRef.current = createTauriEditorFilePicker();
+  }
+  const resolvedPicker = picker ?? defaultPickerRef.current;
+
   useEffect(() => {
     let disposed = false;
     void (async () => {
@@ -15,7 +19,7 @@ export function useEditorFileMenu(
         text: "Open…",
         accelerator: "CmdOrCtrl+O",
         action: () => {
-          void openEditorFilesFromPicker(picker);
+          void openEditorFilesFromPicker(resolvedPicker);
         },
       });
       const file = await Submenu.new({
@@ -30,5 +34,5 @@ export function useEditorFileMenu(
     return () => {
       disposed = true;
     };
-  }, [picker]);
+  }, [resolvedPicker]);
 }
