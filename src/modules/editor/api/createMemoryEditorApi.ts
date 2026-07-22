@@ -25,5 +25,8 @@ export function createMemoryEditorApi(
       assertExists(path);
       files.set(path, content);
     },
+    createFile: async (_projectRoot, path, content) => {
+      files.set(path, content);
+    },
   };
 }
