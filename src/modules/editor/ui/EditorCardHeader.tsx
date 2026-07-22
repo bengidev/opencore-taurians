@@ -8,6 +8,7 @@ import {
 import { EditorCloseTabDialog } from "./EditorCloseTabDialog";
 import { EditorSaveAsDialog } from "./EditorSaveAsDialog";
 import { EditorTabStrip } from "./EditorTabStrip";
+import { useEditorOsFileDrop } from "./useEditorOsFileDrop";
 import {
   registerQuitUntitledHandler,
   registerSaveAsRequestHandler,
@@ -15,6 +16,7 @@ import {
 } from "./saveAsPromptBridge";
 
 export function EditorCardHeader() {
+  const [osDropActive, setOsDropActive] = useState(false);
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
   const [pendingSaveAsSourceId, setPendingSaveAsSourceId] = useState<
     string | null
@@ -35,6 +37,8 @@ export function EditorCardHeader() {
   >(null);
   const closeSaveAsHandoffRef = useRef(false);
   const closingTabsRef = useRef(false);
+
+  useEditorOsFileDrop({ setOsDropActive });
 
   const resolveClosePrompt = (result: CloseTabPromptResult) => {
     closePromptResolverRef.current?.(result);
@@ -216,6 +220,7 @@ export function EditorCardHeader() {
   return (
     <>
       <EditorTabStrip
+        osDropActive={osDropActive}
         onRequestCloseTab={onRequestCloseTab}
         onRequestSaveAs={onRequestSaveAs}
         onRequestCloseOthers={onRequestCloseOthers}

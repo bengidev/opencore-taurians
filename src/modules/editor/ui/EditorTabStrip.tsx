@@ -25,6 +25,7 @@ const editorTabContextMenuClassName =
 
 export interface EditorTabStripProps {
   filePicker?: EditorFilePicker;
+  osDropActive?: boolean;
   onRequestCloseTab: (id: string) => void;
   onRequestSaveAs: (id: string) => void;
   onRequestCloseOthers: (keepId: string) => void;
@@ -33,6 +34,7 @@ export interface EditorTabStripProps {
 
 export function EditorTabStrip({
   filePicker = createTauriEditorFilePicker(),
+  osDropActive = false,
   onRequestCloseTab,
   onRequestSaveAs,
   onRequestCloseOthers,
@@ -89,7 +91,8 @@ export function EditorTabStrip({
     <div
       role="tablist"
       aria-label="Editor tabs"
-      data-drop-active={dropActive || undefined}
+      data-editor-drop-zone=""
+      data-drop-active={dropActive || osDropActive || undefined}
       className="flex min-w-0 items-center gap-1 data-[drop-active]:rounded-[6px] data-[drop-active]:bg-muted/60"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
