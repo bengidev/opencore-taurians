@@ -1,4 +1,5 @@
 mod explorer;
+mod path_scope;
 
 use explorer::ExplorerWatchState;
 use tauri::Emitter;

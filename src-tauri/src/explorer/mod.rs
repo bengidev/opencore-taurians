@@ -3,7 +3,6 @@ pub mod create;
 mod error;
 pub mod duplicate;
 pub mod list_dir;
-mod path_scope;
 pub mod reveal;
 pub mod rename;
 pub mod trash;
