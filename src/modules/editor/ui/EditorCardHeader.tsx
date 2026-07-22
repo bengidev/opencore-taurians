@@ -29,10 +29,12 @@ export function EditorCardHeader() {
   );
   const quitPendingIdRef = useRef<string | null>(null);
   const quitSaveAsHandoffRef = useRef(false);
+  // Only one promptCloseTab dialog may be in flight; concurrent calls are unsupported.
   const closePromptResolverRef = useRef<
     ((result: CloseTabPromptResult) => void) | null
   >(null);
   const closeSaveAsHandoffRef = useRef(false);
+  const closingTabsRef = useRef(false);
 
   const resolveClosePrompt = (result: CloseTabPromptResult) => {
     closePromptResolverRef.current?.(result);
@@ -85,10 +87,16 @@ export function EditorCardHeader() {
   };
 
   async function closeTabsSequentially(ids: string[]): Promise<void> {
-    for (const id of ids) {
-      if (!useEditorStore.getState().tabs.some((t) => t.id === id)) continue;
-      const result = await promptCloseTab(id);
-      if (result === "cancelled") return;
+    if (closingTabsRef.current) return;
+    closingTabsRef.current = true;
+    try {
+      for (const id of ids) {
+        if (!useEditorStore.getState().tabs.some((t) => t.id === id)) continue;
+        const result = await promptCloseTab(id);
+        if (result === "cancelled") return;
+      }
+    } finally {
+      closingTabsRef.current = false;
     }
   }
 

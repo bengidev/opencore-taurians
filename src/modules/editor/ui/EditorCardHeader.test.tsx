@@ -111,6 +111,39 @@ describe("EditorCardHeader promptCloseTab", () => {
     expect(await pending).toBe("cancelled");
     expect(useEditorStore.getState().tabs.map((t) => t.id)).toContain(FILE_A);
   });
+
+  it("promptCloseTab Don't Save on dirty path tab closes tab", async () => {
+    const user = userEvent.setup();
+    seedDirtyFileTab();
+
+    render(<EditorCardHeader />);
+
+    const pending = promptCloseTab(FILE_A);
+    await waitFor(() => {
+      expect(screen.getByText("Save changes?")).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /don't save/i }));
+    expect(await pending).toBe("closed");
+    expect(useEditorStore.getState().tabs.map((t) => t.id)).not.toContain(FILE_A);
+  });
+
+  it("promptCloseTab Save on dirty path tab saves then closes", async () => {
+    const user = userEvent.setup();
+    const api = createMemoryEditorApi({ files: { [FILE_A]: "hello" } });
+    useEditorStore.getState().bindApi(api);
+    seedDirtyFileTab();
+
+    render(<EditorCardHeader />);
+
+    const pending = promptCloseTab(FILE_A);
+    await waitFor(() => {
+      expect(screen.getByText("Save changes?")).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(await pending).toBe("closed");
+    expect(useEditorStore.getState().tabs.map((t) => t.id)).not.toContain(FILE_A);
+    expect(await api.readFile(PROJECT_ROOT, FILE_A)).toBe("edited");
+  });
 });
 
 describe("EditorCardHeader quit Untitled handoff", () => {
@@ -374,6 +407,39 @@ describe("EditorCardHeader Close Others / Close All", () => {
     await waitFor(() => {
       const ids = useEditorStore.getState().tabs.map((t) => t.id);
       expect(ids).toEqual([FILE_B, FILE_C]);
+    });
+  });
+
+  it("Close All stops after dismissing Save As on dirty untitled", async () => {
+    const user = userEvent.setup();
+    const api = createMemoryEditorApi();
+    useEditorStore.getState().bindApi(api);
+    const untitledId = seedDirtyUntitled();
+    useEditorStore.setState({
+      tabs: [{ id: FILE_A }, { id: untitledId }, { id: FILE_B }],
+      activeTabId: FILE_A,
+      buffers: {
+        [FILE_A]: seedBuffer(FILE_A),
+        [untitledId]: useEditorStore.getState().buffers[untitledId]!,
+        [FILE_B]: seedBuffer(FILE_B),
+      },
+    });
+
+    render(<EditorCardHeader />);
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /a\.ts/i }));
+    await user.click(await screen.findByRole("menuitem", { name: /close all/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Save changes?")).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Save As")).toBeInTheDocument();
+    });
+    const cancelButtons = screen.getAllByRole("button", { name: /^cancel$/i });
+    await user.click(cancelButtons[cancelButtons.length - 1]!);
+    await waitFor(() => {
+      const ids = useEditorStore.getState().tabs.map((t) => t.id);
+      expect(ids).toEqual([untitledId, FILE_B]);
     });
   });
 });
