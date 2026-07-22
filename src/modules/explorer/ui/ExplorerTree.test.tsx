@@ -1,7 +1,10 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createMemoryEditorApi } from "../../editor/api/createMemoryEditorApi";
+import {
+  EXPLORER_FILE_PATH_MIME,
+} from "../../editor/dnd/explorerFileDrag";
 import { useEditorStore } from "../../editor/state/editorStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useShellStore } from "../../shell/state/shellStore";
@@ -20,13 +23,9 @@ describe("ExplorerTree", () => {
     useEditorStore.setState({
       api: null,
       projectRoot: null,
-      path: null,
-      content: "",
-      baselineContent: "",
-      dirty: false,
-      status: "idle",
-      errorMessage: null,
-      saveError: null,
+      tabs: [],
+      activePath: null,
+      buffers: {},
     });
     useShellStore.setState({ activeMainCard: "chat" });
   });
@@ -91,7 +90,7 @@ describe("ExplorerTree", () => {
     expect(container.querySelector("svg.lucide-folder")).toBeNull();
   });
 
-  it("file click opens editor card and loads file through store", async () => {
+  it("file click still switches to editor and opens/focuses a tab", async () => {
     const user = userEvent.setup();
     const folderPath = "/proj";
     const filePath = "/proj/a.ts";
@@ -123,9 +122,78 @@ describe("ExplorerTree", () => {
       expect(useShellStore.getState().activeMainCard).toBe("editor");
     });
     const editorState = useEditorStore.getState();
-    expect(editorState.path).toBe(filePath);
-    expect(editorState.content).toBe(fileContent);
-    expect(editorState.status).toBe("ready");
+    expect(editorState.activePath).toBe(filePath);
+    expect(editorState.tabs).toEqual([{ path: filePath }]);
+    expect(editorState.buffers[filePath]?.content).toBe(fileContent);
+    expect(editorState.buffers[filePath]?.status).toBe("ready");
+  });
+
+  it("file rows are draggable with explorer file MIME", async () => {
+    const folderPath = "/proj";
+    const filePath = "/proj/a.ts";
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "a.ts", path: filePath, isDir: false }],
+      },
+    });
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
+
+    render(<ExplorerTree />);
+
+    const fileButton = await screen.findByRole("button", { name: "a.ts" });
+    expect(fileButton).toHaveAttribute("draggable", "true");
+
+    const store: Record<string, string> = {};
+    const dataTransfer = {
+      types: [] as string[],
+      effectAllowed: "",
+      setData: (type: string, value: string) => {
+        store[type] = value;
+        if (!dataTransfer.types.includes(type)) {
+          dataTransfer.types.push(type);
+        }
+      },
+      getData: (type: string) => store[type] ?? "",
+    } as unknown as DataTransfer;
+
+    fireEvent.dragStart(fileButton, { dataTransfer });
+
+    expect(dataTransfer.types).toContain(EXPLORER_FILE_PATH_MIME);
+    expect(dataTransfer.getData(EXPLORER_FILE_PATH_MIME)).toBe(filePath);
+    expect(dataTransfer.effectAllowed).toBe("copy");
+  });
+
+  it("folder rows are not draggable", async () => {
+    const folderPath = "/proj";
+    const subDir = "/proj/src";
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "src", path: subDir, isDir: true }],
+        [subDir]: [],
+      },
+    });
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
+
+    render(<ExplorerTree />);
+
+    const folderButton = await screen.findByRole("button", { name: "src" });
+    expect(folderButton.getAttribute("draggable")).not.toBe("true");
   });
 
   it("expands a folder when the row is clicked", async () => {
