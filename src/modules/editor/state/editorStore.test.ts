@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
-import type { EditorApi } from "../api/editorApi";
 import { useEditorStore } from "./editorStore";
 
 const PROJECT_ROOT = "/proj";
