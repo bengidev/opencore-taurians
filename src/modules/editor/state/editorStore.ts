@@ -166,7 +166,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
   save: async () => {
     const { activePath } = get();
     if (!activePath) {
-      return false;
+      return true;
     }
     return get().saveTab(activePath);
   },
