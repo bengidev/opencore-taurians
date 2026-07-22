@@ -9,15 +9,20 @@ import { useEditorStore } from "../state/editorStore";
 
 export interface EditorTabStripProps {
   onRequestCloseTab: (id: string) => void;
+  onRequestSaveAs: () => void;
 }
 
-export function EditorTabStrip({ onRequestCloseTab }: EditorTabStripProps) {
+export function EditorTabStrip({
+  onRequestCloseTab,
+  onRequestSaveAs,
+}: EditorTabStripProps) {
   const tabs = useEditorStore((s) => s.tabs);
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const buffers = useEditorStore((s) => s.buffers);
   const projectRoot = useEditorStore((s) => s.projectRoot);
   const setActiveTabId = useEditorStore((s) => s.setActiveTabId);
   const openFile = useEditorStore((s) => s.openFile);
+  const openUntitled = useEditorStore((s) => s.openUntitled);
   const activeMainCard = useShellStore((s) => s.activeMainCard);
   const setActiveMainCard = useShellStore((s) => s.setActiveMainCard);
   const [dropActive, setDropActive] = useState(false);
@@ -80,6 +85,7 @@ export function EditorTabStrip({ onRequestCloseTab }: EditorTabStripProps) {
               type="button"
               role="tab"
               aria-selected={selected}
+              aria-label={displayLabel}
               className="rounded-[6px] border border-transparent px-2 py-0.5 font-mono text-[11px] tracking-[0.02em] text-muted-foreground aria-selected:border-border aria-selected:bg-muted aria-selected:text-foreground"
               onClick={() => setActiveTabId(tab.id)}
             >
@@ -98,12 +104,26 @@ export function EditorTabStrip({ onRequestCloseTab }: EditorTabStripProps) {
       })}
       <button
         type="button"
-        disabled
+        disabled={!projectRoot}
         aria-label="New untitled file"
-        title="Untitled files come later"
         className="rounded-[6px] border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground disabled:opacity-50"
+        onClick={() => {
+          if (!projectRoot) {
+            return;
+          }
+          openUntitled();
+        }}
       >
         +
+      </button>
+      <button
+        type="button"
+        disabled={!activeTabId}
+        aria-label="Save As…"
+        className="rounded-[6px] border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground disabled:opacity-50"
+        onClick={() => onRequestSaveAs()}
+      >
+        Save As…
       </button>
     </div>
   );
