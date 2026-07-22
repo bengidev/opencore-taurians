@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useChatStore } from "../../../chat/state/chatStore";
 import { EditorCardHeader } from "../../../editor/ui/EditorCardHeader";
+import { EditorDropZone } from "../../../editor/ui/EditorDropZone";
 import { EditorPanel } from "../../../editor/ui/EditorPanel";
 import { appendTrunkMessage } from "../../../project/state/projectChat";
 import { useProjectStore } from "../../../project/state/projectStore";
@@ -83,21 +84,24 @@ export function ShellMainPanel() {
           className="absolute inset-0 flex flex-col p-3"
         >
           {card === "editor" ? (
-            <EditorCardHeader />
+            <EditorDropZone>
+              <EditorCardHeader />
+              <EditorPanel />
+            </EditorDropZone>
           ) : (
-            <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-              {card}
-            </p>
-          )}
-          {card === "chat" ? (
-            <ChatCard />
-          ) : card === "editor" ? (
-            <EditorPanel />
-          ) : (
-            <input
-              aria-label={`${card}-dummy-note`}
-              className="mt-2 w-full rounded-[6px] border border-border bg-transparent px-2 py-1 text-sm"
-            />
+            <>
+              <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                {card}
+              </p>
+              {card === "chat" ? (
+                <ChatCard />
+              ) : (
+                <input
+                  aria-label={`${card}-dummy-note`}
+                  className="mt-2 w-full rounded-[6px] border border-border bg-transparent px-2 py-1 text-sm"
+                />
+              )}
+            </>
           )}
         </section>
       ))}
