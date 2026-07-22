@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useEditorStore } from "../state/editorStore";
+import {
+  promptCloseTab,
+  registerCloseTabPromptHandler,
+  type CloseTabPromptResult,
+} from "./closeTabPromptBridge";
 import { EditorCloseTabDialog } from "./EditorCloseTabDialog";
 import { EditorSaveAsDialog } from "./EditorSaveAsDialog";
 import { EditorTabStrip } from "./EditorTabStrip";
@@ -24,6 +29,15 @@ export function EditorCardHeader() {
   );
   const quitPendingIdRef = useRef<string | null>(null);
   const quitSaveAsHandoffRef = useRef(false);
+  const closePromptResolverRef = useRef<
+    ((result: CloseTabPromptResult) => void) | null
+  >(null);
+  const closeSaveAsHandoffRef = useRef(false);
+
+  const resolveClosePrompt = (result: CloseTabPromptResult) => {
+    closePromptResolverRef.current?.(result);
+    closePromptResolverRef.current = null;
+  };
 
   useEffect(() => {
     registerSaveAsRequestHandler((id) => {
@@ -38,9 +52,24 @@ export function EditorCardHeader() {
         setPendingQuitUntitledId(id);
       });
     });
+    registerCloseTabPromptHandler(async (id) => {
+      const buf = useEditorStore.getState().buffers[id];
+      if (!buf) {
+        return "closed";
+      }
+      if (!buf.dirty) {
+        useEditorStore.getState().closeTab(id);
+        return "closed";
+      }
+      return new Promise<CloseTabPromptResult>((resolve) => {
+        closePromptResolverRef.current = resolve;
+        setPendingCloseId(id);
+      });
+    });
     return () => {
       registerSaveAsRequestHandler(null);
       registerQuitUntitledHandler(null);
+      registerCloseTabPromptHandler(null);
     };
   }, []);
 
@@ -52,12 +81,7 @@ export function EditorCardHeader() {
   };
 
   const onRequestCloseTab = (id: string) => {
-    const buf = useEditorStore.getState().buffers[id];
-    if (!buf?.dirty) {
-      useEditorStore.getState().closeTab(id);
-      return;
-    }
-    setPendingCloseId(id);
+    void promptCloseTab(id);
   };
 
   const onRequestSaveAs = () => {
@@ -72,7 +96,36 @@ export function EditorCardHeader() {
 
   const onRequestSaveAsForClose = (id: string) => {
     pendingCloseAfterSaveAsIdRef.current = id;
+    closeSaveAsHandoffRef.current = true;
     setPendingSaveAsSourceId(id);
+  };
+
+  const handleCloseDontSave = (id: string) => {
+    useEditorStore.getState().closeTab(id);
+    setPendingCloseId(null);
+    resolveClosePrompt("closed");
+  };
+
+  const handleCloseCancel = () => {
+    setPendingCloseId(null);
+    resolveClosePrompt("cancelled");
+  };
+
+  const handleCloseDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      if (closeSaveAsHandoffRef.current) {
+        closeSaveAsHandoffRef.current = false;
+        setPendingCloseId(null);
+        return;
+      }
+      const id = pendingCloseId;
+      setPendingCloseId(null);
+      if (id && !useEditorStore.getState().buffers[id]) {
+        resolveClosePrompt("closed");
+      } else {
+        resolveClosePrompt("cancelled");
+      }
+    }
   };
 
   const handleQuitSave = (id: string) => {
@@ -108,6 +161,9 @@ export function EditorCardHeader() {
       if (quitPendingIdRef.current && quitResolverRef.current) {
         resolveQuit("cancelled");
       }
+      if (closePromptResolverRef.current && pendingCloseAfterSaveAsIdRef.current) {
+        resolveClosePrompt("cancelled");
+      }
       pendingCloseAfterSaveAsIdRef.current = null;
       setPendingSaveAsSourceId(null);
       saveAsOnSuccessRef.current = null;
@@ -118,6 +174,7 @@ export function EditorCardHeader() {
     if (pendingCloseAfterSaveAsIdRef.current) {
       useEditorStore.getState().closeTab(savedPath);
       pendingCloseAfterSaveAsIdRef.current = null;
+      resolveClosePrompt("closed");
     }
     saveAsOnSuccessRef.current?.(savedPath);
     saveAsOnSuccessRef.current = null;
@@ -140,11 +197,9 @@ export function EditorCardHeader() {
       <EditorCloseTabDialog
         id={pendingCloseId}
         onRequestSaveAsForClose={onRequestSaveAsForClose}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingCloseId(null);
-          }
-        }}
+        onDontSave={handleCloseDontSave}
+        onCancel={handleCloseCancel}
+        onOpenChange={handleCloseDialogOpenChange}
       />
       {pendingQuitUntitledId ? (
         <EditorCloseTabDialog
