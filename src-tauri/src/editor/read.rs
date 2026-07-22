@@ -15,6 +15,7 @@ pub struct EditorReadInput {
     pub path: String,
 }
 
+#[tauri::command]
 pub fn editor_read_file(input: EditorReadInput) -> Result<String, EditorError> {
     let path = ensure_under_root(Path::new(&input.project_root), Path::new(&input.path))
         .map_err(|_| EditorError::OutsideProject(input.path.clone()))?;

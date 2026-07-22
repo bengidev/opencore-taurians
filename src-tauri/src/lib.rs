@@ -20,6 +20,8 @@ pub fn run() {
         .manage(ExplorerWatchState::default())
         .invoke_handler(tauri::generate_handler![
             greet,
+            editor::read::editor_read_file,
+            editor::write::editor_write_file,
             explorer::list_dir::explorer_list_dir,
             explorer::create::explorer_create_file,
             explorer::create::explorer_create_dir,
