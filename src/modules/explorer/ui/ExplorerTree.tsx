@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo } from "react";
 import { ChevronRight } from "lucide-react";
 import { resolveExplorerIcon } from "@/lib/fileIcons";
 import { cn } from "@/lib/utils";
+import { collectDirtyExplorerPaths } from "../../editor/domain/collectDirtyExplorerPaths";
 import { useEditorStore } from "../../editor/state/editorStore";
 import { setExplorerFileDragData } from "../../editor/dnd/explorerFileDrag";
 import { useShellStore } from "../../shell/state/shellStore";
@@ -25,6 +26,7 @@ interface ExplorerEntryRowProps {
 type ExplorerTreeView = {
   childrenByPath: Record<string, ExplorerEntry[]>;
   isExpanded: (path: string) => boolean;
+  dirtyPaths: Set<string>;
 };
 
 const ExplorerTreeViewContext = createContext<ExplorerTreeView | null>(null);
@@ -78,6 +80,8 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
   const children = treeView.childrenByPath[entry.path] ?? [];
   const isLoadingChildren = loadingPaths.has(entry.path);
   const rowButtonClassName = explorerRowButtonClassName(isSelected);
+  const dirty = treeView.dirtyPaths.has(entry.path);
+  const displayName = dirty ? `${entry.name} •` : entry.name;
 
   if (entry.isDir) {
     return (
@@ -113,7 +117,7 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
                 isDir
                 isOpen={expanded}
               />
-              <span className="truncate">{entry.name}</span>
+              <span className="truncate">{displayName}</span>
             </button>
           )}
         </div>
@@ -170,7 +174,7 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
             }}
           >
             <ExplorerEntryIcon name={entry.name} isDir={false} />
-            <span className="truncate">{entry.name}</span>
+            <span className="truncate">{displayName}</span>
           </button>
         )}
       </div>
@@ -186,7 +190,14 @@ export function ExplorerTree() {
   const searchQuery = useExplorerStore((s) => s.searchQuery);
   const searchIndexing = useExplorerStore((s) => s.searchIndexing);
   const ensureSearchTreeLoaded = useExplorerStore((s) => s.ensureSearchTreeLoaded);
+  const editorBuffers = useEditorStore((s) => s.buffers);
+  const editorProjectRoot = useEditorStore((s) => s.projectRoot);
   const hasSearchQuery = searchQuery.trim().length > 0;
+
+  const dirtyPaths = useMemo(
+    () => collectDirtyExplorerPaths(editorBuffers, editorProjectRoot),
+    [editorBuffers, editorProjectRoot],
+  );
 
   useEffect(() => {
     if (!projectRoot || !hasSearchQuery) {
@@ -208,14 +219,16 @@ export function ExplorerTree() {
       return {
         childrenByPath,
         isExpanded: (path) => expandedPaths.has(path),
+        dirtyPaths,
       };
     }
     return {
       childrenByPath: filtered.childrenByPath,
       isExpanded: (path) =>
         expandedPaths.has(path) || filtered.displayOpenPaths.has(path),
+      dirtyPaths,
     };
-  }, [projectRoot, childrenByPath, expandedPaths, searchQuery]);
+  }, [projectRoot, childrenByPath, expandedPaths, searchQuery, dirtyPaths]);
 
   if (!projectRoot || !treeView) {
     return null;
