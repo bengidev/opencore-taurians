@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Native File menu (next to OpenCore Taurians) offers New / Open… / Save / Save As…; remove the strip Open… button so discovery lives on File.
+**Goal:** Native File menu (next to OpenCore Taurians) offers New / Open… / Save / Save As…; remove the strip Open… button; show the same trailing dirty `•` on Explorer file and ancestor folder rows as on editor tabs.
 
-**Architecture:** Expand `useEditorFileMenu` with four items. Extract a tiny shared save helper so File → Save and the existing window ⌘S path stay identical. Strip keeps `+` and tab context menus; empty-state copy points at File → Open….
+**Architecture:** Expand `useEditorFileMenu` with four items. Extract a tiny shared save helper so File → Save and the existing window ⌘S path stay identical. Strip keeps `+` and tab context menus; empty-state copy points at File → Open…. A pure helper `collectDirtyExplorerPaths` drives Explorer dirty suffixes from `editorStore.buffers`.
 
 **Tech Stack:** React 19, Zustand, Vitest, Testing Library, Tauri 2 `@tauri-apps/api/menu`, Bun tests.
 
@@ -18,6 +18,7 @@
 - Save → same as today’s ⌘S: Untitled → `requestSaveAs(activeTabId)`; else `save()`; no active tab / `readOnly` → no-op.
 - Save As… → `requestSaveAs(activeTabId)` when active tab exists and is not `readOnly`; otherwise no-op.
 - Accelerators: New `CmdOrCtrl+N`, Open… `CmdOrCtrl+O`, Save `CmdOrCtrl+S`, Save As… `CmdOrCtrl+Shift+S`.
+- Dirty `•`: path-backed dirty buffers under `projectRoot` only; Explorer marks file **and** ancestor folders; Untitled / outside RO ignored; same ` •` suffix as tabs.
 - No Save As from RO tabs into project; no `@tauri-apps/plugin-fs` in `src/modules/*`.
 - Package manager / tests: **Bun** — `bunx vitest run …`.
 - Domain language: shell **main cards** ≠ file **tabs**.
@@ -38,6 +39,10 @@
 | `src/modules/editor/ui/EditorPanel.tsx` | Empty-state copy |
 | `src/modules/editor/ui/EditorPanel.test.tsx` | Empty-state assertion (if tightened) |
 | `src/modules/editor/CONTEXT.md` | Discoverability wording |
+| `src/modules/editor/domain/collectDirtyExplorerPaths.ts` | Dirty file + ancestor path set |
+| `src/modules/editor/domain/collectDirtyExplorerPaths.test.ts` | Helper unit tests |
+| `src/modules/explorer/ui/ExplorerTree.tsx` | Append ` •` when path in dirty set |
+| `src/modules/explorer/ui/ExplorerTree.test.tsx` | Dirty file + ancestor UI |
 
 ---
 
@@ -517,6 +522,213 @@ EOF
 
 ---
 
+### Task 4: Explorer dirty `•` (file + ancestors)
+
+**Files:**
+- Create: `src/modules/editor/domain/collectDirtyExplorerPaths.ts`
+- Create: `src/modules/editor/domain/collectDirtyExplorerPaths.test.ts`
+- Modify: `src/modules/explorer/ui/ExplorerTree.tsx`
+- Modify: `src/modules/explorer/ui/ExplorerTree.test.tsx`
+
+**Interfaces:**
+- Consumes: `EditorBuffer` map (`dirty`, `readOnly`), `projectRoot`, `isUntitledId`
+- Produces: `collectDirtyExplorerPaths(buffers: Record<string, EditorBuffer>, projectRoot: string | null): Set<string>`
+
+- [ ] **Step 1: Write failing helper tests**
+
+```ts
+import { describe, expect, it } from "vitest";
+import type { EditorBuffer } from "../state/editorStore";
+import { collectDirtyExplorerPaths } from "./collectDirtyExplorerPaths";
+
+function buf(partial: Partial<EditorBuffer> & Pick<EditorBuffer, "dirty">): EditorBuffer {
+  return {
+    content: "",
+    baselineContent: "",
+    status: "ready",
+    errorMessage: null,
+    saveError: null,
+    readOnly: false,
+    ...partial,
+  };
+}
+
+describe("collectDirtyExplorerPaths", () => {
+  it("includes dirty file and ancestor dirs through projectRoot", () => {
+    const set = collectDirtyExplorerPaths(
+      {
+        "/proj/src/a.ts": buf({ dirty: true }),
+      },
+      "/proj",
+    );
+    expect(set.has("/proj/src/a.ts")).toBe(true);
+    expect(set.has("/proj/src")).toBe(true);
+    expect(set.has("/proj")).toBe(true);
+  });
+
+  it("ignores clean, Untitled, readOnly, and outside-project paths", () => {
+    const set = collectDirtyExplorerPaths(
+      {
+        "/proj/clean.ts": buf({ dirty: false }),
+        "untitled:1": buf({ dirty: true }),
+        "/tmp/out.ts": buf({ dirty: true, readOnly: true }),
+        "/other/x.ts": buf({ dirty: true }),
+      },
+      "/proj",
+    );
+    expect(set.size).toBe(0);
+  });
+
+  it("returns empty set when projectRoot is null", () => {
+    expect(
+      collectDirtyExplorerPaths({ "/proj/a.ts": buf({ dirty: true }) }, null).size,
+    ).toBe(0);
+  });
+});
+```
+
+(Adjust `EditorBuffer` import path if the type lives elsewhere — use the same type the store exports.)
+
+- [ ] **Step 2: Run helper tests — expect FAIL**
+
+Run: `bunx vitest run src/modules/editor/domain/collectDirtyExplorerPaths.test.ts`
+
+Expected: FAIL (module missing).
+
+- [ ] **Step 3: Implement helper**
+
+```ts
+import { isUntitledId } from "../state/editorTabId";
+import type { EditorBuffer } from "../state/editorStore";
+
+function parentDir(path: string): string {
+  const index = path.lastIndexOf("/");
+  return index <= 0 ? path : path.slice(0, index);
+}
+
+function isUnderProjectRoot(projectRoot: string, path: string): boolean {
+  return path === projectRoot || path.startsWith(`${projectRoot}/`);
+}
+
+export function collectDirtyExplorerPaths(
+  buffers: Record<string, EditorBuffer>,
+  projectRoot: string | null,
+): Set<string> {
+  const out = new Set<string>();
+  if (!projectRoot) return out;
+
+  for (const [id, buffer] of Object.entries(buffers)) {
+    if (!buffer.dirty || buffer.readOnly || isUntitledId(id)) continue;
+    if (!isUnderProjectRoot(projectRoot, id)) continue;
+
+    let current: string | null = id;
+    while (current && isUnderProjectRoot(projectRoot, current)) {
+      out.add(current);
+      if (current === projectRoot) break;
+      const parent = parentDir(current);
+      if (parent === current) break;
+      current = parent;
+    }
+  }
+  return out;
+}
+```
+
+- [ ] **Step 4: Run helper tests — expect PASS**
+
+Run: `bunx vitest run src/modules/editor/domain/collectDirtyExplorerPaths.test.ts`
+
+Expected: PASS.
+
+- [ ] **Step 5: Write failing ExplorerTree dirty UI test**
+
+Add to `ExplorerTree.test.tsx`:
+
+```ts
+it("shows dirty • on file and ancestor folder when editor buffer is dirty", async () => {
+  const folderPath = "/proj";
+  const subDir = "/proj/src";
+  useProjectStore.getState().createProjectWithRootTrunk({
+    folderPath,
+    nowIso: "2026-07-10T00:00:00.000Z",
+  });
+
+  const explorerApi = createMemoryExplorerApi({
+    projectRoot: folderPath,
+    dirs: {
+      [folderPath]: [{ name: "src", path: subDir, isDir: true }],
+      [subDir]: [{ name: "a.ts", path: "/proj/src/a.ts", isDir: false }],
+    },
+  });
+  useExplorerStore.getState().bindApi(explorerApi);
+  await useExplorerStore.getState().loadRoot();
+  await useExplorerStore.getState().toggleExpanded(subDir);
+
+  useEditorStore.getState().bindApi(
+    createMemoryEditorApi({ files: { "/proj/src/a.ts": "hello" } }),
+  );
+  useEditorStore.setState({ projectRoot: folderPath });
+  await useEditorStore.getState().openFile(folderPath, "/proj/src/a.ts");
+  useEditorStore.getState().setContentFromEditor("dirty");
+
+  render(<ExplorerTree />);
+
+  expect(await screen.findByText("a.ts •")).toBeInTheDocument();
+  expect(screen.getByText("src •")).toBeInTheDocument();
+});
+```
+
+(If `toggleExpanded` / loadRoot APIs differ, follow existing nested-folder tests in the same file.)
+
+- [ ] **Step 6: Run ExplorerTree test — expect FAIL**
+
+Run: `bunx vitest run src/modules/explorer/ui/ExplorerTree.test.tsx`
+
+Expected: FAIL (no `a.ts •` / `src •`).
+
+- [ ] **Step 7: Wire ExplorerTree**
+
+In `ExplorerTree.tsx` / `ExplorerEntryRow`:
+
+```ts
+import { collectDirtyExplorerPaths } from "../../editor/domain/collectDirtyExplorerPaths";
+
+// Inside ExplorerEntryRow (or pass dirtyPaths via context from ExplorerTree):
+const dirtyPaths = useEditorStore((s) =>
+  collectDirtyExplorerPaths(s.buffers, s.projectRoot),
+);
+const dirty = dirtyPaths.has(entry.path);
+const displayName = dirty ? `${entry.name} •` : entry.name;
+// use displayName in both file and folder <span className="truncate">…
+```
+
+Prefer computing the set once in `ExplorerTree` and providing it through the existing `ExplorerTreeViewContext` (extend the context value with `dirtyPaths: Set<string>`) so each row does not recompute.
+
+- [ ] **Step 8: Run tests — expect PASS**
+
+```bash
+bunx vitest run src/modules/editor/domain/collectDirtyExplorerPaths.test.ts \
+  src/modules/explorer/ui/ExplorerTree.test.tsx
+```
+
+Expected: PASS.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add src/modules/editor/domain/collectDirtyExplorerPaths.ts \
+  src/modules/editor/domain/collectDirtyExplorerPaths.test.ts \
+  src/modules/explorer/ui/ExplorerTree.tsx \
+  src/modules/explorer/ui/ExplorerTree.test.tsx
+git commit -m "$(cat <<'EOF'
+Show dirty • on Explorer files and ancestor folders.
+
+EOF
+)"
+```
+
+---
+
 ## Spec coverage checklist
 
 | Spec requirement | Task |
@@ -531,3 +743,5 @@ EOF
 | Empty-state File → Open… | 3 |
 | CONTEXT discoverability | 3 |
 | No Edit/View menus | 2 (File-only menu) |
+| Dirty `•` on Explorer file + ancestors | 4 |
+| Tabs keep existing dirty `•` | 4 (no tab change) |
