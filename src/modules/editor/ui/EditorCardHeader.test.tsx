@@ -4,10 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
 import type { EditorBuffer } from "../state/editorStore";
 import { useEditorStore } from "../state/editorStore";
+import { promptCloseTab } from "./closeTabPromptBridge";
 import { EditorCardHeader } from "./EditorCardHeader";
 import { promptQuitUntitled } from "./saveAsPromptBridge";
 
 const PROJECT_ROOT = "/proj";
+const FILE_A = "/proj/a.ts";
 
 vi.mock("../../explorer/api/explorerApi", () => ({
   createTauriExplorerApi: () => ({
@@ -23,6 +25,36 @@ function resetEditorStore(): void {
     activeTabId: null,
     buffers: {},
     nextUntitled: 1,
+  });
+}
+
+function seedBuffer(path: string, extras?: Partial<EditorBuffer>): EditorBuffer {
+  return {
+    content: "hello",
+    baselineContent: "hello",
+    dirty: false,
+    status: "ready",
+    errorMessage: null,
+    saveError: null,
+    ...extras,
+  };
+}
+
+function seedCleanTab(): void {
+  useEditorStore.setState({
+    projectRoot: PROJECT_ROOT,
+    tabs: [{ id: FILE_A }],
+    activeTabId: FILE_A,
+    buffers: { [FILE_A]: seedBuffer(FILE_A) },
+  });
+}
+
+function seedDirtyFileTab(): void {
+  useEditorStore.setState({
+    projectRoot: PROJECT_ROOT,
+    tabs: [{ id: FILE_A }],
+    activeTabId: FILE_A,
+    buffers: { [FILE_A]: seedBuffer(FILE_A, { content: "edited", dirty: true }) },
   });
 }
 
@@ -45,6 +77,39 @@ function seedDirtyUntitled(): string {
   });
   return id;
 }
+
+describe("EditorCardHeader promptCloseTab", () => {
+  afterEach(() => cleanup());
+
+  beforeEach(() => {
+    resetEditorStore();
+  });
+
+  it("promptCloseTab closes a clean tab", async () => {
+    seedCleanTab();
+
+    render(<EditorCardHeader />);
+
+    const result = await promptCloseTab(FILE_A);
+    expect(result).toBe("closed");
+    expect(useEditorStore.getState().tabs.map((t) => t.id)).not.toContain(FILE_A);
+  });
+
+  it("promptCloseTab cancel on dirty leaves tab open", async () => {
+    const user = userEvent.setup();
+    seedDirtyFileTab();
+
+    render(<EditorCardHeader />);
+
+    const pending = promptCloseTab(FILE_A);
+    await waitFor(() => {
+      expect(screen.getByText("Save changes?")).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(await pending).toBe("cancelled");
+    expect(useEditorStore.getState().tabs.map((t) => t.id)).toContain(FILE_A);
+  });
+});
 
 describe("EditorCardHeader quit Untitled handoff", () => {
   afterEach(() => cleanup());
