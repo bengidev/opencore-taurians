@@ -6,6 +6,7 @@ const PROJECT_ROOT = "/proj";
 const FILE_A = "/proj/a.ts";
 const FILE_B = "/proj/b.ts";
 const FILE_C = "/proj/c.ts";
+const OUTSIDE = "/tmp/outside.ts";
 
 function resetEditorStore(): void {
   useEditorStore.setState({
@@ -15,6 +16,7 @@ function resetEditorStore(): void {
     activeTabId: null,
     buffers: {},
     nextUntitled: 1,
+    openBatchError: null,
   });
 }
 
@@ -235,6 +237,7 @@ describe("editorStore multi-tab", () => {
       baselineContent: "",
       dirty: false,
       status: "ready",
+      readOnly: false,
     });
     expect(s.nextUntitled).toBe(2);
   });
@@ -285,5 +288,73 @@ describe("editorStore multi-tab", () => {
     expect(await useEditorStore.getState().saveAllDirtyPaths()).toBe(true);
     expect(writeSpy).toHaveBeenCalledTimes(1);
     expect(useEditorStore.getState().buffers[u]?.dirty).toBe(true);
+  });
+});
+
+describe("editorStore openPaths", () => {
+  beforeEach(() => {
+    resetEditorStore();
+  });
+
+  it("openPaths opens under-root as writable and outside as readOnly", async () => {
+    const api = createMemoryEditorApi({
+      files: { [FILE_A]: "a", [OUTSIDE]: "out" },
+    });
+    useEditorStore.getState().bindApi(api);
+    useEditorStore.setState({ projectRoot: PROJECT_ROOT });
+
+    const ok = await useEditorStore.getState().openPaths([FILE_A, OUTSIDE]);
+    expect(ok).toBe(true);
+    const { buffers, activeTabId, tabs } = useEditorStore.getState();
+    expect(tabs.map((t) => t.id)).toEqual([FILE_A, OUTSIDE]);
+    expect(buffers[FILE_A]?.readOnly).toBe(false);
+    expect(buffers[OUTSIDE]?.readOnly).toBe(true);
+    expect(buffers[OUTSIDE]?.content).toBe("out");
+    expect(activeTabId).toBe(OUTSIDE);
+  });
+
+  it("openPaths aborts entirely when any path is a directory", async () => {
+    const api = createMemoryEditorApi({
+      files: { [FILE_A]: "a" },
+      directories: ["/tmp/folder"],
+    });
+    useEditorStore.getState().bindApi(api);
+    useEditorStore.setState({ projectRoot: PROJECT_ROOT });
+
+    const ok = await useEditorStore.getState().openPaths([FILE_A, "/tmp/folder"]);
+    expect(ok).toBe(false);
+    expect(useEditorStore.getState().tabs).toEqual([]);
+    expect(useEditorStore.getState().openBatchError).toBe("Folders can't be opened here");
+  });
+
+  it("openPaths without projectRoot sets error and opens nothing", async () => {
+    const api = createMemoryEditorApi({ files: { [OUTSIDE]: "x" } });
+    useEditorStore.getState().bindApi(api);
+    useEditorStore.setState({ projectRoot: null });
+
+    const ok = await useEditorStore.getState().openPaths([OUTSIDE]);
+    expect(ok).toBe(false);
+    expect(useEditorStore.getState().openBatchError).toBe("Open a project first");
+    expect(useEditorStore.getState().tabs).toEqual([]);
+  });
+
+  it("saveTab on readOnly tab does not call writeFile", async () => {
+    const api = createMemoryEditorApi({ files: { [OUTSIDE]: "out" } });
+    const writeSpy = vi.spyOn(api, "writeFile");
+    useEditorStore.getState().bindApi(api);
+    useEditorStore.setState({ projectRoot: PROJECT_ROOT });
+    await useEditorStore.getState().openPaths([OUTSIDE]);
+    await expect(useEditorStore.getState().saveTab(OUTSIDE)).resolves.toBe(false);
+    expect(writeSpy).not.toHaveBeenCalled();
+  });
+
+  it("setContentFromEditor no-ops for readOnly active tab", async () => {
+    const api = createMemoryEditorApi({ files: { [OUTSIDE]: "out" } });
+    useEditorStore.getState().bindApi(api);
+    useEditorStore.setState({ projectRoot: PROJECT_ROOT });
+    await useEditorStore.getState().openPaths([OUTSIDE]);
+    useEditorStore.getState().setContentFromEditor("hacked");
+    expect(useEditorStore.getState().buffers[OUTSIDE]?.content).toBe("out");
+    expect(useEditorStore.getState().buffers[OUTSIDE]?.dirty).toBe(false);
   });
 });
