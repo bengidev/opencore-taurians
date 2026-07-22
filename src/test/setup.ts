@@ -19,6 +19,12 @@ vi.mock("../modules/explorer/api/explorerApi", async (importOriginal) => {
   };
 });
 
+// EditorDropZone / useEditorOsFileDrop call Tauri listen on mount. Shell and
+// settings tests mount those without a file-local mock; real listen needs IPC.
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(async () => () => {}),
+}));
+
 const storage = new Map<string, string>();
 
 const localStorageMock = {

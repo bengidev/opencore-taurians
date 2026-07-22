@@ -64,7 +64,7 @@ describe("useEditorFileMenu", () => {
   it("places File after an App submenu so macOS does not absorb File items", async () => {
     renderHook(() => useEditorFileMenu(createMemoryEditorFilePicker([])));
     await waitFor(() => expect(menuMocks.Menu.new).toHaveBeenCalled());
-    const [options] = menuMocks.Menu.new.mock.calls[0] as [
+    const [options] = menuMocks.Menu.new.mock.calls[0] as unknown as [
       { items: Array<{ text: string; items: unknown[] }> },
     ];
     expect(options.items.map((item) => item.text)).toEqual(["App", "File"]);

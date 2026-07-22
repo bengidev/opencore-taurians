@@ -21,7 +21,7 @@ function resetEditorStore(): void {
   });
 }
 
-function seedBuffer(path: string, extras?: Partial<EditorBuffer>): EditorBuffer {
+function seedBuffer(_path: string, extras?: Partial<EditorBuffer>): EditorBuffer {
   return {
     content: "edited",
     baselineContent: "hello",
@@ -29,6 +29,7 @@ function seedBuffer(path: string, extras?: Partial<EditorBuffer>): EditorBuffer 
     status: "ready",
     errorMessage: null,
     saveError: null,
+    readOnly: false,
     ...extras,
   };
 }

@@ -1,4 +1,5 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import type { ReactElement } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { isUntitledId, tabLabel } from "../state/editorTabId";
@@ -16,7 +17,7 @@ export function EditorCloseTabDialog({
   onRequestSaveAsForClose?: (id: string) => void;
   onDontSave?: (id: string) => void;
   onCancel?: () => void;
-}): JSX.Element | null {
+}): ReactElement | null {
   const saveError = useEditorStore((s) =>
     id ? (s.buffers[id]?.saveError ?? null) : null,
   );
