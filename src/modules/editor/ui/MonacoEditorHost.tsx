@@ -10,6 +10,9 @@ export function MonacoEditorHost() {
     s.activeTabId ? (s.buffers[s.activeTabId]?.content ?? "") : "",
   );
   const setContentFromEditor = useEditorStore((s) => s.setContentFromEditor);
+  const readOnly = useEditorStore((s) =>
+    s.activeTabId ? (s.buffers[s.activeTabId]?.readOnly ?? false) : false,
+  );
   const mode = useThemeStore((s) => s.mode);
   const theme = mode === "dark" ? "vs-dark" : "vs";
 
@@ -33,6 +36,7 @@ export function MonacoEditorHost() {
         minimap: { enabled: false },
         automaticLayout: true,
         fontSize: 13,
+        readOnly,
       }}
     />
   );

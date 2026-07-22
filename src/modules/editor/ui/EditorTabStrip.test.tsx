@@ -14,6 +14,7 @@ const PROJECT_ROOT = "/proj";
 const FILE_A = "/proj/a.ts";
 const FILE_B = "/proj/b.ts";
 const FILE_C = "/proj/c.ts";
+const OUTSIDE = "/tmp/outside.ts";
 
 function resetEditorStore(): void {
   useEditorStore.setState({
@@ -34,6 +35,7 @@ function seedBuffer(path: string, extras?: Partial<EditorBuffer>): EditorBuffer 
     status: "ready",
     errorMessage: null,
     saveError: null,
+    readOnly: false,
     ...extras,
   };
 }
@@ -226,6 +228,42 @@ describe("EditorTabStrip", () => {
     await userEvent.setup().click(await screen.findByRole("menuitem", { name: /^save$/i }));
     expect(onRequestSaveAs).toHaveBeenCalledWith(untitledId);
     expect(saveTab).not.toHaveBeenCalled();
+  });
+
+  it("shows RO affordance and disables Save/Save As for readOnly tab", async () => {
+    useEditorStore.setState({
+      projectRoot: PROJECT_ROOT,
+      tabs: [{ id: OUTSIDE }],
+      activeTabId: OUTSIDE,
+      buffers: {
+        [OUTSIDE]: {
+          content: "x",
+          baselineContent: "x",
+          dirty: false,
+          status: "ready",
+          errorMessage: null,
+          saveError: null,
+          readOnly: true,
+        },
+      },
+    });
+    render(
+      <EditorTabStrip
+        onRequestCloseTab={vi.fn()}
+        onRequestSaveAs={vi.fn()}
+        onRequestCloseOthers={vi.fn()}
+        onRequestCloseAll={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("tab", { name: /outside\.ts/i })).toBeTruthy();
+    expect(screen.getByLabelText(/read-only/i)).toBeTruthy();
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /outside\.ts/i }));
+    const saveItem = await screen.findByRole("menuitem", { name: /^save$/i });
+    expect(saveItem).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("menuitem", { name: /save as/i })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
   });
 
   it("Close Others is disabled when only one tab is open", async () => {
