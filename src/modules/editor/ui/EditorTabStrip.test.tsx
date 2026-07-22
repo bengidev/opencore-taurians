@@ -4,16 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
 import type { EditorBuffer } from "../state/editorStore";
 import { useEditorStore } from "../state/editorStore";
-import {
-  EXPLORER_FILE_PATH_MIME,
-  setExplorerFileDragData,
-} from "../dnd/explorerFileDrag";
 import { EditorTabStrip } from "./EditorTabStrip";
 
 const PROJECT_ROOT = "/proj";
 const FILE_A = "/proj/a.ts";
 const FILE_B = "/proj/b.ts";
-const FILE_C = "/proj/c.ts";
 const OUTSIDE = "/tmp/outside.ts";
 
 function resetEditorStore(): void {
@@ -53,19 +48,6 @@ function stripProps(overrides?: {
     onRequestCloseAll: vi.fn(),
     ...overrides,
   };
-}
-
-function createExplorerFileDataTransfer(path: string): DataTransfer {
-  const store: Record<string, string> = {};
-  const dt = {
-    types: [EXPLORER_FILE_PATH_MIME],
-    setData: (type: string, value: string) => {
-      store[type] = value;
-    },
-    getData: (type: string) => store[type] ?? "",
-  } as unknown as DataTransfer;
-  setExplorerFileDragData(dt, path);
-  return dt;
 }
 
 describe("EditorTabStrip", () => {
@@ -151,24 +133,6 @@ describe("EditorTabStrip", () => {
     await user.click(add);
     expect(useEditorStore.getState().tabs[0]?.id).toBe("untitled:1");
     expect(screen.getByRole("tab", { name: /untitled-1/i })).toBeTruthy();
-  });
-
-  it("drop of explorer file MIME calls openFile", async () => {
-    useEditorStore.setState({ projectRoot: PROJECT_ROOT });
-    const openFile = vi
-      .spyOn(useEditorStore.getState(), "openFile")
-      .mockResolvedValue(true);
-
-    render(<EditorTabStrip {...stripProps()} />);
-
-    const strip = screen.getByRole("tablist", { name: /editor tabs/i });
-    const dataTransfer = createExplorerFileDataTransfer(FILE_C);
-
-    fireEvent.dragOver(strip, { dataTransfer });
-    fireEvent.drop(strip, { dataTransfer });
-
-    expect(openFile).toHaveBeenCalledWith(PROJECT_ROOT, FILE_C);
-    expect(dataTransfer.types).toContain(EXPLORER_FILE_PATH_MIME);
   });
 
   it("does not render a strip Save As button", () => {

@@ -1,5 +1,4 @@
 import { Lock } from "lucide-react";
-import { useState, type DragEvent } from "react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -7,11 +6,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { useShellStore } from "../../shell/state/shellStore";
-import {
-  EXPLORER_FILE_PATH_MIME,
-  getExplorerFileDragPath,
-} from "../dnd/explorerFileDrag";
 import { isUntitledId, tabLabel } from "../state/editorTabId";
 import { useEditorStore } from "../state/editorStore";
 
@@ -19,7 +13,6 @@ const editorTabContextMenuClassName =
   "min-w-36 font-mono text-xs tracking-[0.08em]";
 
 export interface EditorTabStripProps {
-  osDropActive?: boolean;
   onRequestCloseTab: (id: string) => void;
   onRequestSaveAs: (id: string) => void;
   onRequestCloseOthers: (keepId: string) => void;
@@ -27,7 +20,6 @@ export interface EditorTabStripProps {
 }
 
 export function EditorTabStrip({
-  osDropActive = false,
   onRequestCloseTab,
   onRequestSaveAs,
   onRequestCloseOthers,
@@ -38,58 +30,13 @@ export function EditorTabStrip({
   const buffers = useEditorStore((s) => s.buffers);
   const projectRoot = useEditorStore((s) => s.projectRoot);
   const setActiveTabId = useEditorStore((s) => s.setActiveTabId);
-  const openFile = useEditorStore((s) => s.openFile);
   const openUntitled = useEditorStore((s) => s.openUntitled);
-  const activeMainCard = useShellStore((s) => s.activeMainCard);
-  const setActiveMainCard = useShellStore((s) => s.setActiveMainCard);
-  const [dropActive, setDropActive] = useState(false);
-
-  const hasExplorerFileMime = (dataTransfer: DataTransfer): boolean =>
-    dataTransfer.types.includes(EXPLORER_FILE_PATH_MIME);
-
-  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
-    if (!hasExplorerFileMime(event.dataTransfer)) {
-      return;
-    }
-    event.preventDefault();
-    setDropActive(true);
-  };
-
-  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
-    if (event.currentTarget.contains(event.relatedTarget as Node)) {
-      return;
-    }
-    setDropActive(false);
-  };
-
-  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
-    if (!hasExplorerFileMime(event.dataTransfer)) {
-      return;
-    }
-    event.preventDefault();
-    setDropActive(false);
-
-    const path = getExplorerFileDragPath(event.dataTransfer);
-    if (!path || !projectRoot) {
-      return;
-    }
-
-    void openFile(projectRoot, path);
-    if (activeMainCard !== "editor") {
-      setActiveMainCard("editor");
-    }
-  };
 
   return (
     <div
       role="tablist"
       aria-label="Editor tabs"
-      data-editor-drop-zone=""
-      data-drop-active={dropActive || osDropActive || undefined}
-      className="flex min-w-0 items-center gap-1 data-[drop-active]:rounded-[6px] data-[drop-active]:bg-muted/60"
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      className="flex min-w-0 items-center gap-1"
     >
       {tabs.map((tab) => {
         const label = tabLabel(tab.id);
