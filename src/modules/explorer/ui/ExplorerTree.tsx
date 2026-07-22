@@ -38,7 +38,9 @@ function useExplorerTreeView(): ExplorerTreeView {
 
 function openFile(path: string): void {
   useShellStore.getState().setActiveMainCard("editor");
-  useEditorStore.getState().setOpenFilePath(path);
+  const projectRoot = useExplorerStore.getState().projectRoot;
+  if (!projectRoot) return;
+  void useEditorStore.getState().openFile(projectRoot, path);
 }
 
 function ExplorerEntryIcon({

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useChatStore } from "../../../chat/state/chatStore";
+import { createTauriEditorApi } from "../../../editor/api/editorApi";
 import { useEditorStore } from "../../../editor/state/editorStore";
 import { appendTrunkMessage } from "../../../project/state/projectChat";
 import { useProjectStore } from "../../../project/state/projectStore";
@@ -70,9 +71,10 @@ function ChatCard() {
 }
 
 function EditorCard() {
-  const openFilePath = useEditorStore((s) => s.openFilePath);
+  const path = useEditorStore((s) => s.path);
+  const status = useEditorStore((s) => s.status);
 
-  if (!openFilePath) {
+  if (!path) {
     return (
       <p className="mt-2 font-mono text-sm text-muted-foreground">
         Open a file from the explorer
@@ -85,13 +87,20 @@ function EditorCard() {
       className="mt-2 truncate font-mono text-sm text-muted-foreground"
       aria-label="editor-open-file"
     >
-      {openFilePath}
+      {status === "loading" ? "Loading…" : path}
     </p>
   );
 }
 
 export function ShellMainPanel() {
   const activeMainCard = useShellStore((s) => s.activeMainCard);
+
+  useEffect(() => {
+    const { api, bindApi } = useEditorStore.getState();
+    if (!api) {
+      bindApi(createTauriEditorApi());
+    }
+  }, []);
 
   return (
     <main className="relative min-h-0 flex-1 bg-background">
