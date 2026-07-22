@@ -83,7 +83,7 @@ export function EditorSaveAsDialog({
 }: {
   sourceId: string | null;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  onSuccess?: (savedPath: string) => void;
   onFailure?: () => void;
   listSubdirs?: (projectRoot: string, dir: string) => Promise<string[]>;
   listDir?: (projectRoot: string, dir: string) => Promise<ExplorerEntry[]>;
@@ -153,7 +153,7 @@ export function EditorSaveAsDialog({
   const performSave = async (targetPath: string) => {
     const ok = await useEditorStore.getState().saveAs(sourceId, targetPath);
     if (ok) {
-      onSuccess?.();
+      onSuccess?.(targetPath);
       onOpenChange(false);
       return;
     }
