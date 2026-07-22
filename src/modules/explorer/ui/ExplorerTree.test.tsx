@@ -3,7 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createMemoryEditorApi } from "../../editor/api/createMemoryEditorApi";
 import {
-  EXPLORER_FILE_PATH_MIME,
+  clearExplorerFileDrag,
+  getActiveExplorerFileDragPath,
+  isExplorerFileDragActive,
 } from "../../editor/dnd/explorerFileDrag";
 import { useEditorStore } from "../../editor/state/editorStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
@@ -14,7 +16,10 @@ import { useExplorerStore } from "../state/explorerStore";
 import { ExplorerTree } from "./ExplorerTree";
 
 describe("ExplorerTree", () => {
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    clearExplorerFileDrag();
+  });
 
   beforeEach(() => {
     useMemoryPersistStorage();
@@ -129,7 +134,7 @@ describe("ExplorerTree", () => {
     expect(editorState.buffers[filePath]?.status).toBe("ready");
   });
 
-  it("file rows are draggable with explorer file MIME", async () => {
+  it("file rows start an Explorer pointer-drag session after move threshold", async () => {
     const folderPath = "/proj";
     const filePath = "/proj/a.ts";
 
@@ -150,29 +155,26 @@ describe("ExplorerTree", () => {
     render(<ExplorerTree />);
 
     const fileButton = await screen.findByRole("button", { name: "a.ts" });
-    expect(fileButton).toHaveAttribute("draggable", "true");
+    expect(fileButton.getAttribute("draggable")).not.toBe("true");
 
-    const store: Record<string, string> = {};
-    const dataTransfer = {
-      types: [] as string[],
-      effectAllowed: "",
-      setData: (type: string, value: string) => {
-        store[type] = value;
-        if (!dataTransfer.types.includes(type)) {
-          dataTransfer.types.push(type);
-        }
-      },
-      getData: (type: string) => store[type] ?? "",
-    } as unknown as DataTransfer;
+    fireEvent.pointerDown(fileButton, {
+      button: 0,
+      pointerId: 1,
+      clientX: 0,
+      clientY: 0,
+    });
+    expect(isExplorerFileDragActive()).toBe(false);
 
-    fireEvent.dragStart(fileButton, { dataTransfer });
-
-    expect(dataTransfer.types).toContain(EXPLORER_FILE_PATH_MIME);
-    expect(dataTransfer.getData(EXPLORER_FILE_PATH_MIME)).toBe(filePath);
-    expect(dataTransfer.effectAllowed).toBe("copy");
+    fireEvent.pointerMove(fileButton, {
+      pointerId: 1,
+      clientX: 8,
+      clientY: 0,
+    });
+    expect(isExplorerFileDragActive()).toBe(true);
+    expect(getActiveExplorerFileDragPath()).toBe(filePath);
   });
 
-  it("folder rows are not draggable", async () => {
+  it("folder rows do not start an Explorer pointer-drag session", async () => {
     const folderPath = "/proj";
     const subDir = "/proj/src";
 
@@ -194,7 +196,18 @@ describe("ExplorerTree", () => {
     render(<ExplorerTree />);
 
     const folderButton = await screen.findByRole("button", { name: "src" });
-    expect(folderButton.getAttribute("draggable")).not.toBe("true");
+    fireEvent.pointerDown(folderButton, {
+      button: 0,
+      pointerId: 1,
+      clientX: 0,
+      clientY: 0,
+    });
+    fireEvent.pointerMove(folderButton, {
+      pointerId: 1,
+      clientX: 20,
+      clientY: 0,
+    });
+    expect(isExplorerFileDragActive()).toBe(false);
   });
 
   it("shows dirty • on file and ancestor folder when editor buffer is dirty", async () => {
