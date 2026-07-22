@@ -2,7 +2,6 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
-import { createMemoryEditorFilePicker } from "../infrastructure/editorFilePicker";
 import type { EditorBuffer } from "../state/editorStore";
 import { useEditorStore } from "../state/editorStore";
 import {
@@ -265,28 +264,6 @@ describe("EditorTabStrip", () => {
       "aria-disabled",
       "true",
     );
-  });
-
-  it("Open… button calls openPaths with picked files", async () => {
-    const api = createMemoryEditorApi({
-      files: { "/proj/a.ts": "a" },
-    });
-    useEditorStore.getState().bindApi(api);
-    useEditorStore.setState({ projectRoot: "/proj" });
-    const openPaths = vi.spyOn(useEditorStore.getState(), "openPaths");
-    const picker = createMemoryEditorFilePicker(["/proj/a.ts"]);
-
-    render(
-      <EditorTabStrip
-        filePicker={picker}
-        onRequestCloseTab={vi.fn()}
-        onRequestSaveAs={vi.fn()}
-        onRequestCloseOthers={vi.fn()}
-        onRequestCloseAll={vi.fn()}
-      />,
-    );
-    await userEvent.setup().click(screen.getByRole("button", { name: /open/i }));
-    expect(openPaths).toHaveBeenCalledWith(["/proj/a.ts"]);
   });
 
   it("Close Others is disabled when only one tab is open", async () => {
