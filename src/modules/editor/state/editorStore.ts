@@ -11,6 +11,7 @@ export interface EditorBuffer {
   status: EditorStatus;
   errorMessage: string | null;
   saveError: string | null;
+  readOnly: boolean;
 }
 
 export interface EditorTab {
@@ -29,6 +30,7 @@ function emptyBuffer(): EditorBuffer {
     status: "idle",
     errorMessage: null,
     saveError: null,
+    readOnly: false,
   };
 }
 
@@ -39,7 +41,9 @@ export interface EditorState {
   activeTabId: string | null;
   buffers: Record<string, EditorBuffer>;
   nextUntitled: number;
+  openBatchError: string | null;
   bindApi: (api: EditorApi) => void;
+  clearOpenBatchError: () => void;
   setContentFromEditor: (content: string) => void;
   clearSaveError: (id?: string) => void;
   /** Active tab only. Path-backed only; Untitled → false without write. */
@@ -57,6 +61,8 @@ export interface EditorState {
    * New path: append tab, set activeTabId, load into buffer.
    */
   openFile: (projectRoot: string, path: string) => Promise<boolean>;
+  /** Open multiple paths; classify under-root vs external read-only. */
+  openPaths: (paths: string[]) => Promise<boolean>;
   openUntitled: () => string;
   /** Activate an already-open tab (no reload). */
   setActiveTabId: (id: string) => void;
@@ -88,6 +94,100 @@ function patchBuffer(
   };
 }
 
+type EditorStoreApi = {
+  get: () => EditorStore;
+  set: (
+    partial:
+      | Partial<EditorStore>
+      | ((state: EditorStore) => Partial<EditorStore>),
+  ) => void;
+};
+
+async function openExternalReadOnly(
+  { get, set }: EditorStoreApi,
+  path: string,
+): Promise<void> {
+  const state = get();
+  const existingTab = state.tabs.find((t) => t.id === path);
+  const existingBuffer = state.buffers[path];
+
+  if (existingTab && existingBuffer?.status === "ready") {
+    set({
+      activeTabId: path,
+      buffers: patchBuffer(state.buffers, path, { saveError: null }),
+    });
+    return;
+  }
+
+  if (existingTab && existingBuffer?.status === "error") {
+    set({ activeTabId: path });
+    // fall through to reload
+  } else if (!existingTab) {
+    set({
+      tabs: [...state.tabs, { id: path }],
+      activeTabId: path,
+      buffers: patchBuffer(state.buffers, path, {
+        ...emptyBuffer(),
+        status: "loading",
+        errorMessage: null,
+        saveError: null,
+        readOnly: true,
+      }),
+    });
+  } else {
+    set({
+      activeTabId: path,
+      buffers: patchBuffer(state.buffers, path, {
+        status: "loading",
+        errorMessage: null,
+        saveError: null,
+        readOnly: true,
+      }),
+    });
+  }
+
+  const api = get().api;
+  if (!api) {
+    set((s) => ({
+      buffers: patchBuffer(s.buffers, path, {
+        content: "",
+        baselineContent: "",
+        dirty: false,
+        status: "error",
+        errorMessage: "Editor API not bound",
+        readOnly: true,
+      }),
+    }));
+    return;
+  }
+
+  try {
+    const content = await api.readExternalFile(path);
+    set((s) => ({
+      buffers: patchBuffer(s.buffers, path, {
+        content,
+        baselineContent: content,
+        dirty: false,
+        status: "ready",
+        errorMessage: null,
+        saveError: null,
+        readOnly: true,
+      }),
+    }));
+  } catch (error) {
+    set((s) => ({
+      buffers: patchBuffer(s.buffers, path, {
+        content: "",
+        baselineContent: "",
+        dirty: false,
+        status: "error",
+        errorMessage: toErrorMessage(error),
+        readOnly: true,
+      }),
+    }));
+  }
+}
+
 export const useEditorStore = create<EditorStore>()((set, get) => ({
   api: null,
   projectRoot: null,
@@ -95,8 +195,11 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
   activeTabId: null,
   buffers: {},
   nextUntitled: 1,
+  openBatchError: null,
 
   bindApi: (api) => set({ api }),
+
+  clearOpenBatchError: () => set({ openBatchError: null }),
 
   setContentFromEditor: (content) => {
     const { activeTabId, buffers } = get();
@@ -104,7 +207,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
       return;
     }
     const buffer = buffers[activeTabId];
-    if (!buffer) {
+    if (!buffer || buffer.readOnly) {
       return;
     }
     set({
@@ -133,6 +236,9 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
     const { api, projectRoot, buffers } = get();
     const buffer = buffers[id];
     if (!api || !projectRoot || !buffer) {
+      return false;
+    }
+    if (buffer.readOnly) {
       return false;
     }
 
@@ -181,6 +287,9 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
     if (!buffer?.dirty) {
       return true;
     }
+    if (buffer.readOnly) {
+      return false;
+    }
     return get().saveTab(activeTabId);
   },
 
@@ -190,6 +299,10 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
       return true;
     }
     if (isUntitledId(activeTabId)) {
+      return false;
+    }
+    const buffer = get().buffers[activeTabId];
+    if (buffer?.readOnly) {
       return false;
     }
     return get().saveTab(activeTabId);
@@ -223,7 +336,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
       set({
         activeTabId: path,
         projectRoot,
-        buffers: patchBuffer(state.buffers, path, { saveError: null }),
+        buffers: patchBuffer(state.buffers, path, { saveError: null, readOnly: false }),
       });
       return true;
     }
@@ -241,6 +354,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
           status: "loading",
           errorMessage: null,
           saveError: null,
+          readOnly: false,
         }),
       });
     } else {
@@ -251,6 +365,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
           status: "loading",
           errorMessage: null,
           saveError: null,
+          readOnly: false,
         }),
       });
     }
@@ -279,6 +394,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
           status: "ready",
           errorMessage: null,
           saveError: null,
+          readOnly: false,
         }),
       }));
       return true;
@@ -290,6 +406,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
           dirty: false,
           status: "error",
           errorMessage: toErrorMessage(error),
+          readOnly: false,
         }),
       }));
       return false;
@@ -313,10 +430,52 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
           status: "ready",
           errorMessage: null,
           saveError: null,
+          readOnly: false,
         },
       },
     });
     return id;
+  },
+
+  openPaths: async (paths) => {
+    const { api, projectRoot } = get();
+    if (!projectRoot) {
+      set({ openBatchError: "Open a project first" });
+      return false;
+    }
+    if (!api) {
+      set({ openBatchError: "Editor API not bound" });
+      return false;
+    }
+    if (paths.length === 0) {
+      return true;
+    }
+
+    const hasDir = await api.pathsIncludeDirectory(paths);
+    if (hasDir) {
+      set({ openBatchError: "Folders can't be opened here" });
+      return false;
+    }
+
+    set({ openBatchError: null });
+
+    let lastId: string | null = null;
+    for (const path of paths) {
+      const under = await api.isUnderRoot(projectRoot, path);
+      if (under) {
+        await get().openFile(projectRoot, path);
+        set((s) => ({
+          buffers: patchBuffer(s.buffers, path, { readOnly: false }),
+        }));
+      } else {
+        await openExternalReadOnly({ get, set }, path);
+      }
+      lastId = path;
+    }
+    if (lastId) {
+      set({ activeTabId: lastId });
+    }
+    return true;
   },
 
   setActiveTabId: (id) => {
