@@ -11,6 +11,7 @@ export function EditorPanel() {
   useEditorSaveTriggers();
 
   const activeTabId = useEditorStore((s) => s.activeTabId);
+  const openBatchError = useEditorStore((s) => s.openBatchError);
   const buffer = useEditorStore((s) =>
     s.activeTabId ? (s.buffers[s.activeTabId] ?? null) : null,
   );
@@ -24,9 +25,14 @@ export function EditorPanel() {
 
   if (!activeTabId || !buffer) {
     return (
-      <p className="mt-2 font-mono text-sm text-muted-foreground">
-        Open a file from the explorer
-      </p>
+      <>
+        {openBatchError ? (
+          <p className="mt-2 font-mono text-sm text-destructive">{openBatchError}</p>
+        ) : null}
+        <p className="mt-2 font-mono text-sm text-muted-foreground">
+          Open a file from the explorer or Open…
+        </p>
+      </>
     );
   }
 
@@ -48,6 +54,9 @@ export function EditorPanel() {
 
   return (
     <div className="mt-2 flex min-h-0 flex-1 flex-col">
+      {openBatchError ? (
+        <p className="mb-1 font-mono text-sm text-destructive">{openBatchError}</p>
+      ) : null}
       {buffer.status === "saving" ? (
         <p className="mb-1 font-mono text-xs text-muted-foreground">Saving…</p>
       ) : null}
