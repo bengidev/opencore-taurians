@@ -5,22 +5,24 @@ import { useEditorStore } from "../state/editorStore";
 import "./monacoSetup";
 
 export function MonacoEditorHost() {
-  const path = useEditorStore((s) => s.path);
-  const content = useEditorStore((s) => s.content);
+  const activePath = useEditorStore((s) => s.activePath);
+  const content = useEditorStore((s) =>
+    s.activePath ? (s.buffers[s.activePath]?.content ?? "") : "",
+  );
   const setContentFromEditor = useEditorStore((s) => s.setContentFromEditor);
   const mode = useThemeStore((s) => s.mode);
   const theme = mode === "dark" ? "vs-dark" : "vs";
 
-  if (!path) {
+  if (!activePath) {
     return null;
   }
 
-  const language = editorLanguageFromPath(path);
+  const language = editorLanguageFromPath(activePath);
 
   return (
     <Editor
-      key={path}
-      path={path}
+      key={activePath}
+      path={activePath}
       className="min-h-0 flex-1"
       height="100%"
       language={language}
