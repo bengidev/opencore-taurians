@@ -10,7 +10,7 @@ _Avoid_: Code editor (when referring to the module), Monaco (when referring to t
 
 **Editor Tab**:
 An open file or Untitled buffer in the editor’s id-keyed tab set — `tabs` holds `{ id }` entries where `id` is `untitled:N` or an absolute path; `activeTabId` is the focused tab. Opening an already-open path focuses it; a new path or Untitled appends a tab and loads or creates its buffer. The tab strip (`+` opens Untitled when a project is open; per-tab context menu for Save, Save As, and Close) is UI chrome inside the Editor card, not a shell main card.
-_Avoid_: OS desktop file drops (Phase 2c), tab (when meaning the Editor main card)
+_Avoid_: tab (when meaning the Editor main card)
 
 **Untitled**:
 An in-memory editor tab with id `untitled:N` — no disk path until Save As succeeds. Opened via the tab strip `+`; label shown as `Untitled-N`. Never writes via normal save; materialized through Save As (`editor_create_file`).
@@ -27,3 +27,7 @@ _Avoid_: Single buffer, save-before-open-other (Phase 1), document model (when a
 **Editor Panel**:
 The UI host mounted in the **Editor** main card — renders the tab strip, empty/loading/error/save-error states, or lazy-loaded Monaco for the active buffer based on `editorStore`. Wired to save triggers (active tab only for leave-card and ⌘/Ctrl+S) and the Tauri `editorApi`.
 _Avoid_: Main card (when referring to the whole shell region), Monaco host (when referring to the panel shell)
+
+**External / Read-only tab**:
+Absolute path outside `projectRoot`, opened via OS drop or Open…; `readOnly` buffer; view-only Monaco; Save/Save As disabled.
+_Avoid_: treating external paths as project files, writing them with `editor_write_file`
