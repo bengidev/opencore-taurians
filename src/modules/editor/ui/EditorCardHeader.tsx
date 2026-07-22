@@ -84,14 +84,10 @@ export function EditorCardHeader() {
     void promptCloseTab(id);
   };
 
-  const onRequestSaveAs = () => {
-    const activeTabId = useEditorStore.getState().activeTabId;
-    if (!activeTabId) {
-      return;
-    }
+  const onRequestSaveAs = (id: string) => {
     saveAsOnSuccessRef.current = null;
     pendingCloseAfterSaveAsIdRef.current = null;
-    setPendingSaveAsSourceId(activeTabId);
+    setPendingSaveAsSourceId(id);
   };
 
   const onRequestSaveAsForClose = (id: string) => {
@@ -193,6 +189,8 @@ export function EditorCardHeader() {
       <EditorTabStrip
         onRequestCloseTab={onRequestCloseTab}
         onRequestSaveAs={onRequestSaveAs}
+        onRequestCloseOthers={() => {}}
+        onRequestCloseAll={() => {}}
       />
       <EditorCloseTabDialog
         id={pendingCloseId}
