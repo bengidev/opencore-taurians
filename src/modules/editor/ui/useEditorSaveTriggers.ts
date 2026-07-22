@@ -35,6 +35,7 @@ export function useEditorSaveTriggers(): void {
         unlisten = await getCurrentWindow().onCloseRequested(async (event) => {
           const ok = await useEditorStore.getState().saveAllDirty();
           if (!ok) {
+            useShellStore.getState().setActiveMainCard("editor");
             event.preventDefault();
           }
         });
