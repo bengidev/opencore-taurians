@@ -1,6 +1,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
+import type { EditorBuffer } from "../state/editorStore";
 import { useEditorStore } from "../state/editorStore";
 import { useShellStore } from "../../shell/state/shellStore";
 import { EditorPanel } from "./EditorPanel";
@@ -11,18 +12,34 @@ vi.mock("./MonacoEditorHost", () => ({
 
 const PROJECT_ROOT = "/proj";
 const FILE_A = "/proj/a.ts";
+const FILE_B = "/proj/b.ts";
 
 function resetEditorStore(): void {
   useEditorStore.setState({
     api: null,
     projectRoot: null,
-    path: null,
-    content: "",
-    baselineContent: "",
-    dirty: false,
-    status: "idle",
-    errorMessage: null,
-    saveError: null,
+    tabs: [],
+    activePath: null,
+    buffers: {},
+  });
+}
+
+function seedReadyTab(path: string, content: string, extras?: Partial<EditorBuffer>): void {
+  useEditorStore.setState({
+    projectRoot: "/proj",
+    tabs: [{ path }],
+    activePath: path,
+    buffers: {
+      [path]: {
+        content,
+        baselineContent: content,
+        dirty: false,
+        status: "ready",
+        errorMessage: null,
+        saveError: null,
+        ...extras,
+      },
+    },
   });
 }
 
@@ -45,42 +62,39 @@ describe("EditorPanel", () => {
 
   it("shows error message on load error", () => {
     useEditorStore.setState({
-      path: "/proj/missing.ts",
-      status: "error",
-      errorMessage: "not found",
+      projectRoot: PROJECT_ROOT,
+      tabs: [{ path: "/proj/missing.ts" }],
+      activePath: "/proj/missing.ts",
+      buffers: {
+        "/proj/missing.ts": {
+          content: "",
+          baselineContent: "",
+          dirty: false,
+          status: "error",
+          errorMessage: "not found",
+          saveError: null,
+        },
+      },
     });
     render(<EditorPanel />);
     expect(screen.getByText("not found")).toBeInTheDocument();
   });
 
   it("shows Monaco host when ready", async () => {
-    useEditorStore.setState({
-      path: "/proj/a.ts",
-      content: "hello",
-      status: "ready",
-    });
+    seedReadyTab(FILE_A, "hello");
     render(<EditorPanel />);
     expect(await screen.findByTestId("monaco-host")).toBeInTheDocument();
   });
 
   it("keeps Monaco host mounted while saving", async () => {
-    useEditorStore.setState({
-      path: "/proj/a.ts",
-      content: "hello",
-      status: "saving",
-    });
+    seedReadyTab(FILE_A, "hello", { status: "saving" });
     render(<EditorPanel />);
     expect(await screen.findByTestId("monaco-host")).toBeInTheDocument();
     expect(screen.getByText("Saving…")).toBeInTheDocument();
   });
 
   it("shows saveError inline without unmounting Monaco", async () => {
-    useEditorStore.setState({
-      path: "/proj/a.ts",
-      content: "hello",
-      status: "ready",
-      saveError: "disk full",
-    });
+    seedReadyTab(FILE_A, "hello", { saveError: "disk full" });
     render(<EditorPanel />);
     expect(await screen.findByTestId("monaco-host")).toBeInTheDocument();
     expect(screen.getByText("disk full")).toBeInTheDocument();
@@ -100,7 +114,7 @@ describe("EditorPanel", () => {
     useShellStore.getState().setActiveMainCard("chat");
 
     await waitFor(() => {
-      expect(useEditorStore.getState().dirty).toBe(false);
+      expect(useEditorStore.getState().buffers[FILE_A]?.dirty).toBe(false);
     });
     expect(await api.readFile(PROJECT_ROOT, FILE_A)).toBe("edited");
     expect(useShellStore.getState().activeMainCard).toBe("chat");
@@ -121,10 +135,33 @@ describe("EditorPanel", () => {
     useShellStore.getState().setActiveMainCard("chat");
 
     await waitFor(() => {
-      expect(useEditorStore.getState().saveError).toBe("disk full");
+      expect(useEditorStore.getState().buffers[FILE_A]?.saveError).toBe("disk full");
     });
     expect(useShellStore.getState().activeMainCard).toBe("chat");
-    expect(useEditorStore.getState().dirty).toBe(true);
+    expect(useEditorStore.getState().buffers[FILE_A]?.dirty).toBe(true);
+  });
+
+  it("leave-card only saves the active tab when multiple tabs are dirty", async () => {
+    const api = createMemoryEditorApi({
+      files: { [FILE_A]: "file-a", [FILE_B]: "file-b" },
+    });
+    useEditorStore.getState().bindApi(api);
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_A);
+    useEditorStore.getState().setContentFromEditor("file-a-edited");
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_B);
+    useEditorStore.getState().setContentFromEditor("file-b-edited");
+    useShellStore.setState({ activeMainCard: "editor" });
+
+    render(<EditorPanel />);
+
+    useShellStore.getState().setActiveMainCard("chat");
+
+    await waitFor(() => {
+      expect(useEditorStore.getState().buffers[FILE_B]?.dirty).toBe(false);
+    });
+    expect(await api.readFile(PROJECT_ROOT, FILE_B)).toBe("file-b-edited");
+    expect(useEditorStore.getState().buffers[FILE_A]?.dirty).toBe(true);
+    expect(await api.readFile(PROJECT_ROOT, FILE_A)).toBe("file-a");
   });
 
   it("saves on Cmd+S when editor card is active", async () => {
@@ -143,9 +180,34 @@ describe("EditorPanel", () => {
     );
 
     await waitFor(() => {
-      expect(useEditorStore.getState().dirty).toBe(false);
+      expect(useEditorStore.getState().buffers[FILE_A]?.dirty).toBe(false);
     });
     expect(await api.readFile(PROJECT_ROOT, FILE_A)).toBe("edited");
+  });
+
+  it("Cmd+S only saves the active tab when multiple tabs are dirty", async () => {
+    const api = createMemoryEditorApi({
+      files: { [FILE_A]: "file-a", [FILE_B]: "file-b" },
+    });
+    useEditorStore.getState().bindApi(api);
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_A);
+    useEditorStore.getState().setContentFromEditor("file-a-edited");
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_B);
+    useEditorStore.getState().setContentFromEditor("file-b-edited");
+    useShellStore.setState({ activeMainCard: "editor" });
+
+    render(<EditorPanel />);
+
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "s", metaKey: true, bubbles: true }),
+    );
+
+    await waitFor(() => {
+      expect(useEditorStore.getState().buffers[FILE_B]?.dirty).toBe(false);
+    });
+    expect(await api.readFile(PROJECT_ROOT, FILE_B)).toBe("file-b-edited");
+    expect(useEditorStore.getState().buffers[FILE_A]?.dirty).toBe(true);
+    expect(await api.readFile(PROJECT_ROOT, FILE_A)).toBe("file-a");
   });
 
   it("does not save on Cmd+S when editor card is inactive", async () => {
@@ -164,7 +226,7 @@ describe("EditorPanel", () => {
     );
 
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(useEditorStore.getState().dirty).toBe(true);
+    expect(useEditorStore.getState().buffers[FILE_A]?.dirty).toBe(true);
     expect(await api.readFile(PROJECT_ROOT, FILE_A)).toBe("hello");
   });
 });
