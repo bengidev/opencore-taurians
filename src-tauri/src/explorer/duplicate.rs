@@ -4,7 +4,7 @@ use std::path::Path;
 
 use super::error::ExplorerError;
 use super::list_dir::ExplorerEntry;
-use super::path_scope::ensure_under_root;
+use crate::path_scope::ensure_under_root;
 use super::trash::ExplorerPathInput;
 
 /// Duplicate naming: `foo.txt` → `foo copy.txt`, `mydir` → `mydir copy`.
