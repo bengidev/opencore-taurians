@@ -197,6 +197,38 @@ describe("ExplorerTree", () => {
     expect(folderButton.getAttribute("draggable")).not.toBe("true");
   });
 
+  it("shows dirty • on file and ancestor folder when editor buffer is dirty", async () => {
+    const folderPath = "/proj";
+    const subDir = "/proj/src";
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const explorerApi = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "src", path: subDir, isDir: true }],
+        [subDir]: [{ name: "a.ts", path: "/proj/src/a.ts", isDir: false }],
+      },
+    });
+    useExplorerStore.getState().bindApi(explorerApi);
+    await useExplorerStore.getState().loadRoot();
+    await useExplorerStore.getState().toggleExpanded(subDir);
+
+    useEditorStore.getState().bindApi(
+      createMemoryEditorApi({ files: { "/proj/src/a.ts": "hello" } }),
+    );
+    useEditorStore.setState({ projectRoot: folderPath });
+    await useEditorStore.getState().openFile(folderPath, "/proj/src/a.ts");
+    useEditorStore.getState().setContentFromEditor("dirty");
+
+    render(<ExplorerTree />);
+
+    expect(await screen.findByText("a.ts •")).toBeInTheDocument();
+    expect(screen.getByText("src •")).toBeInTheDocument();
+  });
+
   it("expands a folder when the row is clicked", async () => {
     const user = userEvent.setup();
     const folderPath = "/proj";
