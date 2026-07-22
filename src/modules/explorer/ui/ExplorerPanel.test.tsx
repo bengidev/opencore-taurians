@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { createMemoryEditorApi } from "../../editor/api/createMemoryEditorApi";
+import { useEditorStore } from "../../editor/state/editorStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useProjectStore } from "../../project/state/projectStore";
 import { createMemoryExplorerApi } from "../api/createMemoryExplorerApi";
@@ -11,12 +13,24 @@ import { useExplorerStore } from "../state/explorerStore";
 import { ExplorerPanel } from "./ExplorerPanel";
 
 describe("ExplorerPanel", () => {
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
 
   beforeEach(() => {
     useMemoryPersistStorage();
     useProjectStore.getState().resetProjectState();
     useExplorerStore.getState().resetExplorerState();
+    useEditorStore.setState({
+      api: null,
+      projectRoot: null,
+      tabs: [],
+      activeTabId: null,
+      buffers: {},
+      nextUntitled: 1,
+      openBatchError: null,
+    });
   });
 
   it("context menu shows Rename, Delete, and Copy Path on file row", async () => {
@@ -45,6 +59,7 @@ describe("ExplorerPanel", () => {
 
   it("context menu Delete removes the file", async () => {
     const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     const folderPath = "/proj";
     useProjectStore.getState().createProjectWithRootTrunk({
       folderPath,
@@ -67,6 +82,140 @@ describe("ExplorerPanel", () => {
     await waitFor(() => {
       expect(screen.queryByText("a.ts")).not.toBeInTheDocument();
     });
+  });
+
+  it("context menu Delete cancel leaves file and open tab", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const folderPath = "/proj";
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "a.ts", path: "/proj/a.ts", isDir: false }],
+      },
+    });
+    useEditorStore.getState().bindApi(
+      createMemoryEditorApi({ files: { "/proj/a.ts": "hello" } }),
+    );
+    useEditorStore.setState({ projectRoot: folderPath });
+    await useEditorStore.getState().openFile(folderPath, "/proj/a.ts");
+
+    render(<ExplorerPanel explorerApi={api} />);
+    const fileRow = await screen.findByText("a.ts");
+    fireEvent.contextMenu(fileRow);
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+
+    expect(screen.getByText("a.ts")).toBeInTheDocument();
+    expect(useEditorStore.getState().tabs.map((t) => t.id)).toEqual(["/proj/a.ts"]);
+    expect(window.confirm).toHaveBeenCalled();
+  });
+
+  it("context menu Delete OK closes dirty open tab without save prompt", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const folderPath = "/proj";
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "a.ts", path: "/proj/a.ts", isDir: false }],
+      },
+    });
+    useEditorStore.getState().bindApi(
+      createMemoryEditorApi({ files: { "/proj/a.ts": "hello" } }),
+    );
+    useEditorStore.setState({ projectRoot: folderPath });
+    await useEditorStore.getState().openFile(folderPath, "/proj/a.ts");
+    useEditorStore.getState().setContentFromEditor("dirty");
+
+    render(<ExplorerPanel explorerApi={api} />);
+    fireEvent.contextMenu(await screen.findByText("a.ts •"));
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("a.ts")).not.toBeInTheDocument();
+    });
+    expect(useEditorStore.getState().tabs).toEqual([]);
+    expect(window.confirm).toHaveBeenCalledWith(
+      expect.stringContaining("1 open editor tab(s) will close"),
+    );
+  });
+
+  it("context menu Delete folder closes nested open tabs", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const folderPath = "/proj";
+    const subDir = "/proj/src";
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "src", path: subDir, isDir: true }],
+        [subDir]: [{ name: "a.ts", path: "/proj/src/a.ts", isDir: false }],
+      },
+    });
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
+    await useExplorerStore.getState().toggleExpanded(subDir);
+
+    useEditorStore.getState().bindApi(
+      createMemoryEditorApi({ files: { "/proj/src/a.ts": "hello" } }),
+    );
+    useEditorStore.setState({ projectRoot: folderPath });
+    await useEditorStore.getState().openFile(folderPath, "/proj/src/a.ts");
+
+    render(<ExplorerPanel explorerApi={api} />);
+    fireEvent.contextMenu(await screen.findByText("src"));
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("src")).not.toBeInTheDocument();
+    });
+    expect(useEditorStore.getState().tabs).toEqual([]);
+  });
+
+  it("context menu Delete leaves tabs open when trash fails", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const folderPath = "/proj";
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "a.ts", path: "/proj/a.ts", isDir: false }],
+      },
+    });
+    api.trash = async () => {
+      throw new Error("trash failed");
+    };
+    useEditorStore.getState().bindApi(
+      createMemoryEditorApi({ files: { "/proj/a.ts": "hello" } }),
+    );
+    useEditorStore.setState({ projectRoot: folderPath });
+    await useEditorStore.getState().openFile(folderPath, "/proj/a.ts");
+
+    render(<ExplorerPanel explorerApi={api} />);
+    fireEvent.contextMenu(await screen.findByText("a.ts"));
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(useExplorerStore.getState().error).toMatch(/trash failed/i);
+    });
+    expect(useEditorStore.getState().tabs.map((t) => t.id)).toEqual(["/proj/a.ts"]);
+    expect(screen.getByText("a.ts")).toBeInTheDocument();
   });
 
   it("context menu Rename enters rename mode", async () => {
