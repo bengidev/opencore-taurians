@@ -1,6 +1,7 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createMemoryEditorApi } from "../../editor/api/createMemoryEditorApi";
 import { useEditorStore } from "../../editor/state/editorStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useShellStore } from "../../shell/state/shellStore";
@@ -16,7 +17,18 @@ describe("ExplorerTree", () => {
     useMemoryPersistStorage();
     useProjectStore.getState().resetProjectState();
     useExplorerStore.getState().resetExplorerState();
-    useEditorStore.setState({ openFilePath: null });
+    useEditorStore.setState({
+      api: null,
+      projectRoot: null,
+      path: null,
+      content: "",
+      baselineContent: "",
+      dirty: false,
+      status: "idle",
+      errorMessage: null,
+      saveError: null,
+    });
+    useShellStore.setState({ activeMainCard: "chat" });
   });
 
   it("renders project files", async () => {
@@ -79,33 +91,41 @@ describe("ExplorerTree", () => {
     expect(container.querySelector("svg.lucide-folder")).toBeNull();
   });
 
-  it("file click sets editor card and openFilePath", async () => {
+  it("file click opens editor card and loads file through store", async () => {
     const user = userEvent.setup();
     const folderPath = "/proj";
     const filePath = "/proj/a.ts";
+    const fileContent = "export const a = 1;\n";
 
     useProjectStore.getState().createProjectWithRootTrunk({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
 
-    const api = createMemoryExplorerApi({
+    const explorerApi = createMemoryExplorerApi({
       projectRoot: folderPath,
       dirs: {
         [folderPath]: [{ name: "a.ts", path: filePath, isDir: false }],
       },
     });
-    useExplorerStore.getState().bindApi(api);
+    useExplorerStore.getState().bindApi(explorerApi);
     await useExplorerStore.getState().loadRoot();
 
-    const setActiveMainCardSpy = vi.spyOn(useShellStore.getState(), "setActiveMainCard");
-    const setOpenFilePathSpy = vi.spyOn(useEditorStore.getState(), "setOpenFilePath");
+    const editorApi = createMemoryEditorApi({
+      files: { [filePath]: fileContent },
+    });
+    useEditorStore.getState().bindApi(editorApi);
 
     render(<ExplorerTree />);
     await user.click(await screen.findByText("a.ts"));
 
-    expect(setActiveMainCardSpy).toHaveBeenCalledWith("editor");
-    expect(setOpenFilePathSpy).toHaveBeenCalledWith(filePath);
+    await waitFor(() => {
+      expect(useShellStore.getState().activeMainCard).toBe("editor");
+    });
+    const editorState = useEditorStore.getState();
+    expect(editorState.path).toBe(filePath);
+    expect(editorState.content).toBe(fileContent);
+    expect(editorState.status).toBe("ready");
   });
 
   it("expands a folder when the row is clicked", async () => {
