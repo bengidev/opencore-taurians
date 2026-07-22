@@ -213,6 +213,21 @@ describe("EditorTabStrip", () => {
     expect(saveTab).toHaveBeenCalledWith(FILE_A);
   });
 
+  it("tab context menu Save on untitled tab calls onRequestSaveAs and not saveTab", async () => {
+    useEditorStore.getState().bindApi(createMemoryEditorApi());
+    useEditorStore.setState({ projectRoot: PROJECT_ROOT });
+    const untitledId = useEditorStore.getState().openUntitled();
+    useEditorStore.getState().setContentFromEditor("untitled-draft");
+    const onRequestSaveAs = vi.fn();
+    const saveTab = vi.spyOn(useEditorStore.getState(), "saveTab");
+    saveTab.mockClear();
+    render(<EditorTabStrip {...stripProps({ onRequestSaveAs })} />);
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /untitled-1/i }));
+    await userEvent.setup().click(await screen.findByRole("menuitem", { name: /^save$/i }));
+    expect(onRequestSaveAs).toHaveBeenCalledWith(untitledId);
+    expect(saveTab).not.toHaveBeenCalled();
+  });
+
   it("Close Others is disabled when only one tab is open", async () => {
     useEditorStore.setState({
       projectRoot: PROJECT_ROOT,
