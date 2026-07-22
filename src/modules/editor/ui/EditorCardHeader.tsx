@@ -1,13 +1,52 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEditorStore } from "../state/editorStore";
 import { EditorCloseTabDialog } from "./EditorCloseTabDialog";
+import { EditorSaveAsDialog } from "./EditorSaveAsDialog";
 import { EditorTabStrip } from "./EditorTabStrip";
+import {
+  registerQuitUntitledHandler,
+  registerSaveAsRequestHandler,
+  type QuitUntitledResult,
+} from "./saveAsPromptBridge";
 
 export function EditorCardHeader() {
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
   const [pendingSaveAsSourceId, setPendingSaveAsSourceId] = useState<
     string | null
   >(null);
+  const [pendingQuitUntitledId, setPendingQuitUntitledId] = useState<
+    string | null
+  >(null);
+  const saveAsOnSuccessRef = useRef<(() => void) | null>(null);
+  const quitResolverRef = useRef<((result: QuitUntitledResult) => void) | null>(
+    null,
+  );
+  const quitPendingIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    registerSaveAsRequestHandler((id) => {
+      saveAsOnSuccessRef.current = null;
+      setPendingSaveAsSourceId(id);
+    });
+    registerQuitUntitledHandler((id) => {
+      return new Promise<QuitUntitledResult>((resolve) => {
+        quitResolverRef.current = resolve;
+        quitPendingIdRef.current = id;
+        setPendingQuitUntitledId(id);
+      });
+    });
+    return () => {
+      registerSaveAsRequestHandler(null);
+      registerQuitUntitledHandler(null);
+    };
+  }, []);
+
+  const resolveQuit = (result: QuitUntitledResult) => {
+    quitResolverRef.current?.(result);
+    quitResolverRef.current = null;
+    quitPendingIdRef.current = null;
+    setPendingQuitUntitledId(null);
+  };
 
   const onRequestCloseTab = (id: string) => {
     const buf = useEditorStore.getState().buffers[id];
@@ -23,7 +62,58 @@ export function EditorCardHeader() {
     if (!activeTabId) {
       return;
     }
+    saveAsOnSuccessRef.current = null;
     setPendingSaveAsSourceId(activeTabId);
+  };
+
+  const onRequestSaveAsForClose = (id: string) => {
+    saveAsOnSuccessRef.current = () => {
+      const activeTabId = useEditorStore.getState().activeTabId;
+      if (activeTabId) {
+        useEditorStore.getState().closeTab(activeTabId);
+      }
+    };
+    setPendingSaveAsSourceId(id);
+  };
+
+  const handleQuitSave = (id: string) => {
+    saveAsOnSuccessRef.current = () => {
+      resolveQuit("saved");
+    };
+    setPendingQuitUntitledId(null);
+    setPendingSaveAsSourceId(id);
+  };
+
+  const handleQuitDontSave = (id: string) => {
+    useEditorStore.getState().closeTab(id);
+    resolveQuit("discarded");
+  };
+
+  const handleQuitCancel = () => {
+    resolveQuit("cancelled");
+  };
+
+  const handleSaveAsOpenChange = (open: boolean) => {
+    if (!open) {
+      if (quitPendingIdRef.current && quitResolverRef.current) {
+        resolveQuit("cancelled");
+      }
+      setPendingSaveAsSourceId(null);
+      saveAsOnSuccessRef.current = null;
+    }
+  };
+
+  const handleSaveAsSuccess = () => {
+    saveAsOnSuccessRef.current?.();
+    saveAsOnSuccessRef.current = null;
+  };
+
+  const handleSaveAsFailure = () => {
+    if (quitPendingIdRef.current && quitResolverRef.current) {
+      resolveQuit("failed");
+      return;
+    }
+    saveAsOnSuccessRef.current = null;
   };
 
   return (
@@ -34,11 +124,31 @@ export function EditorCardHeader() {
       />
       <EditorCloseTabDialog
         id={pendingCloseId}
+        onRequestSaveAsForClose={onRequestSaveAsForClose}
         onOpenChange={(open) => {
           if (!open) {
             setPendingCloseId(null);
           }
         }}
+      />
+      {pendingQuitUntitledId ? (
+        <EditorCloseTabDialog
+          id={pendingQuitUntitledId}
+          onRequestSaveAsForClose={handleQuitSave}
+          onDontSave={handleQuitDontSave}
+          onCancel={handleQuitCancel}
+          onOpenChange={(open) => {
+            if (!open) {
+              handleQuitCancel();
+            }
+          }}
+        />
+      ) : null}
+      <EditorSaveAsDialog
+        sourceId={pendingSaveAsSourceId}
+        onOpenChange={handleSaveAsOpenChange}
+        onSuccess={handleSaveAsSuccess}
+        onFailure={handleSaveAsFailure}
       />
     </>
   );

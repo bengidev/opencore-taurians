@@ -45,15 +45,18 @@ function seedDirtyTab(): void {
 function DialogHarness({
   initialId,
   onOpenChangeSpy,
+  onRequestSaveAsForClose,
 }: {
   initialId: string;
   onOpenChangeSpy: (open: boolean) => void;
+  onRequestSaveAsForClose?: (id: string) => void;
 }): ReactNode {
   const [id, setId] = useState<string | null>(initialId);
 
   return (
     <EditorCloseTabDialog
       id={id}
+      onRequestSaveAsForClose={onRequestSaveAsForClose}
       onOpenChange={(open) => {
         onOpenChangeSpy(open);
         if (!open) {
@@ -130,6 +133,39 @@ describe("EditorCloseTabDialog", () => {
     expect(useEditorStore.getState().buffers[FILE_A]).toBeUndefined();
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("Untitled Save requests Save As instead of writeFile", async () => {
+    const user = userEvent.setup();
+    const api = createMemoryEditorApi();
+    useEditorStore.getState().bindApi(api);
+    const writeSpy = vi.spyOn(api, "writeFile");
+    const id = "untitled:1";
+    useEditorStore.setState({
+      projectRoot: PROJECT_ROOT,
+      tabs: [{ id }],
+      activeTabId: id,
+      buffers: {
+        [id]: seedBuffer(id, { baselineContent: "", content: "edited" }),
+      },
+      nextUntitled: 2,
+    });
+    const onOpenChange = vi.fn();
+    const onRequestSaveAsForClose = vi.fn();
+
+    render(
+      <DialogHarness
+        initialId={id}
+        onOpenChangeSpy={onOpenChange}
+        onRequestSaveAsForClose={onRequestSaveAsForClose}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(onRequestSaveAsForClose).toHaveBeenCalledWith(id);
+    expect(writeSpy).not.toHaveBeenCalled();
+    expect(useEditorStore.getState().tabs).toEqual([{ id }]);
   });
 
   it("Cancel keeps tab open", async () => {

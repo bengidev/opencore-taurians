@@ -1,15 +1,21 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { tabLabel } from "../state/editorTabId";
+import { isUntitledId, tabLabel } from "../state/editorTabId";
 import { useEditorStore } from "../state/editorStore";
 
 export function EditorCloseTabDialog({
   id,
   onOpenChange,
+  onRequestSaveAsForClose,
+  onDontSave,
+  onCancel,
 }: {
   id: string | null;
   onOpenChange: (open: boolean) => void;
+  onRequestSaveAsForClose?: (id: string) => void;
+  onDontSave?: (id: string) => void;
+  onCancel?: () => void;
 }): JSX.Element | null {
   const saveError = useEditorStore((s) =>
     id ? (s.buffers[id]?.saveError ?? null) : null,
@@ -28,6 +34,12 @@ export function EditorCloseTabDialog({
   };
 
   const handleSave = async () => {
+    if (isUntitledId(id)) {
+      onRequestSaveAsForClose?.(id);
+      onOpenChange(false);
+      return;
+    }
+
     const ok = await useEditorStore.getState().saveTab(id);
     if (ok) {
       useEditorStore.getState().closeTab(id);
@@ -36,11 +48,19 @@ export function EditorCloseTabDialog({
   };
 
   const handleDontSave = () => {
+    if (onDontSave) {
+      onDontSave(id);
+      return;
+    }
     useEditorStore.getState().closeTab(id);
     onOpenChange(false);
   };
 
   const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+      return;
+    }
     onOpenChange(false);
   };
 
