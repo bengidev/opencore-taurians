@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 export interface EditorApi {
   readFile(projectRoot: string, path: string): Promise<string>;
   writeFile(projectRoot: string, path: string, content: string): Promise<void>;
+  createFile(projectRoot: string, path: string, content: string): Promise<void>;
 }
 
 export function createTauriEditorApi(): EditorApi {
@@ -11,6 +12,8 @@ export function createTauriEditorApi(): EditorApi {
       invoke("editor_read_file", { input: { projectRoot, path } }),
     writeFile: (projectRoot, path, content) =>
       invoke("editor_write_file", { input: { projectRoot, path, content } }),
+    createFile: (projectRoot, path, content) =>
+      invoke("editor_create_file", { input: { projectRoot, path, content } }),
   };
 }
 
