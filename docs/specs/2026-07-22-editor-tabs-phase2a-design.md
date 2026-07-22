@@ -20,7 +20,7 @@ Replace the Editor main card’s plain `EDITOR` label with a VS Code–style **t
 | `+` control (2a) | Visible but **disabled** (layout matches end state; behavior in 2b) |
 | Dirty close | In-app dialog: **Save** / **Don’t save** / **Cancel** |
 | Save-on-open-other | **Removed** for Phase 2a — opening another file appends/focuses a tab; dirty buffers stay until closed or saved |
-| Active-tab save policy | Phase 1 rules keep applying to the **active** tab only: ⌘/Ctrl+S, leave Editor card, app quit |
+| Save policy | ⌘/Ctrl+S and leave-card: **active** tab only. Quit: save **all** dirty tabs (block quit if any fail). |
 | Desktop I/O (2a) | Unchanged: `editor_read_file` / `editor_write_file`, project-scoped |
 
 ## Roadmap (deferred)
@@ -79,8 +79,9 @@ Exact TypeScript field names may follow existing store style; semantics above ar
 | Open path already in `tabs` | Focus that tab; clear stale `saveError`. Do not reload unless that buffer’s `status` is `error` (then retry load). |
 | Open new path | Append tab, set `activePath`, load into that buffer (`loading` → `ready` or `error`). |
 | Edit | Updates **active** buffer only; `dirty === content !== baselineContent` per tab. |
-| Save / saveIfDirty | **Active** tab only (same success/failure semantics as Phase 1). |
-| Leave Editor card / quit | Auto-save **active** dirty tab only (Phase 1 leave/quit policy). Other dirty tabs remain dirty in memory. |
+| Save / saveIfDirty | **Active** tab only for manual ⌘/Ctrl+S (same success/failure semantics as Phase 1). |
+| Leave Editor card | Auto-save **active** dirty tab only (Phase 1 leave policy). Other dirty tabs stay dirty in memory (cards remain mounted). |
+| App / window quit | Attempt to save **all** dirty tabs (in open order). If any save fails, **prevent quit** when the platform allows and surface error on the failing tab (activate it). Success on all → allow quit. |
 | Close tab (clean) | Remove tab; if it was active, activate neighbor (prefer right, else left); if none left, `activePath = null` → empty state. |
 | Close tab (dirty) | Show dialog. **Save** → save that tab then close on success; on failure keep tab + dialog + `saveError`. **Don’t save** → discard buffer and close. **Cancel** → keep tab. |
 | Explorer DnD onto strip | Same as open (append or focus). |
@@ -119,14 +120,15 @@ In-app dialog (not `window.confirm` — needs three actions):
 | Case | Behavior |
 | ---- | -------- |
 | Load failure | That tab remains open with `status: error` and `errorMessage`; no Monaco for that tab; other tabs unaffected |
-| Save failure (⌘S / leave / quit) | Keep dirty; set `saveError` on active buffer; leave-card still leaves; quit still blocks when preventable |
+| Save failure (⌘S / leave) | Keep dirty; set `saveError` on active buffer; leave-card still leaves |
+| Save failure (quit, any dirty tab) | Keep that tab dirty; activate the failing tab; set its `saveError`; prevent quit when preventable |
 | Close → Save fails | Tab stays open; dialog stays open (or re-shows); `saveError` set |
 | Path outside project / binary / oversize | Existing Desktop rejection → load error on that tab |
 | Drop non-file | No-op |
 
 ## Testing
 
-- **Store:** append vs focus; per-tab dirty; close Save / Don’t save / Cancel; neighbor activation; leave-card/quit / ⌘S only touch active tab; open does not force-save other dirty tabs
+- **Store:** append vs focus; per-tab dirty; close Save / Don’t save / Cancel; neighbor activation; ⌘S / leave-card touch active only; quit saves all dirty tabs; open does not force-save other dirty tabs
 - **Tab strip:** basenames + dirty; disabled `+`; drop invokes open
 - **Close dialog:** three actions and Save-failure keeps tab
 - **Explorer:** click opens Editor card + tab (update Phase 1 tests that assumed single-buffer replace)
