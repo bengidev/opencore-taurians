@@ -28,4 +28,27 @@ describe("createMemoryEditorApi", () => {
     const api = createMemoryEditorApi();
     await expect(api.writeFile("/proj", "/proj/missing.txt", "x")).rejects.toThrow(/not found/i);
   });
+
+  it("readExternalFile returns seeded outside path", async () => {
+    const api = createMemoryEditorApi({
+      files: { "/tmp/out.txt": "ext" },
+    });
+    await expect(api.readExternalFile("/tmp/out.txt")).resolves.toBe("ext");
+  });
+
+  it("isUnderRoot uses projectRoot prefix semantics in memory", async () => {
+    const api = createMemoryEditorApi();
+    await expect(api.isUnderRoot("/proj", "/proj/a.ts")).resolves.toBe(true);
+    await expect(api.isUnderRoot("/proj", "/other/a.ts")).resolves.toBe(false);
+  });
+
+  it("pathsIncludeDirectory respects directories seed", async () => {
+    const api = createMemoryEditorApi({
+      directories: ["/tmp/folder"],
+    });
+    await expect(api.pathsIncludeDirectory(["/tmp/folder", "/tmp/a.txt"])).resolves.toBe(
+      true,
+    );
+    await expect(api.pathsIncludeDirectory(["/tmp/a.txt"])).resolves.toBe(false);
+  });
 });
