@@ -33,7 +33,7 @@ export function useEditorSaveTriggers(): void {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
         if (cancelled) return;
         unlisten = await getCurrentWindow().onCloseRequested(async (event) => {
-          const ok = await useEditorStore.getState().saveAllDirty();
+          const ok = await useEditorStore.getState().saveAllDirtyPaths();
           if (!ok) {
             useShellStore.getState().setActiveMainCard("editor");
             event.preventDefault();

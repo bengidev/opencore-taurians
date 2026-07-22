@@ -19,18 +19,19 @@ function resetEditorStore(): void {
     api: null,
     projectRoot: null,
     tabs: [],
-    activePath: null,
+    activeTabId: null,
     buffers: {},
+    nextUntitled: 1,
   });
 }
 
-function seedReadyTab(path: string, content: string, extras?: Partial<EditorBuffer>): void {
+function seedReadyTab(id: string, content: string, extras?: Partial<EditorBuffer>): void {
   useEditorStore.setState({
     projectRoot: "/proj",
-    tabs: [{ path }],
-    activePath: path,
+    tabs: [{ id }],
+    activeTabId: id,
     buffers: {
-      [path]: {
+      [id]: {
         content,
         baselineContent: content,
         dirty: false,
@@ -63,8 +64,8 @@ describe("EditorPanel", () => {
   it("shows error message on load error", () => {
     useEditorStore.setState({
       projectRoot: PROJECT_ROOT,
-      tabs: [{ path: "/proj/missing.ts" }],
-      activePath: "/proj/missing.ts",
+      tabs: [{ id: "/proj/missing.ts" }],
+      activeTabId: "/proj/missing.ts",
       buffers: {
         "/proj/missing.ts": {
           content: "",

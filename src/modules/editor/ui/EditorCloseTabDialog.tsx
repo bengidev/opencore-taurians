@@ -1,28 +1,25 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { tabLabel } from "../state/editorTabId";
 import { useEditorStore } from "../state/editorStore";
 
-function tabBasename(path: string): string {
-  return path.split(/[/\\]/).pop() ?? path;
-}
-
 export function EditorCloseTabDialog({
-  path,
+  id,
   onOpenChange,
 }: {
-  path: string | null;
+  id: string | null;
   onOpenChange: (open: boolean) => void;
 }): JSX.Element | null {
   const saveError = useEditorStore((s) =>
-    path ? (s.buffers[path]?.saveError ?? null) : null,
+    id ? (s.buffers[id]?.saveError ?? null) : null,
   );
 
-  if (!path) {
+  if (!id) {
     return null;
   }
 
-  const basename = tabBasename(path);
+  const label = tabLabel(id);
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -31,15 +28,15 @@ export function EditorCloseTabDialog({
   };
 
   const handleSave = async () => {
-    const ok = await useEditorStore.getState().saveTab(path);
+    const ok = await useEditorStore.getState().saveTab(id);
     if (ok) {
-      useEditorStore.getState().closeTab(path);
+      useEditorStore.getState().closeTab(id);
       onOpenChange(false);
     }
   };
 
   const handleDontSave = () => {
-    useEditorStore.getState().closeTab(path);
+    useEditorStore.getState().closeTab(id);
     onOpenChange(false);
   };
 
@@ -48,7 +45,7 @@ export function EditorCloseTabDialog({
   };
 
   return (
-    <DialogPrimitive.Root open={path !== null} onOpenChange={handleOpenChange}>
+    <DialogPrimitive.Root open={id !== null} onOpenChange={handleOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop
           className={cn(
@@ -65,7 +62,7 @@ export function EditorCloseTabDialog({
               Save changes?
             </DialogPrimitive.Title>
             <DialogPrimitive.Description className="text-sm text-muted-foreground">
-              Do you want to save changes to {basename}?
+              Do you want to save changes to {label}?
             </DialogPrimitive.Description>
             {saveError ? (
               <p className="font-mono text-xs text-destructive">{saveError}</p>
