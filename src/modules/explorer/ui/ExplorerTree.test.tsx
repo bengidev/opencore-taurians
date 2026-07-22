@@ -1,6 +1,12 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createMemoryEditorApi } from "../../editor/api/createMemoryEditorApi";
+import {
+  clearExplorerFileDrag,
+  getActiveExplorerFileDragPath,
+  isExplorerFileDragActive,
+} from "../../editor/dnd/explorerFileDrag";
 import { useEditorStore } from "../../editor/state/editorStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useShellStore } from "../../shell/state/shellStore";
@@ -10,13 +16,24 @@ import { useExplorerStore } from "../state/explorerStore";
 import { ExplorerTree } from "./ExplorerTree";
 
 describe("ExplorerTree", () => {
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    clearExplorerFileDrag();
+  });
 
   beforeEach(() => {
     useMemoryPersistStorage();
     useProjectStore.getState().resetProjectState();
     useExplorerStore.getState().resetExplorerState();
-    useEditorStore.setState({ openFilePath: null });
+    useEditorStore.setState({
+      api: null,
+      projectRoot: null,
+      tabs: [],
+      activeTabId: null,
+      buffers: {},
+      nextUntitled: 1,
+    });
+    useShellStore.setState({ activeMainCard: "chat" });
   });
 
   it("renders project files", async () => {
@@ -79,8 +96,45 @@ describe("ExplorerTree", () => {
     expect(container.querySelector("svg.lucide-folder")).toBeNull();
   });
 
-  it("file click sets editor card and openFilePath", async () => {
+  it("file click still switches to editor and opens/focuses a tab", async () => {
     const user = userEvent.setup();
+    const folderPath = "/proj";
+    const filePath = "/proj/a.ts";
+    const fileContent = "export const a = 1;\n";
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const explorerApi = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "a.ts", path: filePath, isDir: false }],
+      },
+    });
+    useExplorerStore.getState().bindApi(explorerApi);
+    await useExplorerStore.getState().loadRoot();
+
+    const editorApi = createMemoryEditorApi({
+      files: { [filePath]: fileContent },
+    });
+    useEditorStore.getState().bindApi(editorApi);
+
+    render(<ExplorerTree />);
+    await user.click(await screen.findByText("a.ts"));
+
+    await waitFor(() => {
+      expect(useShellStore.getState().activeMainCard).toBe("editor");
+    });
+    const editorState = useEditorStore.getState();
+    expect(editorState.activeTabId).toBe(filePath);
+    expect(editorState.tabs.map((t) => t.id)).toEqual([filePath]);
+    expect(editorState.buffers[filePath]?.content).toBe(fileContent);
+    expect(editorState.buffers[filePath]?.status).toBe("ready");
+  });
+
+  it("file rows start an Explorer pointer-drag session after move threshold", async () => {
     const folderPath = "/proj";
     const filePath = "/proj/a.ts";
 
@@ -98,14 +152,94 @@ describe("ExplorerTree", () => {
     useExplorerStore.getState().bindApi(api);
     await useExplorerStore.getState().loadRoot();
 
-    const setActiveMainCardSpy = vi.spyOn(useShellStore.getState(), "setActiveMainCard");
-    const setOpenFilePathSpy = vi.spyOn(useEditorStore.getState(), "setOpenFilePath");
+    render(<ExplorerTree />);
+
+    const fileButton = await screen.findByRole("button", { name: "a.ts" });
+    expect(fileButton.getAttribute("draggable")).not.toBe("true");
+
+    fireEvent.pointerDown(fileButton, {
+      button: 0,
+      pointerId: 1,
+      clientX: 0,
+      clientY: 0,
+    });
+    expect(isExplorerFileDragActive()).toBe(false);
+
+    fireEvent.pointerMove(fileButton, {
+      pointerId: 1,
+      clientX: 8,
+      clientY: 0,
+    });
+    expect(isExplorerFileDragActive()).toBe(true);
+    expect(getActiveExplorerFileDragPath()).toBe(filePath);
+  });
+
+  it("folder rows do not start an Explorer pointer-drag session", async () => {
+    const folderPath = "/proj";
+    const subDir = "/proj/src";
+
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const api = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "src", path: subDir, isDir: true }],
+        [subDir]: [],
+      },
+    });
+    useExplorerStore.getState().bindApi(api);
+    await useExplorerStore.getState().loadRoot();
 
     render(<ExplorerTree />);
-    await user.click(await screen.findByText("a.ts"));
 
-    expect(setActiveMainCardSpy).toHaveBeenCalledWith("editor");
-    expect(setOpenFilePathSpy).toHaveBeenCalledWith(filePath);
+    const folderButton = await screen.findByRole("button", { name: "src" });
+    fireEvent.pointerDown(folderButton, {
+      button: 0,
+      pointerId: 1,
+      clientX: 0,
+      clientY: 0,
+    });
+    fireEvent.pointerMove(folderButton, {
+      pointerId: 1,
+      clientX: 20,
+      clientY: 0,
+    });
+    expect(isExplorerFileDragActive()).toBe(false);
+  });
+
+  it("shows dirty • on file and ancestor folder when editor buffer is dirty", async () => {
+    const folderPath = "/proj";
+    const subDir = "/proj/src";
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const explorerApi = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "src", path: subDir, isDir: true }],
+        [subDir]: [{ name: "a.ts", path: "/proj/src/a.ts", isDir: false }],
+      },
+    });
+    useExplorerStore.getState().bindApi(explorerApi);
+    await useExplorerStore.getState().loadRoot();
+    await useExplorerStore.getState().toggleExpanded(subDir);
+
+    useEditorStore.getState().bindApi(
+      createMemoryEditorApi({ files: { "/proj/src/a.ts": "hello" } }),
+    );
+    useEditorStore.setState({ projectRoot: folderPath });
+    await useEditorStore.getState().openFile(folderPath, "/proj/src/a.ts");
+    useEditorStore.getState().setContentFromEditor("dirty");
+
+    render(<ExplorerTree />);
+
+    expect(await screen.findByText("a.ts •")).toBeInTheDocument();
+    expect(screen.getByText("src •")).toBeInTheDocument();
   });
 
   it("expands a folder when the row is clicked", async () => {

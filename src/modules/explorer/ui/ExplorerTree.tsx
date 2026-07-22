@@ -1,8 +1,15 @@
-import { createContext, useContext, useEffect, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import { resolveExplorerIcon } from "@/lib/fileIcons";
 import { cn } from "@/lib/utils";
+import { collectDirtyExplorerPaths } from "../../editor/domain/collectDirtyExplorerPaths";
 import { useEditorStore } from "../../editor/state/editorStore";
+import {
+  EXPLORER_FILE_DRAG_THRESHOLD_PX,
+  beginExplorerFileDrag,
+  clearExplorerFileDrag,
+  isExplorerFileDragActive,
+} from "../../editor/dnd/explorerFileDrag";
 import { useShellStore } from "../../shell/state/shellStore";
 import type { ExplorerEntry } from "../domain/explorerTypes";
 import { filterExplorerTree } from "../domain/filterExplorerTree";
@@ -24,6 +31,7 @@ interface ExplorerEntryRowProps {
 type ExplorerTreeView = {
   childrenByPath: Record<string, ExplorerEntry[]>;
   isExpanded: (path: string) => boolean;
+  dirtyPaths: Set<string>;
 };
 
 const ExplorerTreeViewContext = createContext<ExplorerTreeView | null>(null);
@@ -38,7 +46,9 @@ function useExplorerTreeView(): ExplorerTreeView {
 
 function openFile(path: string): void {
   useShellStore.getState().setActiveMainCard("editor");
-  useEditorStore.getState().setOpenFilePath(path);
+  const projectRoot = useExplorerStore.getState().projectRoot;
+  if (!projectRoot) return;
+  void useEditorStore.getState().openFile(projectRoot, path);
 }
 
 function ExplorerEntryIcon({
@@ -75,6 +85,8 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
   const children = treeView.childrenByPath[entry.path] ?? [];
   const isLoadingChildren = loadingPaths.has(entry.path);
   const rowButtonClassName = explorerRowButtonClassName(isSelected);
+  const dirty = treeView.dirtyPaths.has(entry.path);
+  const displayName = dirty ? `${entry.name} •` : entry.name;
 
   if (entry.isDir) {
     return (
@@ -110,7 +122,7 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
                 isDir
                 isOpen={expanded}
               />
-              <span className="truncate">{entry.name}</span>
+              <span className="truncate">{displayName}</span>
             </button>
           )}
         </div>
@@ -152,21 +164,113 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
             <ExplorerRenameInput initialName={entry.name} />
           </div>
         ) : (
-          <button
-            type="button"
-            aria-current={isSelected ? "true" : undefined}
+          <ExplorerFileRowButton
+            path={entry.path}
+            name={entry.name}
+            displayName={displayName}
+            isSelected={isSelected}
             className={rowButtonClassName}
-            onClick={() => {
+            onSelect={() => {
               selectPath(entry.path);
               openFile(entry.path);
             }}
-          >
-            <ExplorerEntryIcon name={entry.name} isDir={false} />
-            <span className="truncate">{entry.name}</span>
-          </button>
+          />
         )}
       </div>
     </li>
+  );
+}
+
+type FilePointerDrag = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  armed: boolean;
+};
+
+function ExplorerFileRowButton({
+  path,
+  name,
+  displayName,
+  isSelected,
+  className,
+  onSelect,
+}: {
+  path: string;
+  name: string;
+  displayName: string;
+  isSelected: boolean;
+  className: string;
+  onSelect: () => void;
+}) {
+  const dragRef = useRef<FilePointerDrag | null>(null);
+  const suppressClickRef = useRef(false);
+
+  return (
+    <button
+      type="button"
+      aria-current={isSelected ? "true" : undefined}
+      className={className}
+      onPointerDown={(event) => {
+        if (event.button !== 0) {
+          return;
+        }
+        dragRef.current = {
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          armed: false,
+        };
+        suppressClickRef.current = false;
+      }}
+      onPointerMove={(event) => {
+        const drag = dragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId || drag.armed) {
+          return;
+        }
+        const dx = event.clientX - drag.startX;
+        const dy = event.clientY - drag.startY;
+        if (Math.hypot(dx, dy) < EXPLORER_FILE_DRAG_THRESHOLD_PX) {
+          return;
+        }
+        drag.armed = true;
+        suppressClickRef.current = true;
+        beginExplorerFileDrag(path);
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+          // Capture is best-effort; document listeners still track the drag.
+        }
+      }}
+      onPointerUp={(event) => {
+        const drag = dragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) {
+          return;
+        }
+        dragRef.current = null;
+        // EditorDropZone handles open + clear on document pointerup (capture).
+        // If we never armed, ensure no stale session remains.
+        if (!drag.armed && isExplorerFileDragActive()) {
+          clearExplorerFileDrag();
+        }
+      }}
+      onPointerCancel={() => {
+        dragRef.current = null;
+        if (isExplorerFileDragActive()) {
+          clearExplorerFileDrag();
+        }
+      }}
+      onClick={() => {
+        if (suppressClickRef.current) {
+          suppressClickRef.current = false;
+          return;
+        }
+        onSelect();
+      }}
+    >
+      <ExplorerEntryIcon name={name} isDir={false} />
+      <span className="truncate">{displayName}</span>
+    </button>
   );
 }
 
@@ -178,7 +282,14 @@ export function ExplorerTree() {
   const searchQuery = useExplorerStore((s) => s.searchQuery);
   const searchIndexing = useExplorerStore((s) => s.searchIndexing);
   const ensureSearchTreeLoaded = useExplorerStore((s) => s.ensureSearchTreeLoaded);
+  const editorBuffers = useEditorStore((s) => s.buffers);
+  const editorProjectRoot = useEditorStore((s) => s.projectRoot);
   const hasSearchQuery = searchQuery.trim().length > 0;
+
+  const dirtyPaths = useMemo(
+    () => collectDirtyExplorerPaths(editorBuffers, editorProjectRoot),
+    [editorBuffers, editorProjectRoot],
+  );
 
   useEffect(() => {
     if (!projectRoot || !hasSearchQuery) {
@@ -200,14 +311,16 @@ export function ExplorerTree() {
       return {
         childrenByPath,
         isExpanded: (path) => expandedPaths.has(path),
+        dirtyPaths,
       };
     }
     return {
       childrenByPath: filtered.childrenByPath,
       isExpanded: (path) =>
         expandedPaths.has(path) || filtered.displayOpenPaths.has(path),
+      dirtyPaths,
     };
-  }, [projectRoot, childrenByPath, expandedPaths, searchQuery]);
+  }, [projectRoot, childrenByPath, expandedPaths, searchQuery, dirtyPaths]);
 
   if (!projectRoot || !treeView) {
     return null;

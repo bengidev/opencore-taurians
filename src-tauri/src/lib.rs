@@ -1,4 +1,6 @@
+mod editor;
 mod explorer;
+mod path_scope;
 
 use explorer::ExplorerWatchState;
 use tauri::Emitter;
@@ -18,6 +20,12 @@ pub fn run() {
         .manage(ExplorerWatchState::default())
         .invoke_handler(tauri::generate_handler![
             greet,
+            editor::read::editor_read_file,
+            editor::read_external::editor_read_external_file,
+            editor::write::editor_write_file,
+            editor::create::editor_create_file,
+            editor::path_query::editor_is_under_root,
+            editor::path_query::editor_paths_include_directory,
             explorer::list_dir::explorer_list_dir,
             explorer::create::explorer_create_file,
             explorer::create::explorer_create_dir,
@@ -30,17 +38,54 @@ pub fn run() {
             explorer::reveal::explorer_reveal,
         ])
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, position }) =
-                event
-            {
-                let _ = window.emit(
-                    "explorer://drop",
-                    serde_json::json!({
-                        "paths": paths.iter().map(|p| p.to_string_lossy().to_string()).collect::<Vec<_>>(),
-                        "x": position.x,
-                        "y": position.y,
-                    }),
-                );
+            use tauri::{DragDropEvent, WindowEvent};
+            if let WindowEvent::DragDrop(drag) = event {
+                match drag {
+                    DragDropEvent::Enter { paths, position } => {
+                        let _ = window.emit(
+                            "explorer://drag",
+                            serde_json::json!({
+                                "phase": "enter",
+                                "paths": paths.iter().map(|p| p.to_string_lossy().to_string()).collect::<Vec<_>>(),
+                                "x": position.x,
+                                "y": position.y,
+                            }),
+                        );
+                    }
+                    DragDropEvent::Over { position } => {
+                        let _ = window.emit(
+                            "explorer://drag",
+                            serde_json::json!({
+                                "phase": "over",
+                                "paths": [],
+                                "x": position.x,
+                                "y": position.y,
+                            }),
+                        );
+                    }
+                    DragDropEvent::Leave => {
+                        let _ = window.emit(
+                            "explorer://drag",
+                            serde_json::json!({
+                                "phase": "leave",
+                                "paths": [],
+                                "x": 0,
+                                "y": 0,
+                            }),
+                        );
+                    }
+                    DragDropEvent::Drop { paths, position } => {
+                        let _ = window.emit(
+                            "explorer://drop",
+                            serde_json::json!({
+                                "paths": paths.iter().map(|p| p.to_string_lossy().to_string()).collect::<Vec<_>>(),
+                                "x": position.x,
+                                "y": position.y,
+                            }),
+                        );
+                    }
+                    _ => {}
+                }
             }
         })
         .run(tauri::generate_context!())
