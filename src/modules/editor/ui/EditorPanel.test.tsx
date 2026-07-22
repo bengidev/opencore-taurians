@@ -58,7 +58,9 @@ describe("EditorPanel", () => {
 
   it("shows empty state when no path", () => {
     render(<EditorPanel />);
-    expect(screen.getByText(/open a file from the explorer/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/open a file from the explorer or file → open/i),
+    ).toBeInTheDocument();
   });
 
   it("auto-clears openBatchError after a brief delay", () => {

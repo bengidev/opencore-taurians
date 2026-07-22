@@ -9,11 +9,11 @@ The editor module and its behavior: opening and editing project files in the **E
 _Avoid_: Code editor (when referring to the module), Monaco (when referring to the whole feature), calling the Editor main card a “tab”
 
 **Editor Tab**:
-An open file or Untitled buffer in the editor’s id-keyed tab set — `tabs` holds `{ id }` entries where `id` is `untitled:N` or an absolute path; `activeTabId` is the focused tab. Opening an already-open path focuses it; a new path or Untitled appends a tab and loads or creates its buffer. The tab strip (`+` opens Untitled when a project is open; per-tab context menu for Save, Save As, and Close) is UI chrome inside the Editor card, not a shell main card.
+An open file or Untitled buffer in the editor’s id-keyed tab set — `tabs` holds `{ id }` entries where `id` is `untitled:N` or an absolute path; `activeTabId` is the focused tab. Opening an already-open path focuses it; a new path or Untitled appends a tab and loads or creates its buffer. The tab strip (`+` opens Untitled when a project is open; per-tab context menu for Save, Save As, and Close — no strip Open control) is UI chrome inside the Editor card, not a shell main card.
 _Avoid_: tab (when meaning the Editor main card)
 
 **Untitled**:
-An in-memory editor tab with id `untitled:N` — no disk path until Save As succeeds. Opened via the tab strip `+`; label shown as `Untitled-N`. Never writes via normal save; materialized through Save As (`editor_create_file`).
+An in-memory editor tab with id `untitled:N` — no disk path until Save As succeeds. Opened via File → New or the tab strip `+`; label shown as `Untitled-N`. Never writes via normal save; materialized through Save As (`editor_create_file`).
 _Avoid_: Calling Untitled tabs “new files” before Save As, treating `untitled:N` as a filesystem path
 
 **Save As**:
@@ -29,5 +29,5 @@ The UI host mounted in the **Editor** main card — renders the tab strip, empty
 _Avoid_: Main card (when referring to the whole shell region), Monaco host (when referring to the panel shell)
 
 **External / Read-only tab**:
-Absolute path outside `projectRoot`, opened via OS drop or Open…; `readOnly` buffer; view-only Monaco; Save/Save As disabled.
+Absolute path outside `projectRoot`, opened via OS drop or File → Open…; `readOnly` buffer; view-only Monaco; Save/Save As disabled.
 _Avoid_: treating external paths as project files, writing them with `editor_write_file`
