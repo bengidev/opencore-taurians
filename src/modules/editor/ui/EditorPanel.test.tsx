@@ -38,6 +38,7 @@ function seedReadyTab(id: string, content: string, extras?: Partial<EditorBuffer
         status: "ready",
         errorMessage: null,
         saveError: null,
+        readOnly: false,
         ...extras,
       },
     },
@@ -95,6 +96,7 @@ describe("EditorPanel", () => {
           status: "error",
           errorMessage: "not found",
           saveError: null,
+          readOnly: false,
         },
       },
     });

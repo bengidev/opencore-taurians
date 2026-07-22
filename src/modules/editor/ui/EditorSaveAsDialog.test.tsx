@@ -30,6 +30,7 @@ function seedUntitled(dirty = true): string {
     status: "ready",
     errorMessage: null,
     saveError: null,
+    readOnly: false,
   };
   useEditorStore.setState({
     projectRoot: PROJECT_ROOT,
