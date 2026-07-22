@@ -1,0 +1,113 @@
+import { useState, type DragEvent } from "react";
+import { useShellStore } from "../../shell/state/shellStore";
+import {
+  EXPLORER_FILE_PATH_MIME,
+  getExplorerFileDragPath,
+} from "../dnd/explorerFileDrag";
+import { useEditorStore } from "../state/editorStore";
+
+function tabBasename(path: string): string {
+  return path.split(/[/\\]/).pop() ?? path;
+}
+
+export interface EditorTabStripProps {
+  onRequestCloseTab: (path: string) => void;
+}
+
+export function EditorTabStrip({ onRequestCloseTab }: EditorTabStripProps) {
+  const tabs = useEditorStore((s) => s.tabs);
+  const activePath = useEditorStore((s) => s.activePath);
+  const buffers = useEditorStore((s) => s.buffers);
+  const projectRoot = useEditorStore((s) => s.projectRoot);
+  const setActivePath = useEditorStore((s) => s.setActivePath);
+  const openFile = useEditorStore((s) => s.openFile);
+  const activeMainCard = useShellStore((s) => s.activeMainCard);
+  const setActiveMainCard = useShellStore((s) => s.setActiveMainCard);
+  const [dropActive, setDropActive] = useState(false);
+
+  const hasExplorerFileMime = (dataTransfer: DataTransfer): boolean =>
+    dataTransfer.types.includes(EXPLORER_FILE_PATH_MIME);
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (!hasExplorerFileMime(event.dataTransfer)) {
+      return;
+    }
+    event.preventDefault();
+    setDropActive(true);
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node)) {
+      return;
+    }
+    setDropActive(false);
+  };
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (!hasExplorerFileMime(event.dataTransfer)) {
+      return;
+    }
+    event.preventDefault();
+    setDropActive(false);
+
+    const path = getExplorerFileDragPath(event.dataTransfer);
+    if (!path || !projectRoot) {
+      return;
+    }
+
+    void openFile(projectRoot, path);
+    if (activeMainCard !== "editor") {
+      setActiveMainCard("editor");
+    }
+  };
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Editor tabs"
+      data-drop-active={dropActive || undefined}
+      className="flex min-w-0 items-center gap-1 data-[drop-active]:rounded-[6px] data-[drop-active]:bg-muted/60"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {tabs.map((tab) => {
+        const basename = tabBasename(tab.path);
+        const dirty = buffers[tab.path]?.dirty ?? false;
+        const selected = tab.path === activePath;
+        const tabLabel = dirty ? `${basename} •` : basename;
+
+        return (
+          <div key={tab.path} className="flex min-w-0 items-center">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              className="rounded-[6px] border border-transparent px-2 py-0.5 font-mono text-[11px] tracking-[0.02em] text-muted-foreground aria-selected:border-border aria-selected:bg-muted aria-selected:text-foreground"
+              onClick={() => setActivePath(tab.path)}
+            >
+              {tabLabel}
+            </button>
+            <button
+              type="button"
+              aria-label={`Close ${basename}`}
+              className="rounded-[6px] px-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+              onClick={() => onRequestCloseTab(tab.path)}
+            >
+              ×
+            </button>
+          </div>
+        );
+      })}
+      <button
+        type="button"
+        disabled
+        aria-label="New untitled file"
+        title="Untitled files come later"
+        className="rounded-[6px] border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground disabled:opacity-50"
+      >
+        +
+      </button>
+    </div>
+  );
+}
