@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useEditorStore } from "../state/editorStore";
+import { EditorCloseTabDialog } from "./EditorCloseTabDialog";
 import { EditorTabStrip } from "./EditorTabStrip";
 
 export function EditorCardHeader() {
@@ -17,7 +18,14 @@ export function EditorCardHeader() {
   return (
     <>
       <EditorTabStrip onRequestCloseTab={onRequestCloseTab} />
-      {/* close dialog in Task 4 — pendingClosePath: {pendingClosePath} */}
+      <EditorCloseTabDialog
+        path={pendingClosePath}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingClosePath(null);
+          }
+        }}
+      />
     </>
   );
 }
