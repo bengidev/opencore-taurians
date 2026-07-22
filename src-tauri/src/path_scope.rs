@@ -9,7 +9,34 @@ pub enum PathScopeError {
 }
 
 pub fn normalize_path(path: &Path) -> PathBuf {
-    path.canonicalize().unwrap_or_else(|_| lexically_normalize(path))
+    if let Ok(canonical) = path.canonicalize() {
+        return canonical;
+    }
+
+    let lexical = lexically_normalize(path);
+    let mut suffix = Vec::new();
+    let mut current = lexical.as_path();
+
+    while !current.as_os_str().is_empty() {
+        if current.exists() {
+            if let Ok(canonical) = current.canonicalize() {
+                let mut result = canonical;
+                for component in suffix.into_iter().rev() {
+                    result.push(component);
+                }
+                return result;
+            }
+        }
+        match current.file_name() {
+            Some(name) => {
+                suffix.push(name.to_os_string());
+                current = current.parent().unwrap_or(Path::new(""));
+            }
+            None => break,
+        }
+    }
+
+    lexical
 }
 
 fn lexically_normalize(path: &Path) -> PathBuf {
@@ -64,5 +91,13 @@ mod tests {
         let traversal = dir.path().join("..").join("outside.txt");
         let result = ensure_under_root(dir.path(), &traversal);
         assert!(matches!(result, Err(PathScopeError::OutsideProject)));
+    }
+
+    #[test]
+    fn allows_missing_child_under_root() {
+        let dir = tempdir().unwrap();
+        let missing = dir.path().join("nope.txt");
+        let result = ensure_under_root(dir.path(), &missing);
+        assert!(result.is_ok());
     }
 }

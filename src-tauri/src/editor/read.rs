@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde::Deserialize;
 
@@ -15,26 +15,9 @@ pub struct EditorReadInput {
     pub path: String,
 }
 
-fn resolve_under_root(project_root: &Path, target: &Path) -> Result<PathBuf, EditorError> {
-    match ensure_under_root(project_root, target) {
-        Ok(path) => Ok(path),
-        Err(_) => {
-            let Some(parent) = target.parent() else {
-                return Err(EditorError::OutsideProject(target.to_string_lossy().into_owned()));
-            };
-            let canonical_parent = ensure_under_root(project_root, parent).map_err(|_| {
-                EditorError::OutsideProject(target.to_string_lossy().into_owned())
-            })?;
-            let Some(file_name) = target.file_name() else {
-                return Err(EditorError::OutsideProject(target.to_string_lossy().into_owned()));
-            };
-            Ok(canonical_parent.join(file_name))
-        }
-    }
-}
-
 pub fn editor_read_file(input: EditorReadInput) -> Result<String, EditorError> {
-    let path = resolve_under_root(Path::new(&input.project_root), Path::new(&input.path))?;
+    let path = ensure_under_root(Path::new(&input.project_root), Path::new(&input.path))
+        .map_err(|_| EditorError::OutsideProject(input.path.clone()))?;
 
     if !path.exists() {
         return Err(EditorError::NotFound(input.path));
