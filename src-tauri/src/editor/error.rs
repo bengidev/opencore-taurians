@@ -4,6 +4,7 @@ use serde::Serialize;
 #[serde(tag = "code", content = "message")]
 pub enum EditorError {
     OutsideProject(String),
+    ParentNotFound(String),
     NotFound(String),
     NotAFile(String),
     TooLarge(String),
