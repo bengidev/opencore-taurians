@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
 import type { EditorBuffer } from "../state/editorStore";
@@ -59,6 +59,25 @@ describe("EditorPanel", () => {
   it("shows empty state when no path", () => {
     render(<EditorPanel />);
     expect(screen.getByText(/open a file from the explorer/i)).toBeInTheDocument();
+  });
+
+  it("auto-clears openBatchError after a brief delay", () => {
+    vi.useFakeTimers();
+    try {
+      useEditorStore.setState({ openBatchError: "Open a project first" });
+
+      render(<EditorPanel />);
+      expect(screen.getByText("Open a project first")).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(3500);
+      });
+
+      expect(useEditorStore.getState().openBatchError).toBeNull();
+      expect(screen.queryByText("Open a project first")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows error message on load error", () => {

@@ -3,6 +3,8 @@ import { createTauriEditorApi } from "../api/editorApi";
 import { useEditorStore } from "../state/editorStore";
 import { useEditorSaveTriggers } from "./useEditorSaveTriggers";
 
+const OPEN_BATCH_ERROR_DISMISS_MS = 3500;
+
 const MonacoEditorHost = lazy(() =>
   import("./MonacoEditorHost").then((module) => ({ default: module.MonacoEditorHost })),
 );
@@ -22,6 +24,16 @@ export function EditorPanel() {
       bindApi(createTauriEditorApi());
     }
   }, []);
+
+  useEffect(() => {
+    if (!openBatchError) {
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      useEditorStore.getState().clearOpenBatchError();
+    }, OPEN_BATCH_ERROR_DISMISS_MS);
+    return () => window.clearTimeout(timeout);
+  }, [openBatchError]);
 
   if (!activeTabId || !buffer) {
     return (
