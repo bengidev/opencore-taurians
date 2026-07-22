@@ -22,6 +22,7 @@ export function EditorCardHeader() {
     null,
   );
   const quitPendingIdRef = useRef<string | null>(null);
+  const quitSaveAsHandoffRef = useRef(false);
 
   useEffect(() => {
     registerSaveAsRequestHandler((id) => {
@@ -77,8 +78,19 @@ export function EditorCardHeader() {
     saveAsOnSuccessRef.current = () => {
       resolveQuit("saved");
     };
+    quitSaveAsHandoffRef.current = true;
     setPendingQuitUntitledId(null);
     setPendingSaveAsSourceId(id);
+  };
+
+  const handleQuitDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      if (quitSaveAsHandoffRef.current) {
+        quitSaveAsHandoffRef.current = false;
+        return;
+      }
+      handleQuitCancel();
+    }
   };
 
   const handleQuitDontSave = (id: string) => {
@@ -134,11 +146,7 @@ export function EditorCardHeader() {
           onRequestSaveAsForClose={handleQuitSave}
           onDontSave={handleQuitDontSave}
           onCancel={handleQuitCancel}
-          onOpenChange={(open) => {
-            if (!open) {
-              handleQuitCancel();
-            }
-          }}
+          onOpenChange={handleQuitDialogOpenChange}
         />
       ) : null}
       <EditorSaveAsDialog
