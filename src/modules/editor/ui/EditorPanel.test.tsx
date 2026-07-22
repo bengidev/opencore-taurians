@@ -1,11 +1,16 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
 import { useEditorStore } from "../state/editorStore";
+import { useShellStore } from "../../shell/state/shellStore";
 import { EditorPanel } from "./EditorPanel";
 
 vi.mock("./MonacoEditorHost", () => ({
   MonacoEditorHost: () => <div data-testid="monaco-host" />,
 }));
+
+const PROJECT_ROOT = "/proj";
+const FILE_A = "/proj/a.ts";
 
 function resetEditorStore(): void {
   useEditorStore.setState({
@@ -21,11 +26,16 @@ function resetEditorStore(): void {
   });
 }
 
+function resetShellStore(): void {
+  useShellStore.setState({ activeMainCard: "chat" });
+}
+
 describe("EditorPanel", () => {
   afterEach(() => cleanup());
 
   beforeEach(() => {
     resetEditorStore();
+    resetShellStore();
   });
 
   it("shows empty state when no path", () => {
@@ -74,5 +84,87 @@ describe("EditorPanel", () => {
     render(<EditorPanel />);
     expect(await screen.findByTestId("monaco-host")).toBeInTheDocument();
     expect(screen.getByText("disk full")).toBeInTheDocument();
+  });
+
+  it("auto-saves when leaving editor card", async () => {
+    const api = createMemoryEditorApi({
+      files: { [FILE_A]: "hello" },
+    });
+    useEditorStore.getState().bindApi(api);
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_A);
+    useEditorStore.getState().setContentFromEditor("edited");
+    useShellStore.setState({ activeMainCard: "editor" });
+
+    render(<EditorPanel />);
+
+    useShellStore.getState().setActiveMainCard("chat");
+
+    await waitFor(() => {
+      expect(useEditorStore.getState().dirty).toBe(false);
+    });
+    expect(await api.readFile(PROJECT_ROOT, FILE_A)).toBe("edited");
+    expect(useShellStore.getState().activeMainCard).toBe("chat");
+  });
+
+  it("leave-card save failure still switches card and keeps dirty", async () => {
+    const api = createMemoryEditorApi({
+      files: { [FILE_A]: "hello" },
+    });
+    vi.spyOn(api, "writeFile").mockRejectedValueOnce(new Error("disk full"));
+    useEditorStore.getState().bindApi(api);
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_A);
+    useEditorStore.getState().setContentFromEditor("edited");
+    useShellStore.setState({ activeMainCard: "editor" });
+
+    render(<EditorPanel />);
+
+    useShellStore.getState().setActiveMainCard("chat");
+
+    await waitFor(() => {
+      expect(useEditorStore.getState().saveError).toBe("disk full");
+    });
+    expect(useShellStore.getState().activeMainCard).toBe("chat");
+    expect(useEditorStore.getState().dirty).toBe(true);
+  });
+
+  it("saves on Cmd+S when editor card is active", async () => {
+    const api = createMemoryEditorApi({
+      files: { [FILE_A]: "hello" },
+    });
+    useEditorStore.getState().bindApi(api);
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_A);
+    useEditorStore.getState().setContentFromEditor("edited");
+    useShellStore.setState({ activeMainCard: "editor" });
+
+    render(<EditorPanel />);
+
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "s", metaKey: true, bubbles: true }),
+    );
+
+    await waitFor(() => {
+      expect(useEditorStore.getState().dirty).toBe(false);
+    });
+    expect(await api.readFile(PROJECT_ROOT, FILE_A)).toBe("edited");
+  });
+
+  it("does not save on Cmd+S when editor card is inactive", async () => {
+    const api = createMemoryEditorApi({
+      files: { [FILE_A]: "hello" },
+    });
+    useEditorStore.getState().bindApi(api);
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_A);
+    useEditorStore.getState().setContentFromEditor("edited");
+    useShellStore.setState({ activeMainCard: "chat" });
+
+    render(<EditorPanel />);
+
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "s", metaKey: true, bubbles: true }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(useEditorStore.getState().dirty).toBe(true);
+    expect(await api.readFile(PROJECT_ROOT, FILE_A)).toBe("hello");
   });
 });

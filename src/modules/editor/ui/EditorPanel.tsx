@@ -1,12 +1,15 @@
 import { Suspense, lazy, useEffect } from "react";
 import { createTauriEditorApi } from "../api/editorApi";
 import { useEditorStore } from "../state/editorStore";
+import { useEditorSaveTriggers } from "./useEditorSaveTriggers";
 
 const MonacoEditorHost = lazy(() =>
   import("./MonacoEditorHost").then((module) => ({ default: module.MonacoEditorHost })),
 );
 
 export function EditorPanel() {
+  useEditorSaveTriggers();
+
   const path = useEditorStore((s) => s.path);
   const status = useEditorStore((s) => s.status);
   const errorMessage = useEditorStore((s) => s.errorMessage);
