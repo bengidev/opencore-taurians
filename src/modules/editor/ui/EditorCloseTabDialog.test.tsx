@@ -15,8 +15,9 @@ function resetEditorStore(): void {
     api: null,
     projectRoot: null,
     tabs: [],
-    activePath: null,
+    activeTabId: null,
     buffers: {},
+    nextUntitled: 1,
   });
 }
 
@@ -35,28 +36,28 @@ function seedBuffer(path: string, extras?: Partial<EditorBuffer>): EditorBuffer 
 function seedDirtyTab(): void {
   useEditorStore.setState({
     projectRoot: PROJECT_ROOT,
-    tabs: [{ path: FILE_A }],
-    activePath: FILE_A,
+    tabs: [{ id: FILE_A }],
+    activeTabId: FILE_A,
     buffers: { [FILE_A]: seedBuffer(FILE_A) },
   });
 }
 
 function DialogHarness({
-  initialPath,
+  initialId,
   onOpenChangeSpy,
 }: {
-  initialPath: string;
+  initialId: string;
   onOpenChangeSpy: (open: boolean) => void;
 }): ReactNode {
-  const [path, setPath] = useState<string | null>(initialPath);
+  const [id, setId] = useState<string | null>(initialId);
 
   return (
     <EditorCloseTabDialog
-      path={path}
+      id={id}
       onOpenChange={(open) => {
         onOpenChangeSpy(open);
         if (!open) {
-          setPath(null);
+          setId(null);
         }
       }}
     />
@@ -78,7 +79,7 @@ describe("EditorCloseTabDialog", () => {
     const onOpenChange = vi.fn();
 
     render(
-      <DialogHarness initialPath={FILE_A} onOpenChangeSpy={onOpenChange} />,
+      <DialogHarness initialId={FILE_A} onOpenChangeSpy={onOpenChange} />,
     );
 
     await user.click(screen.getByRole("button", { name: /^save$/i }));
@@ -100,7 +101,7 @@ describe("EditorCloseTabDialog", () => {
     const onOpenChange = vi.fn();
 
     render(
-      <DialogHarness initialPath={FILE_A} onOpenChangeSpy={onOpenChange} />,
+      <DialogHarness initialId={FILE_A} onOpenChangeSpy={onOpenChange} />,
     );
 
     await user.click(screen.getByRole("button", { name: /^save$/i }));
@@ -108,7 +109,7 @@ describe("EditorCloseTabDialog", () => {
     await waitFor(() => {
       expect(screen.getByText("disk full")).toBeInTheDocument();
     });
-    expect(useEditorStore.getState().tabs).toEqual([{ path: FILE_A }]);
+    expect(useEditorStore.getState().tabs).toEqual([{ id: FILE_A }]);
     expect(useEditorStore.getState().buffers[FILE_A]?.dirty).toBe(true);
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -120,7 +121,7 @@ describe("EditorCloseTabDialog", () => {
     const onOpenChange = vi.fn();
 
     render(
-      <DialogHarness initialPath={FILE_A} onOpenChangeSpy={onOpenChange} />,
+      <DialogHarness initialId={FILE_A} onOpenChangeSpy={onOpenChange} />,
     );
 
     await user.click(screen.getByRole("button", { name: /don't save/i }));
@@ -137,12 +138,12 @@ describe("EditorCloseTabDialog", () => {
     const onOpenChange = vi.fn();
 
     render(
-      <DialogHarness initialPath={FILE_A} onOpenChangeSpy={onOpenChange} />,
+      <DialogHarness initialId={FILE_A} onOpenChangeSpy={onOpenChange} />,
     );
 
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
 
-    expect(useEditorStore.getState().tabs).toEqual([{ path: FILE_A }]);
+    expect(useEditorStore.getState().tabs).toEqual([{ id: FILE_A }]);
     expect(useEditorStore.getState().buffers[FILE_A]?.dirty).toBe(true);
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

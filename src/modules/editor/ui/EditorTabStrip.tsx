@@ -4,22 +4,19 @@ import {
   EXPLORER_FILE_PATH_MIME,
   getExplorerFileDragPath,
 } from "../dnd/explorerFileDrag";
+import { tabLabel } from "../state/editorTabId";
 import { useEditorStore } from "../state/editorStore";
 
-function tabBasename(path: string): string {
-  return path.split(/[/\\]/).pop() ?? path;
-}
-
 export interface EditorTabStripProps {
-  onRequestCloseTab: (path: string) => void;
+  onRequestCloseTab: (id: string) => void;
 }
 
 export function EditorTabStrip({ onRequestCloseTab }: EditorTabStripProps) {
   const tabs = useEditorStore((s) => s.tabs);
-  const activePath = useEditorStore((s) => s.activePath);
+  const activeTabId = useEditorStore((s) => s.activeTabId);
   const buffers = useEditorStore((s) => s.buffers);
   const projectRoot = useEditorStore((s) => s.projectRoot);
-  const setActivePath = useEditorStore((s) => s.setActivePath);
+  const setActiveTabId = useEditorStore((s) => s.setActiveTabId);
   const openFile = useEditorStore((s) => s.openFile);
   const activeMainCard = useShellStore((s) => s.activeMainCard);
   const setActiveMainCard = useShellStore((s) => s.setActiveMainCard);
@@ -72,27 +69,27 @@ export function EditorTabStrip({ onRequestCloseTab }: EditorTabStripProps) {
       onDrop={handleDrop}
     >
       {tabs.map((tab) => {
-        const basename = tabBasename(tab.path);
-        const dirty = buffers[tab.path]?.dirty ?? false;
-        const selected = tab.path === activePath;
-        const tabLabel = dirty ? `${basename} •` : basename;
+        const label = tabLabel(tab.id);
+        const dirty = buffers[tab.id]?.dirty ?? false;
+        const selected = tab.id === activeTabId;
+        const displayLabel = dirty ? `${label} •` : label;
 
         return (
-          <div key={tab.path} className="flex min-w-0 items-center">
+          <div key={tab.id} className="flex min-w-0 items-center">
             <button
               type="button"
               role="tab"
               aria-selected={selected}
               className="rounded-[6px] border border-transparent px-2 py-0.5 font-mono text-[11px] tracking-[0.02em] text-muted-foreground aria-selected:border-border aria-selected:bg-muted aria-selected:text-foreground"
-              onClick={() => setActivePath(tab.path)}
+              onClick={() => setActiveTabId(tab.id)}
             >
-              {tabLabel}
+              {displayLabel}
             </button>
             <button
               type="button"
-              aria-label={`Close ${basename}`}
+              aria-label={`Close ${label}`}
               className="rounded-[6px] px-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
-              onClick={() => onRequestCloseTab(tab.path)}
+              onClick={() => onRequestCloseTab(tab.id)}
             >
               ×
             </button>

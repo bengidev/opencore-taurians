@@ -4,25 +4,25 @@ import { EditorCloseTabDialog } from "./EditorCloseTabDialog";
 import { EditorTabStrip } from "./EditorTabStrip";
 
 export function EditorCardHeader() {
-  const [pendingClosePath, setPendingClosePath] = useState<string | null>(null);
+  const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
 
-  const onRequestCloseTab = (path: string) => {
-    const buf = useEditorStore.getState().buffers[path];
+  const onRequestCloseTab = (id: string) => {
+    const buf = useEditorStore.getState().buffers[id];
     if (!buf?.dirty) {
-      useEditorStore.getState().closeTab(path);
+      useEditorStore.getState().closeTab(id);
       return;
     }
-    setPendingClosePath(path);
+    setPendingCloseId(id);
   };
 
   return (
     <>
       <EditorTabStrip onRequestCloseTab={onRequestCloseTab} />
       <EditorCloseTabDialog
-        path={pendingClosePath}
+        id={pendingCloseId}
         onOpenChange={(open) => {
           if (!open) {
-            setPendingClosePath(null);
+            setPendingCloseId(null);
           }
         }}
       />
