@@ -9,7 +9,7 @@ The editor module and its behavior: opening and editing project files in the **E
 _Avoid_: Code editor (when referring to the module), Monaco (when referring to the whole feature), calling the Editor main card a “tab”
 
 **Editor Tab**:
-An open file or Untitled buffer in the editor’s id-keyed tab set — `tabs` holds `{ id }` entries where `id` is `untitled:N` or an absolute path; `activeTabId` is the focused tab. Opening an already-open path focuses it; a new path or Untitled appends a tab and loads or creates its buffer. The tab strip (`+` opens Untitled when a project is open; optional Save As control) is UI chrome inside the Editor card, not a shell main card.
+An open file or Untitled buffer in the editor’s id-keyed tab set — `tabs` holds `{ id }` entries where `id` is `untitled:N` or an absolute path; `activeTabId` is the focused tab. Opening an already-open path focuses it; a new path or Untitled appends a tab and loads or creates its buffer. The tab strip (`+` opens Untitled when a project is open; per-tab context menu for Save, Save As, and Close) is UI chrome inside the Editor card, not a shell main card.
 _Avoid_: OS desktop file drops (Phase 2c), tab (when meaning the Editor main card)
 
 **Untitled**:
@@ -17,7 +17,7 @@ An in-memory editor tab with id `untitled:N` — no disk path until Save As succ
 _Avoid_: Calling Untitled tabs “new files” before Save As, treating `untitled:N` as a filesystem path
 
 **Save As**:
-In-app flow (folder under `projectRoot` + filename) that calls `editor_create_file` and retargets the source tab to the new absolute path. Available from the tab strip; also triggered for Untitled on ⌘S, leave, close, and quit. Path-backed tabs can Save As to retarget to a different path.
+In-app flow (folder under `projectRoot` + filename) that calls `editor_create_file` and retargets the source tab to the new absolute path. Available from each editor tab’s context menu; also triggered for Untitled on ⌘S, leave, close, and quit. Path-backed tabs can Save As to retarget to a different path.
 _Avoid_: Using `editor_write_file` for Save As (create-only), silent disk writes for Untitled
 
 **Editor Buffer**:

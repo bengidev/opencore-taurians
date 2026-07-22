@@ -38,6 +38,21 @@ function seedBuffer(path: string, extras?: Partial<EditorBuffer>): EditorBuffer 
   };
 }
 
+function stripProps(overrides?: {
+  onRequestCloseTab?: (id: string) => void;
+  onRequestSaveAs?: (id: string) => void;
+  onRequestCloseOthers?: (keepId: string) => void;
+  onRequestCloseAll?: () => void;
+}) {
+  return {
+    onRequestCloseTab: vi.fn(),
+    onRequestSaveAs: vi.fn(),
+    onRequestCloseOthers: vi.fn(),
+    onRequestCloseAll: vi.fn(),
+    ...overrides,
+  };
+}
+
 function createExplorerFileDataTransfer(path: string): DataTransfer {
   const store: Record<string, string> = {};
   const dt = {
@@ -69,9 +84,7 @@ describe("EditorTabStrip", () => {
       },
     });
 
-    render(
-      <EditorTabStrip onRequestCloseTab={vi.fn()} onRequestSaveAs={vi.fn()} />,
-    );
+    render(<EditorTabStrip {...stripProps()} />);
 
     expect(screen.getByRole("tab", { name: /a\.ts/i })).toHaveTextContent("•");
     expect(screen.getByRole("tab", { name: /b\.ts/i })).toHaveAttribute(
@@ -93,9 +106,7 @@ describe("EditorTabStrip", () => {
     });
     const setActiveTabId = vi.spyOn(useEditorStore.getState(), "setActiveTabId");
 
-    render(
-      <EditorTabStrip onRequestCloseTab={vi.fn()} onRequestSaveAs={vi.fn()} />,
-    );
+    render(<EditorTabStrip {...stripProps()} />);
 
     await user.click(screen.getByRole("tab", { name: /a\.ts/i }));
 
@@ -113,10 +124,7 @@ describe("EditorTabStrip", () => {
     });
 
     render(
-      <EditorTabStrip
-        onRequestCloseTab={onRequestCloseTab}
-        onRequestSaveAs={vi.fn()}
-      />,
+      <EditorTabStrip {...stripProps({ onRequestCloseTab })} />,
     );
 
     await user.click(screen.getByRole("button", { name: /close a\.ts/i }));
@@ -129,7 +137,12 @@ describe("EditorTabStrip", () => {
     useEditorStore.getState().bindApi(createMemoryEditorApi());
     useEditorStore.setState({ projectRoot: "/proj" });
     render(
-      <EditorTabStrip onRequestCloseTab={() => {}} onRequestSaveAs={() => {}} />,
+      <EditorTabStrip
+        {...stripProps({
+          onRequestCloseTab: () => {},
+          onRequestSaveAs: () => {},
+        })}
+      />,
     );
     const add = screen.getByRole("button", { name: /new untitled file/i });
     expect(add).toBeEnabled();
@@ -144,9 +157,7 @@ describe("EditorTabStrip", () => {
       .spyOn(useEditorStore.getState(), "openFile")
       .mockResolvedValue(true);
 
-    render(
-      <EditorTabStrip onRequestCloseTab={vi.fn()} onRequestSaveAs={vi.fn()} />,
-    );
+    render(<EditorTabStrip {...stripProps()} />);
 
     const strip = screen.getByRole("tablist", { name: /editor tabs/i });
     const dataTransfer = createExplorerFileDataTransfer(FILE_C);
@@ -156,5 +167,62 @@ describe("EditorTabStrip", () => {
 
     expect(openFile).toHaveBeenCalledWith(PROJECT_ROOT, FILE_C);
     expect(dataTransfer.types).toContain(EXPLORER_FILE_PATH_MIME);
+  });
+
+  it("does not render a strip Save As button", () => {
+    useEditorStore.setState({
+      projectRoot: PROJECT_ROOT,
+      tabs: [{ id: FILE_A }],
+      activeTabId: FILE_A,
+      buffers: { [FILE_A]: seedBuffer(FILE_A) },
+    });
+    render(<EditorTabStrip {...stripProps()} />);
+    expect(screen.queryByRole("button", { name: /^save as/i })).toBeNull();
+  });
+
+  it("tab context menu Save As calls onRequestSaveAs with that tab id", async () => {
+    const onRequestSaveAs = vi.fn();
+    useEditorStore.setState({
+      projectRoot: PROJECT_ROOT,
+      tabs: [{ id: FILE_A }, { id: FILE_B }],
+      activeTabId: FILE_B,
+      buffers: {
+        [FILE_A]: seedBuffer(FILE_A),
+        [FILE_B]: seedBuffer(FILE_B),
+      },
+    });
+    render(<EditorTabStrip {...stripProps({ onRequestSaveAs })} />);
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /a\.ts/i }));
+    await userEvent.setup().click(await screen.findByRole("menuitem", { name: /save as/i }));
+    expect(onRequestSaveAs).toHaveBeenCalledWith(FILE_A);
+    expect(useEditorStore.getState().activeTabId).toBe(FILE_A);
+  });
+
+  it("tab context menu Save on path tab calls saveTab", async () => {
+    useEditorStore.getState().bindApi(createMemoryEditorApi({ files: { [FILE_A]: "x" } }));
+    useEditorStore.setState({
+      projectRoot: PROJECT_ROOT,
+      tabs: [{ id: FILE_A }],
+      activeTabId: FILE_A,
+      buffers: { [FILE_A]: seedBuffer(FILE_A, { content: "y", dirty: true }) },
+    });
+    const saveTab = vi.spyOn(useEditorStore.getState(), "saveTab");
+    render(<EditorTabStrip {...stripProps()} />);
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /a\.ts/i }));
+    await userEvent.setup().click(await screen.findByRole("menuitem", { name: /^save$/i }));
+    expect(saveTab).toHaveBeenCalledWith(FILE_A);
+  });
+
+  it("Close Others is disabled when only one tab is open", async () => {
+    useEditorStore.setState({
+      projectRoot: PROJECT_ROOT,
+      tabs: [{ id: FILE_A }],
+      activeTabId: FILE_A,
+      buffers: { [FILE_A]: seedBuffer(FILE_A) },
+    });
+    render(<EditorTabStrip {...stripProps()} />);
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /a\.ts/i }));
+    const item = await screen.findByRole("menuitem", { name: /close others/i });
+    expect(item).toHaveAttribute("aria-disabled", "true");
   });
 });
