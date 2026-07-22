@@ -1,5 +1,5 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createTauriExplorerApi } from "../../explorer/api/explorerApi";
@@ -87,7 +87,7 @@ export function EditorSaveAsDialog({
   onFailure?: () => void;
   listSubdirs?: (projectRoot: string, dir: string) => Promise<string[]>;
   listDir?: (projectRoot: string, dir: string) => Promise<ExplorerEntry[]>;
-}): JSX.Element | null {
+}): ReactElement | null {
   const projectRoot = useEditorStore((s) => s.projectRoot);
   const saveError = useEditorStore((s) =>
     sourceId ? (s.buffers[sourceId]?.saveError ?? null) : null,

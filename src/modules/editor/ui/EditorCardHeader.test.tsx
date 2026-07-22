@@ -30,7 +30,7 @@ function resetEditorStore(): void {
   });
 }
 
-function seedBuffer(path: string, extras?: Partial<EditorBuffer>): EditorBuffer {
+function seedBuffer(_path: string, extras?: Partial<EditorBuffer>): EditorBuffer {
   return {
     content: "hello",
     baselineContent: "hello",
@@ -38,6 +38,7 @@ function seedBuffer(path: string, extras?: Partial<EditorBuffer>): EditorBuffer 
     status: "ready",
     errorMessage: null,
     saveError: null,
+    readOnly: false,
     ...extras,
   };
 }
@@ -69,6 +70,7 @@ function seedDirtyUntitled(): string {
     status: "ready",
     errorMessage: null,
     saveError: null,
+    readOnly: false,
   };
   useEditorStore.setState({
     projectRoot: PROJECT_ROOT,
