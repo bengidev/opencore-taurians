@@ -157,6 +157,13 @@ describe("editorStore multi-tab", () => {
     expect(state.buffers[FILE_C]?.dirty).toBe(true);
   });
 
+  it("save and saveIfDirty return true when there is no active tab", async () => {
+    expect(useEditorStore.getState().activePath).toBeNull();
+
+    await expect(useEditorStore.getState().save()).resolves.toBe(true);
+    await expect(useEditorStore.getState().saveIfDirty()).resolves.toBe(true);
+  });
+
   it("closeTab removes tab and activates right neighbor else left", async () => {
     const api = createMemoryEditorApi({
       files: { [FILE_A]: "a", [FILE_B]: "b", [FILE_C]: "c" },
@@ -173,6 +180,24 @@ describe("editorStore multi-tab", () => {
     expect(state.tabs.map((t) => t.path)).toEqual([FILE_A, FILE_C]);
     expect(state.activePath).toBe(FILE_C);
     expect(state.buffers[FILE_B]).toBeUndefined();
+  });
+
+  it("closeTab activates left neighbor when closing the rightmost active tab", async () => {
+    const api = createMemoryEditorApi({
+      files: { [FILE_A]: "a", [FILE_B]: "b", [FILE_C]: "c" },
+    });
+    useEditorStore.getState().bindApi(api);
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_A);
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_B);
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_C);
+    expect(useEditorStore.getState().activePath).toBe(FILE_C);
+
+    useEditorStore.getState().closeTab(FILE_C);
+
+    const state = useEditorStore.getState();
+    expect(state.tabs.map((t) => t.path)).toEqual([FILE_A, FILE_B]);
+    expect(state.activePath).toBe(FILE_B);
+    expect(state.buffers[FILE_C]).toBeUndefined();
   });
 
   it("closeTab last tab clears activePath", async () => {
