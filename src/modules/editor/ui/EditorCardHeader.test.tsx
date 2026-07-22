@@ -147,4 +147,111 @@ describe("EditorCardHeader quit Untitled handoff", () => {
     await expect(quitPromise).resolves.toBe("cancelled");
     expect(useEditorStore.getState().tabs).toHaveLength(1);
   });
+
+  it("Save As createFile failure during quit resolves failed", async () => {
+    const user = userEvent.setup();
+    const api = createMemoryEditorApi();
+    vi.spyOn(api, "createFile").mockRejectedValueOnce(new Error("disk full"));
+    useEditorStore.getState().bindApi(api);
+    const id = seedDirtyUntitled();
+
+    render(<EditorCardHeader />);
+
+    const quitPromise = promptQuitUntitled(id);
+
+    await waitFor(() => {
+      expect(screen.getByText("Save changes?")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Save As")).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText("File name"), "new.ts");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await expect(quitPromise).resolves.toBe("failed");
+    expect(useEditorStore.getState().tabs).toEqual([{ id }]);
+    expect(useEditorStore.getState().buffers[id]?.dirty).toBe(true);
+  });
+});
+
+describe("EditorCardHeader dirty close Save As", () => {
+  afterEach(() => cleanup());
+
+  beforeEach(() => {
+    resetEditorStore();
+  });
+
+  it("dirty Untitled close → Save → Save As success removes tab", async () => {
+    const user = userEvent.setup();
+    const api = createMemoryEditorApi();
+    useEditorStore.getState().bindApi(api);
+    const id = seedDirtyUntitled();
+
+    render(<EditorCardHeader />);
+
+    await user.click(screen.getByRole("button", { name: /^close untitled-1$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Save changes?")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Save As")).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText("File name"), "new.ts");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(useEditorStore.getState().tabs).toEqual([]);
+    });
+    expect(useEditorStore.getState().tabs.find((t) => t.id === id)).toBeUndefined();
+    expect(await api.readFile(PROJECT_ROOT, `${PROJECT_ROOT}/new.ts`)).toBe("draft");
+  });
+
+  it("dirty Untitled close → Save As failure then retry success closes tab", async () => {
+    const user = userEvent.setup();
+    const api = createMemoryEditorApi();
+    const createFileSpy = vi
+      .spyOn(api, "createFile")
+      .mockRejectedValueOnce(new Error("disk full"));
+    useEditorStore.getState().bindApi(api);
+    const id = seedDirtyUntitled();
+
+    render(<EditorCardHeader />);
+
+    await user.click(screen.getByRole("button", { name: /^close untitled-1$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Save changes?")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Save As")).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText("File name"), "new.ts");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("disk full")).toBeInTheDocument();
+    });
+    expect(useEditorStore.getState().tabs).toEqual([{ id }]);
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(useEditorStore.getState().tabs).toEqual([]);
+    });
+    expect(createFileSpy).toHaveBeenCalledTimes(2);
+    expect(await api.readFile(PROJECT_ROOT, `${PROJECT_ROOT}/new.ts`)).toBe("draft");
+  });
 });
