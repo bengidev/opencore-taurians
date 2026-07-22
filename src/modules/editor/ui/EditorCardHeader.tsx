@@ -18,6 +18,7 @@ export function EditorCardHeader() {
     string | null
   >(null);
   const saveAsOnSuccessRef = useRef<((savedPath: string) => void) | null>(null);
+  const pendingCloseAfterSaveAsIdRef = useRef<string | null>(null);
   const quitResolverRef = useRef<((result: QuitUntitledResult) => void) | null>(
     null,
   );
@@ -27,6 +28,7 @@ export function EditorCardHeader() {
   useEffect(() => {
     registerSaveAsRequestHandler((id) => {
       saveAsOnSuccessRef.current = null;
+      pendingCloseAfterSaveAsIdRef.current = null;
       setPendingSaveAsSourceId(id);
     });
     registerQuitUntitledHandler((id) => {
@@ -64,13 +66,12 @@ export function EditorCardHeader() {
       return;
     }
     saveAsOnSuccessRef.current = null;
+    pendingCloseAfterSaveAsIdRef.current = null;
     setPendingSaveAsSourceId(activeTabId);
   };
 
   const onRequestSaveAsForClose = (id: string) => {
-    saveAsOnSuccessRef.current = (savedPath: string) => {
-      useEditorStore.getState().closeTab(savedPath);
-    };
+    pendingCloseAfterSaveAsIdRef.current = id;
     setPendingSaveAsSourceId(id);
   };
 
@@ -107,12 +108,17 @@ export function EditorCardHeader() {
       if (quitPendingIdRef.current && quitResolverRef.current) {
         resolveQuit("cancelled");
       }
+      pendingCloseAfterSaveAsIdRef.current = null;
       setPendingSaveAsSourceId(null);
       saveAsOnSuccessRef.current = null;
     }
   };
 
   const handleSaveAsSuccess = (savedPath: string) => {
+    if (pendingCloseAfterSaveAsIdRef.current) {
+      useEditorStore.getState().closeTab(savedPath);
+      pendingCloseAfterSaveAsIdRef.current = null;
+    }
     saveAsOnSuccessRef.current?.(savedPath);
     saveAsOnSuccessRef.current = null;
   };
@@ -120,9 +126,9 @@ export function EditorCardHeader() {
   const handleSaveAsFailure = () => {
     if (quitPendingIdRef.current && quitResolverRef.current) {
       resolveQuit("failed");
+      saveAsOnSuccessRef.current = null;
       return;
     }
-    saveAsOnSuccessRef.current = null;
   };
 
   return (
