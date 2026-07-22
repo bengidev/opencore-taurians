@@ -2,10 +2,8 @@ import { useEffect } from "react";
 import { useShellStore } from "../../shell/state/shellStore";
 import { isUntitledId } from "../state/editorTabId";
 import { useEditorStore } from "../state/editorStore";
-import {
-  promptQuitUntitled,
-  requestSaveAs,
-} from "./saveAsPromptBridge";
+import { performEditorSave } from "./editorSaveActions";
+import { promptQuitUntitled, requestSaveAs } from "./saveAsPromptBridge";
 
 export function useEditorSaveTriggers(): void {
   useEffect(() => {
@@ -33,12 +31,7 @@ export function useEditorSaveTriggers(): void {
       if (!mod || event.key.toLowerCase() !== "s") return;
       if (useShellStore.getState().activeMainCard !== "editor") return;
       event.preventDefault();
-      const { activeTabId } = useEditorStore.getState();
-      if (activeTabId && isUntitledId(activeTabId)) {
-        requestSaveAs(activeTabId);
-        return;
-      }
-      void useEditorStore.getState().save();
+      performEditorSave();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
