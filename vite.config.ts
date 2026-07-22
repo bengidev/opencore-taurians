@@ -24,6 +24,10 @@ export default defineConfig(async () => ({
     },
   },
 
+  optimizeDeps: {
+    include: ["monaco-editor"],
+  },
+
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",

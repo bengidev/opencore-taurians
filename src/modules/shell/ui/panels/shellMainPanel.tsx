@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useChatStore } from "../../../chat/state/chatStore";
-import { useEditorStore } from "../../../editor/state/editorStore";
+import { EditorCardHeader } from "../../../editor/ui/EditorCardHeader";
+import { EditorDropZone } from "../../../editor/ui/EditorDropZone";
+import { EditorPanel } from "../../../editor/ui/EditorPanel";
 import { appendTrunkMessage } from "../../../project/state/projectChat";
 import { useProjectStore } from "../../../project/state/projectStore";
 import { useShellStore, type ShellMainCard } from "../../state/shellStore";
@@ -69,27 +71,6 @@ function ChatCard() {
   );
 }
 
-function EditorCard() {
-  const openFilePath = useEditorStore((s) => s.openFilePath);
-
-  if (!openFilePath) {
-    return (
-      <p className="mt-2 font-mono text-sm text-muted-foreground">
-        Open a file from the explorer
-      </p>
-    );
-  }
-
-  return (
-    <p
-      className="mt-2 truncate font-mono text-sm text-muted-foreground"
-      aria-label="editor-open-file"
-    >
-      {openFilePath}
-    </p>
-  );
-}
-
 export function ShellMainPanel() {
   const activeMainCard = useShellStore((s) => s.activeMainCard);
 
@@ -102,18 +83,25 @@ export function ShellMainPanel() {
           aria-hidden={activeMainCard !== card}
           className="absolute inset-0 flex flex-col p-3"
         >
-          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-            {card}
-          </p>
-          {card === "chat" ? (
-            <ChatCard />
-          ) : card === "editor" ? (
-            <EditorCard />
+          {card === "editor" ? (
+            <EditorDropZone>
+              <EditorCardHeader />
+              <EditorPanel />
+            </EditorDropZone>
           ) : (
-            <input
-              aria-label={`${card}-dummy-note`}
-              className="mt-2 w-full rounded-[6px] border border-border bg-transparent px-2 py-1 text-sm"
-            />
+            <>
+              <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                {card}
+              </p>
+              {card === "chat" ? (
+                <ChatCard />
+              ) : (
+                <input
+                  aria-label={`${card}-dummy-note`}
+                  className="mt-2 w-full rounded-[6px] border border-border bg-transparent px-2 py-1 text-sm"
+                />
+              )}
+            </>
           )}
         </section>
       ))}
