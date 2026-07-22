@@ -1,3 +1,4 @@
+mod editor;
 mod explorer;
 mod path_scope;
 
