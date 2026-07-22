@@ -28,4 +28,4 @@ OpenCore Taurians is a Tauri desktop app. Capabilities that touch the filesystem
 | ------- | ------- | -------- |
 | File explorer | `explorer_list_dir`, `explorer_trash`, `explorer_watch`, … | `ExplorerTree`, `explorerStore`, `explorerApi` |
 | Open folder (target) | Dialog or `explorer_pick_folder` command | Button triggers API only |
-| Editor open file | `editor_read_file` (future) | Editor view + path from store |
+| Editor open/save file | `editor_read_file`, `editor_write_file` | `EditorPanel`, `editorStore`, `editorApi` |
