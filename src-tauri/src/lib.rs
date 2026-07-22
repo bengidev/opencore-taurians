@@ -22,6 +22,7 @@ pub fn run() {
             greet,
             editor::read::editor_read_file,
             editor::write::editor_write_file,
+            editor::create::editor_create_file,
             explorer::list_dir::explorer_list_dir,
             explorer::create::explorer_create_file,
             explorer::create::explorer_create_dir,
