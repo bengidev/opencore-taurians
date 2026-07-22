@@ -1,3 +1,4 @@
+import { Lock } from "lucide-react";
 import { useState, type DragEvent } from "react";
 import {
   ContextMenu,
@@ -90,6 +91,7 @@ export function EditorTabStrip({
       {tabs.map((tab) => {
         const label = tabLabel(tab.id);
         const dirty = buffers[tab.id]?.dirty ?? false;
+        const readOnly = buffers[tab.id]?.readOnly ?? false;
         const selected = tab.id === activeTabId;
         const displayLabel = dirty ? `${label} •` : label;
 
@@ -113,7 +115,15 @@ export function EditorTabStrip({
                 }
                 onClick={() => setActiveTabId(tab.id)}
               >
-                {displayLabel}
+                <span className="flex items-center gap-1">
+                  {displayLabel}
+                  {readOnly ? (
+                    <Lock
+                      aria-label="Read-only"
+                      className="size-3 shrink-0 opacity-70"
+                    />
+                  ) : null}
+                </span>
               </ContextMenuTrigger>
               <button
                 type="button"
@@ -126,6 +136,7 @@ export function EditorTabStrip({
             </div>
             <ContextMenuContent className={editorTabContextMenuClassName}>
               <ContextMenuItem
+                disabled={readOnly}
                 onClick={() => {
                   if (isUntitledId(tab.id)) onRequestSaveAs(tab.id);
                   else void useEditorStore.getState().saveTab(tab.id);
@@ -133,7 +144,10 @@ export function EditorTabStrip({
               >
                 Save
               </ContextMenuItem>
-              <ContextMenuItem onClick={() => onRequestSaveAs(tab.id)}>
+              <ContextMenuItem
+                disabled={readOnly}
+                onClick={() => onRequestSaveAs(tab.id)}
+              >
                 Save As…
               </ContextMenuItem>
               <ContextMenuSeparator />
