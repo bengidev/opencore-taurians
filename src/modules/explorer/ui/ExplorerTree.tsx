@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { resolveExplorerIcon } from "@/lib/fileIcons";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "../../editor/state/editorStore";
+import { setExplorerFileDragData } from "../../editor/dnd/explorerFileDrag";
 import { useShellStore } from "../../shell/state/shellStore";
 import type { ExplorerEntry } from "../domain/explorerTypes";
 import { filterExplorerTree } from "../domain/filterExplorerTree";
@@ -158,6 +159,11 @@ function ExplorerEntryRow({ entry, depth }: ExplorerEntryRowProps) {
             type="button"
             aria-current={isSelected ? "true" : undefined}
             className={rowButtonClassName}
+            draggable
+            onDragStart={(event) => {
+              setExplorerFileDragData(event.dataTransfer, entry.path);
+              event.dataTransfer.effectAllowed = "copy";
+            }}
             onClick={() => {
               selectPath(entry.path);
               openFile(entry.path);
