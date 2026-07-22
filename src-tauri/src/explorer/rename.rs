@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use super::error::ExplorerError;
 use super::list_dir::ExplorerEntry;
-use super::path_scope::ensure_under_root;
+use crate::path_scope::ensure_under_root;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
