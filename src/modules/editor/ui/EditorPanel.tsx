@@ -42,7 +42,7 @@ export function EditorPanel() {
           <p className="mt-2 font-mono text-sm text-destructive">{openBatchError}</p>
         ) : null}
         <p className="mt-2 font-mono text-sm text-muted-foreground">
-          Open a file from the explorer or Open…
+          Open a file from the explorer or File → Open…
         </p>
       </>
     );

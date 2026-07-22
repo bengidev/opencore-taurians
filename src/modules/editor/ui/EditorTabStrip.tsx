@@ -12,19 +12,13 @@ import {
   EXPLORER_FILE_PATH_MIME,
   getExplorerFileDragPath,
 } from "../dnd/explorerFileDrag";
-import {
-  createTauriEditorFilePicker,
-  type EditorFilePicker,
-} from "../infrastructure/editorFilePicker";
 import { isUntitledId, tabLabel } from "../state/editorTabId";
 import { useEditorStore } from "../state/editorStore";
-import { openEditorFilesFromPicker } from "./openEditorFiles";
 
 const editorTabContextMenuClassName =
   "min-w-36 font-mono text-xs tracking-[0.08em]";
 
 export interface EditorTabStripProps {
-  filePicker?: EditorFilePicker;
   osDropActive?: boolean;
   onRequestCloseTab: (id: string) => void;
   onRequestSaveAs: (id: string) => void;
@@ -33,7 +27,6 @@ export interface EditorTabStripProps {
 }
 
 export function EditorTabStrip({
-  filePicker = createTauriEditorFilePicker(),
   osDropActive = false,
   onRequestCloseTab,
   onRequestSaveAs,
@@ -177,15 +170,6 @@ export function EditorTabStrip({
           </ContextMenu>
         );
       })}
-      <button
-        type="button"
-        disabled={!projectRoot}
-        aria-label="Open…"
-        className="rounded-[6px] border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground disabled:opacity-50"
-        onClick={() => void openEditorFilesFromPicker(filePicker)}
-      >
-        Open…
-      </button>
       <button
         type="button"
         disabled={!projectRoot}
