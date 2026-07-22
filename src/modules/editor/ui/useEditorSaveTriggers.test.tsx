@@ -2,6 +2,7 @@ import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
 import { useEditorStore } from "../state/editorStore";
+import { useShellStore } from "../../shell/state/shellStore";
 import { useEditorSaveTriggers } from "./useEditorSaveTriggers";
 
 const PROJECT_ROOT = "/proj";
@@ -42,6 +43,7 @@ function resetEditorStore(): void {
 describe("useEditorSaveTriggers quit save", () => {
   beforeEach(() => {
     resetEditorStore();
+    useShellStore.setState({ activeMainCard: "chat" });
     closeHandler = undefined;
     preventDefault.mockClear();
   });
@@ -86,6 +88,7 @@ describe("useEditorSaveTriggers quit save", () => {
     await closeHandler!(event);
 
     expect(preventDefault).toHaveBeenCalled();
+    expect(useShellStore.getState().activeMainCard).toBe("editor");
     expect(useEditorStore.getState().buffers[FILE_A]?.dirty).toBe(true);
     expect(useEditorStore.getState().buffers[FILE_A]?.saveError).toBe("disk full");
     unmount();
@@ -139,6 +142,7 @@ describe("useEditorSaveTriggers quit save", () => {
     await closeHandler!(event);
 
     expect(preventDefault).toHaveBeenCalled();
+    expect(useShellStore.getState().activeMainCard).toBe("editor");
     expect(useEditorStore.getState().activePath).toBe(FILE_B);
     expect(useEditorStore.getState().buffers[FILE_A]?.dirty).toBe(false);
     expect(useEditorStore.getState().buffers[FILE_B]?.dirty).toBe(true);
