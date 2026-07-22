@@ -87,6 +87,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   openFile: async (projectRoot, path) => {
     const state = get();
     if (state.path === path && state.status === "ready") {
+      set({ saveError: null });
       return true;
     }
 
@@ -99,6 +100,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       projectRoot,
       status: "loading",
       errorMessage: null,
+      saveError: null,
     });
 
     const api = get().api;
