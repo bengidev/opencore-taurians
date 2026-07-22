@@ -17,7 +17,12 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { projectNormalizeFolderPath } from "../../project/domain/projectPath";
+import { useEditorStore } from "../../editor/state/editorStore";
 import type { ExplorerEntry } from "../domain/explorerTypes";
+import {
+  explorerDeleteConfirmMessage,
+  matchingEditorTabIdsForDelete,
+} from "../domain/explorerDeleteEditorTabs";
 import { useExplorerStore } from "../state/explorerStore";
 import { explorerContextMenuClassName } from "./explorerStyles";
 
@@ -121,9 +126,25 @@ export function ExplorerContextMenu({
     if (!api || !projectRoot) {
       return;
     }
+
+    const entry = findEntry(path);
+    const isDir =
+      entry?.isDir ?? Boolean(useExplorerStore.getState().childrenByPath[path]);
+    const name = entry?.name ?? path.slice(path.lastIndexOf("/") + 1) ?? path;
+
+    const tabIds = useEditorStore.getState().tabs.map((t) => t.id);
+    const matching = matchingEditorTabIdsForDelete(tabIds, path, isDir);
+    if (!window.confirm(explorerDeleteConfirmMessage(name, matching.length))) {
+      return;
+    }
+
     try {
       await api.trash(projectRoot, path);
       await refresh();
+      const { closeTab } = useEditorStore.getState();
+      for (const id of matching) {
+        closeTab(id);
+      }
     } catch (error) {
       setExplorerError(error);
     }
