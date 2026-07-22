@@ -348,6 +348,18 @@ describe("editorStore openPaths", () => {
     expect(writeSpy).not.toHaveBeenCalled();
   });
 
+  it("saveAs on readOnly tab does not call createFile", async () => {
+    const api = createMemoryEditorApi({ files: { [OUTSIDE]: "out" } });
+    const createSpy = vi.spyOn(api, "createFile");
+    useEditorStore.getState().bindApi(api);
+    useEditorStore.setState({ projectRoot: PROJECT_ROOT });
+    await useEditorStore.getState().openPaths([OUTSIDE]);
+    await expect(
+      useEditorStore.getState().saveAs(OUTSIDE, "/proj/new.ts"),
+    ).resolves.toBe(false);
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
   it("setContentFromEditor no-ops for readOnly active tab", async () => {
     const api = createMemoryEditorApi({ files: { [OUTSIDE]: "out" } });
     useEditorStore.getState().bindApi(api);
