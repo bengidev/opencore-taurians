@@ -84,6 +84,27 @@ export function EditorCardHeader() {
     void promptCloseTab(id);
   };
 
+  async function closeTabsSequentially(ids: string[]): Promise<void> {
+    for (const id of ids) {
+      if (!useEditorStore.getState().tabs.some((t) => t.id === id)) continue;
+      const result = await promptCloseTab(id);
+      if (result === "cancelled") return;
+    }
+  }
+
+  const onRequestCloseOthers = (keepId: string) => {
+    const ids = useEditorStore
+      .getState()
+      .tabs.map((t) => t.id)
+      .filter((id) => id !== keepId);
+    void closeTabsSequentially(ids);
+  };
+
+  const onRequestCloseAll = () => {
+    const ids = useEditorStore.getState().tabs.map((t) => t.id);
+    void closeTabsSequentially(ids);
+  };
+
   const onRequestSaveAs = (id: string) => {
     saveAsOnSuccessRef.current = null;
     pendingCloseAfterSaveAsIdRef.current = null;
@@ -189,8 +210,8 @@ export function EditorCardHeader() {
       <EditorTabStrip
         onRequestCloseTab={onRequestCloseTab}
         onRequestSaveAs={onRequestSaveAs}
-        onRequestCloseOthers={() => {}}
-        onRequestCloseAll={() => {}}
+        onRequestCloseOthers={onRequestCloseOthers}
+        onRequestCloseAll={onRequestCloseAll}
       />
       <EditorCloseTabDialog
         id={pendingCloseId}

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
@@ -10,6 +10,8 @@ import { promptQuitUntitled } from "./saveAsPromptBridge";
 
 const PROJECT_ROOT = "/proj";
 const FILE_A = "/proj/a.ts";
+const FILE_B = "/proj/b.ts";
+const FILE_C = "/proj/c.ts";
 
 vi.mock("../../explorer/api/explorerApi", () => ({
   createTauriExplorerApi: () => ({
@@ -318,5 +320,60 @@ describe("EditorCardHeader dirty close Save As", () => {
     });
     expect(createFileSpy).toHaveBeenCalledTimes(2);
     expect(await api.readFile(PROJECT_ROOT, `${PROJECT_ROOT}/new.ts`)).toBe("draft");
+  });
+});
+
+describe("EditorCardHeader Close Others / Close All", () => {
+  afterEach(() => cleanup());
+
+  beforeEach(() => {
+    resetEditorStore();
+  });
+
+  it("Close Others closes clean other tabs and keeps the target", async () => {
+    const user = userEvent.setup();
+    useEditorStore.setState({
+      projectRoot: PROJECT_ROOT,
+      tabs: [{ id: FILE_A }, { id: FILE_B }, { id: FILE_C }],
+      activeTabId: FILE_B,
+      buffers: {
+        [FILE_A]: seedBuffer(FILE_A),
+        [FILE_B]: seedBuffer(FILE_B),
+        [FILE_C]: seedBuffer(FILE_C),
+      },
+    });
+
+    render(<EditorCardHeader />);
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /b\.ts/i }));
+    await user.click(await screen.findByRole("menuitem", { name: /close others/i }));
+    await waitFor(() => {
+      expect(useEditorStore.getState().tabs.map((t) => t.id)).toEqual([FILE_B]);
+    });
+  });
+
+  it("Close All stops after Cancel on a dirty tab", async () => {
+    const user = userEvent.setup();
+    useEditorStore.setState({
+      projectRoot: PROJECT_ROOT,
+      tabs: [{ id: FILE_A }, { id: FILE_B }, { id: FILE_C }],
+      activeTabId: FILE_A,
+      buffers: {
+        [FILE_A]: seedBuffer(FILE_A),
+        [FILE_B]: seedBuffer(FILE_B, { content: "edited", dirty: true }),
+        [FILE_C]: seedBuffer(FILE_C),
+      },
+    });
+
+    render(<EditorCardHeader />);
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /a\.ts/i }));
+    await user.click(await screen.findByRole("menuitem", { name: /close all/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Save changes?")).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    await waitFor(() => {
+      const ids = useEditorStore.getState().tabs.map((t) => t.id);
+      expect(ids).toEqual([FILE_B, FILE_C]);
+    });
   });
 });
