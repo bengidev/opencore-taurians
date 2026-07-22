@@ -50,7 +50,7 @@ function DialogHarness({
   initialSourceId: string;
   listSubdirs: (projectRoot: string, dir: string) => Promise<string[]>;
   onOpenChangeSpy: (open: boolean) => void;
-  onSuccess?: () => void;
+  onSuccess?: (savedPath: string) => void;
 }): ReactNode {
   const [sourceId, setSourceId] = useState<string | null>(initialSourceId);
 
@@ -110,12 +110,14 @@ describe("EditorSaveAsDialog", () => {
     useEditorStore.getState().bindApi(api);
     const id = seedUntitled();
     const onOpenChange = vi.fn();
+    const onSuccess = vi.fn();
 
     render(
       <DialogHarness
         initialSourceId={id}
         listSubdirs={listSubdirs}
         onOpenChangeSpy={onOpenChange}
+        onSuccess={onSuccess}
       />,
     );
 
@@ -129,6 +131,7 @@ describe("EditorSaveAsDialog", () => {
     await waitFor(() => {
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
+    expect(onSuccess).toHaveBeenCalledWith(`${SUBDIR}/hello.ts`);
     expect(await api.readFile(PROJECT_ROOT, `${SUBDIR}/hello.ts`)).toBe("hello");
     expect(useEditorStore.getState().tabs).toEqual([{ id: `${SUBDIR}/hello.ts` }]);
   });

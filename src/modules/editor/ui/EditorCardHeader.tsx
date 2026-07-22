@@ -17,7 +17,7 @@ export function EditorCardHeader() {
   const [pendingQuitUntitledId, setPendingQuitUntitledId] = useState<
     string | null
   >(null);
-  const saveAsOnSuccessRef = useRef<(() => void) | null>(null);
+  const saveAsOnSuccessRef = useRef<((savedPath: string) => void) | null>(null);
   const quitResolverRef = useRef<((result: QuitUntitledResult) => void) | null>(
     null,
   );
@@ -67,11 +67,8 @@ export function EditorCardHeader() {
   };
 
   const onRequestSaveAsForClose = (id: string) => {
-    saveAsOnSuccessRef.current = () => {
-      const activeTabId = useEditorStore.getState().activeTabId;
-      if (activeTabId) {
-        useEditorStore.getState().closeTab(activeTabId);
-      }
+    saveAsOnSuccessRef.current = (savedPath: string) => {
+      useEditorStore.getState().closeTab(savedPath);
     };
     setPendingSaveAsSourceId(id);
   };
@@ -103,8 +100,8 @@ export function EditorCardHeader() {
     }
   };
 
-  const handleSaveAsSuccess = () => {
-    saveAsOnSuccessRef.current?.();
+  const handleSaveAsSuccess = (savedPath: string) => {
+    saveAsOnSuccessRef.current?.(savedPath);
     saveAsOnSuccessRef.current = null;
   };
 

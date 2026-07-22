@@ -199,6 +199,62 @@ describe("useEditorSaveTriggers quit save", () => {
     unmount();
   });
 
+  it("quit prevents close when quit Untitled is cancelled", async () => {
+    const api = createMemoryEditorApi({
+      files: { [FILE_A]: "file-a" },
+    });
+    useEditorStore.getState().bindApi(api);
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_A);
+    const untitledId = useEditorStore.getState().openUntitled();
+    useEditorStore.getState().setContentFromEditor("untitled-draft");
+
+    const promptSpy = vi
+      .spyOn(saveAsPromptBridge, "promptQuitUntitled")
+      .mockResolvedValue("cancelled");
+
+    const { unmount } = render(<SaveTriggersHost />);
+    await vi.waitFor(() => expect(closeHandler).toBeDefined());
+
+    const event = { preventDefault };
+    await closeHandler!(event);
+
+    expect(preventDefault).toHaveBeenCalled();
+    expect(useShellStore.getState().activeMainCard).toBe("editor");
+    expect(promptSpy).toHaveBeenCalledWith(untitledId);
+    expect(useEditorStore.getState().tabs.find((t) => t.id === untitledId)).toBeDefined();
+
+    promptSpy.mockRestore();
+    unmount();
+  });
+
+  it("quit prevents close when quit Untitled save fails", async () => {
+    const api = createMemoryEditorApi({
+      files: { [FILE_A]: "file-a" },
+    });
+    useEditorStore.getState().bindApi(api);
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_A);
+    const untitledId = useEditorStore.getState().openUntitled();
+    useEditorStore.getState().setContentFromEditor("untitled-draft");
+
+    const promptSpy = vi
+      .spyOn(saveAsPromptBridge, "promptQuitUntitled")
+      .mockResolvedValue("failed");
+
+    const { unmount } = render(<SaveTriggersHost />);
+    await vi.waitFor(() => expect(closeHandler).toBeDefined());
+
+    const event = { preventDefault };
+    await closeHandler!(event);
+
+    expect(preventDefault).toHaveBeenCalled();
+    expect(useShellStore.getState().activeMainCard).toBe("editor");
+    expect(promptSpy).toHaveBeenCalledWith(untitledId);
+    expect(useEditorStore.getState().tabs.find((t) => t.id === untitledId)).toBeDefined();
+
+    promptSpy.mockRestore();
+    unmount();
+  });
+
   it("quit prevents close when a dirty save fails", async () => {
     const api = createMemoryEditorApi({
       files: { [FILE_A]: "file-a", [FILE_B]: "file-b" },
