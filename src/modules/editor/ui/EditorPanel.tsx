@@ -10,9 +10,9 @@ const MonacoEditorHost = lazy(() =>
 export function EditorPanel() {
   useEditorSaveTriggers();
 
-  const activePath = useEditorStore((s) => s.activePath);
+  const activeTabId = useEditorStore((s) => s.activeTabId);
   const buffer = useEditorStore((s) =>
-    s.activePath ? (s.buffers[s.activePath] ?? null) : null,
+    s.activeTabId ? (s.buffers[s.activeTabId] ?? null) : null,
   );
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export function EditorPanel() {
     }
   }, []);
 
-  if (!activePath || !buffer) {
+  if (!activeTabId || !buffer) {
     return (
       <p className="mt-2 font-mono text-sm text-muted-foreground">
         Open a file from the explorer

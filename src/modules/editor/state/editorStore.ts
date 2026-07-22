@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { EditorApi } from "../api/editorApi";
+import { isUntitledId } from "./editorTabId";
 
 export type EditorStatus = "idle" | "loading" | "ready" | "saving" | "error";
 
@@ -13,7 +14,7 @@ export interface EditorBuffer {
 }
 
 export interface EditorTab {
-  path: string;
+  id: string;
 }
 
 function toErrorMessage(error: unknown): string {
@@ -35,47 +36,55 @@ export interface EditorState {
   api: EditorApi | null;
   projectRoot: string | null;
   tabs: EditorTab[];
-  activePath: string | null;
+  activeTabId: string | null;
   buffers: Record<string, EditorBuffer>;
+  nextUntitled: number;
   bindApi: (api: EditorApi) => void;
   setContentFromEditor: (content: string) => void;
-  clearSaveError: (path?: string) => void;
-  /** Active tab only. */
+  clearSaveError: (id?: string) => void;
+  /** Active tab only. Path-backed only; Untitled → false without write. */
   saveIfDirty: () => Promise<boolean>;
-  /** Active tab only. */
+  /** Active tab only. Path-backed only; Untitled → false without write. */
   save: () => Promise<boolean>;
-  /** Save one tab by path (used by close→Save and quit). */
-  saveTab: (path: string) => Promise<boolean>;
-  /** Save all dirty tabs in open order. Returns false if any fail; activates first failure. */
-  saveAllDirty: () => Promise<boolean>;
+  /** Save one tab by id (used by close→Save and quit). No-op false for Untitled. */
+  saveTab: (id: string) => Promise<boolean>;
+  /** Save all dirty path-backed tabs in open order. Returns false if any fail; activates first failure. */
+  saveAllDirtyPaths: () => Promise<boolean>;
   /**
    * Append or focus. Never save-before-switch.
    * Already open + ready: focus, clear that buffer's saveError, do not reload.
    * Already open + error: focus and retry load.
-   * New path: append tab, set activePath, load into buffer.
+   * New path: append tab, set activeTabId, load into buffer.
    */
   openFile: (projectRoot: string, path: string) => Promise<boolean>;
+  openUntitled: () => string;
   /** Activate an already-open tab (no reload). */
-  setActivePath: (path: string) => void;
+  setActiveTabId: (id: string) => void;
   /**
    * Remove tab and buffer. If it was active, prefer right neighbor else left;
-   * if none left, activePath = null.
+   * if none left, activeTabId = null.
    * Caller must only invoke when clean, after Don't save, or after successful Save.
    */
-  closeTab: (path: string) => void;
+  closeTab: (id: string) => void;
+  /**
+   * createFile then retarget. If targetId already open as another tab, close it after successful create.
+   * Returns false on failure (sets saveError on source).
+   */
+  saveAs: (sourceId: string, targetPath: string) => Promise<boolean>;
+  dirtyUntitledIds: () => string[];
 }
 
 type EditorStore = EditorState;
 
 function patchBuffer(
   buffers: Record<string, EditorBuffer>,
-  path: string,
+  id: string,
   patch: Partial<EditorBuffer>,
 ): Record<string, EditorBuffer> {
-  const current = buffers[path] ?? emptyBuffer();
+  const current = buffers[id] ?? emptyBuffer();
   return {
     ...buffers,
-    [path]: { ...current, ...patch },
+    [id]: { ...current, ...patch },
   };
 }
 
@@ -83,30 +92,31 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
   api: null,
   projectRoot: null,
   tabs: [],
-  activePath: null,
+  activeTabId: null,
   buffers: {},
+  nextUntitled: 1,
 
   bindApi: (api) => set({ api }),
 
   setContentFromEditor: (content) => {
-    const { activePath, buffers } = get();
-    if (!activePath) {
+    const { activeTabId, buffers } = get();
+    if (!activeTabId) {
       return;
     }
-    const buffer = buffers[activePath];
+    const buffer = buffers[activeTabId];
     if (!buffer) {
       return;
     }
     set({
-      buffers: patchBuffer(buffers, activePath, {
+      buffers: patchBuffer(buffers, activeTabId, {
         content,
         dirty: content !== buffer.baselineContent,
       }),
     });
   },
 
-  clearSaveError: (path) => {
-    const target = path ?? get().activePath;
+  clearSaveError: (id) => {
+    const target = id ?? get().activeTabId;
     if (!target) {
       return;
     }
@@ -115,24 +125,28 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
     }));
   },
 
-  saveTab: async (path) => {
+  saveTab: async (id) => {
+    if (isUntitledId(id)) {
+      return false;
+    }
+
     const { api, projectRoot, buffers } = get();
-    const buffer = buffers[path];
+    const buffer = buffers[id];
     if (!api || !projectRoot || !buffer) {
       return false;
     }
 
     set((state) => ({
-      buffers: patchBuffer(state.buffers, path, {
+      buffers: patchBuffer(state.buffers, id, {
         status: "saving",
         saveError: null,
       }),
     }));
 
     try {
-      await api.writeFile(projectRoot, path, buffer.content);
+      await api.writeFile(projectRoot, id, buffer.content);
       set((state) => ({
-        buffers: patchBuffer(state.buffers, path, {
+        buffers: patchBuffer(state.buffers, id, {
           baselineContent: buffer.content,
           dirty: false,
           status: "ready",
@@ -142,7 +156,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
       return true;
     } catch (error) {
       set((state) => ({
-        buffers: patchBuffer(state.buffers, path, {
+        buffers: patchBuffer(state.buffers, id, {
           saveError: toErrorMessage(error),
           status: "ready",
         }),
@@ -152,35 +166,48 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
   },
 
   saveIfDirty: async () => {
-    const { activePath, buffers } = get();
-    if (!activePath) {
+    const { activeTabId, buffers } = get();
+    if (!activeTabId) {
       return true;
     }
-    const buffer = buffers[activePath];
+    if (isUntitledId(activeTabId)) {
+      const buffer = buffers[activeTabId];
+      if (!buffer?.dirty) {
+        return true;
+      }
+      return false;
+    }
+    const buffer = buffers[activeTabId];
     if (!buffer?.dirty) {
       return true;
     }
-    return get().saveTab(activePath);
+    return get().saveTab(activeTabId);
   },
 
   save: async () => {
-    const { activePath } = get();
-    if (!activePath) {
+    const { activeTabId } = get();
+    if (!activeTabId) {
       return true;
     }
-    return get().saveTab(activePath);
+    if (isUntitledId(activeTabId)) {
+      return false;
+    }
+    return get().saveTab(activeTabId);
   },
 
-  saveAllDirty: async () => {
+  saveAllDirtyPaths: async () => {
     const { tabs, buffers } = get();
     for (const tab of tabs) {
-      const buffer = buffers[tab.path];
+      if (isUntitledId(tab.id)) {
+        continue;
+      }
+      const buffer = buffers[tab.id];
       if (!buffer?.dirty) {
         continue;
       }
-      const ok = await get().saveTab(tab.path);
+      const ok = await get().saveTab(tab.id);
       if (!ok) {
-        set({ activePath: tab.path });
+        set({ activeTabId: tab.id });
         return false;
       }
     }
@@ -189,12 +216,12 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
 
   openFile: async (projectRoot, path) => {
     const state = get();
-    const existingTab = state.tabs.find((t) => t.path === path);
+    const existingTab = state.tabs.find((t) => t.id === path);
     const existingBuffer = state.buffers[path];
 
     if (existingTab && existingBuffer?.status === "ready") {
       set({
-        activePath: path,
+        activeTabId: path,
         projectRoot,
         buffers: patchBuffer(state.buffers, path, { saveError: null }),
       });
@@ -202,13 +229,13 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
     }
 
     if (existingTab && existingBuffer?.status === "error") {
-      set({ activePath: path, projectRoot });
+      set({ activeTabId: path, projectRoot });
       // fall through to reload
     } else if (!existingTab) {
       set({
         projectRoot,
-        tabs: [...state.tabs, { path }],
-        activePath: path,
+        tabs: [...state.tabs, { id: path }],
+        activeTabId: path,
         buffers: patchBuffer(state.buffers, path, {
           ...emptyBuffer(),
           status: "loading",
@@ -219,7 +246,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
     } else {
       set({
         projectRoot,
-        activePath: path,
+        activeTabId: path,
         buffers: patchBuffer(state.buffers, path, {
           status: "loading",
           errorMessage: null,
@@ -269,35 +296,117 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
     }
   },
 
-  setActivePath: (path) => {
-    const { tabs } = get();
-    if (!tabs.some((t) => t.path === path)) {
-      return;
-    }
-    set({ activePath: path });
+  openUntitled: () => {
+    const n = get().nextUntitled;
+    const id = `untitled:${n}`;
+    const { tabs, buffers } = get();
+    set({
+      nextUntitled: n + 1,
+      tabs: [...tabs, { id }],
+      activeTabId: id,
+      buffers: {
+        ...buffers,
+        [id]: {
+          content: "",
+          baselineContent: "",
+          dirty: false,
+          status: "ready",
+          errorMessage: null,
+          saveError: null,
+        },
+      },
+    });
+    return id;
   },
 
-  closeTab: (path) => {
-    const { tabs, activePath, buffers } = get();
-    const index = tabs.findIndex((t) => t.path === path);
+  setActiveTabId: (id) => {
+    const { tabs } = get();
+    if (!tabs.some((t) => t.id === id)) {
+      return;
+    }
+    set({ activeTabId: id });
+  },
+
+  closeTab: (id) => {
+    const { tabs, activeTabId, buffers } = get();
+    const index = tabs.findIndex((t) => t.id === id);
     if (index === -1) {
       return;
     }
 
-    const nextTabs = tabs.filter((t) => t.path !== path);
-    const { [path]: _removed, ...nextBuffers } = buffers;
+    const nextTabs = tabs.filter((t) => t.id !== id);
+    const { [id]: _removed, ...nextBuffers } = buffers;
 
-    let nextActivePath = activePath;
-    if (activePath === path) {
-      const rightNeighbor = tabs[index + 1]?.path;
-      const leftNeighbor = tabs[index - 1]?.path;
-      nextActivePath = rightNeighbor ?? leftNeighbor ?? null;
+    let nextActiveTabId = activeTabId;
+    if (activeTabId === id) {
+      const rightNeighbor = tabs[index + 1]?.id;
+      const leftNeighbor = tabs[index - 1]?.id;
+      nextActiveTabId = rightNeighbor ?? leftNeighbor ?? null;
     }
 
     set({
       tabs: nextTabs,
       buffers: nextBuffers,
-      activePath: nextActivePath,
+      activeTabId: nextActiveTabId,
     });
+  },
+
+  saveAs: async (sourceId, targetPath) => {
+    const { api, projectRoot, buffers } = get();
+    const buffer = buffers[sourceId];
+    if (!api || !projectRoot || !buffer) return false;
+    set({
+      buffers: patchBuffer(buffers, sourceId, { status: "saving", saveError: null }),
+    });
+    try {
+      await api.createFile(projectRoot, targetPath, buffer.content);
+    } catch (error) {
+      set((s) => ({
+        buffers: patchBuffer(s.buffers, sourceId, {
+          status: "ready",
+          saveError: toErrorMessage(error),
+        }),
+      }));
+      return false;
+    }
+
+    const collision = get().tabs.find((t) => t.id === targetPath && t.id !== sourceId);
+    if (collision) {
+      get().closeTab(targetPath);
+    }
+
+    const state = get();
+    const buf = state.buffers[sourceId];
+    if (!buf) return false;
+    const { [sourceId]: _removed, ...rest } = state.buffers;
+    const nextTabs = state.tabs.map((t) =>
+      t.id === sourceId ? { id: targetPath } : t,
+    );
+    const deduped: EditorTab[] = [];
+    for (const t of nextTabs) {
+      if (!deduped.some((x) => x.id === t.id)) deduped.push(t);
+    }
+    set({
+      tabs: deduped,
+      activeTabId: state.activeTabId === sourceId ? targetPath : state.activeTabId,
+      buffers: {
+        ...rest,
+        [targetPath]: {
+          ...buf,
+          baselineContent: buf.content,
+          dirty: false,
+          status: "ready",
+          saveError: null,
+        },
+      },
+    });
+    return true;
+  },
+
+  dirtyUntitledIds: () => {
+    const { tabs, buffers } = get();
+    return tabs
+      .filter((t) => isUntitledId(t.id) && buffers[t.id]?.dirty)
+      .map((t) => t.id);
   },
 }));

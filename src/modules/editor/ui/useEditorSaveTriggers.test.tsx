@@ -35,8 +35,9 @@ function resetEditorStore(): void {
     api: null,
     projectRoot: null,
     tabs: [],
-    activePath: null,
+    activeTabId: null,
     buffers: {},
+    nextUntitled: 1,
   });
 }
 
@@ -143,7 +144,7 @@ describe("useEditorSaveTriggers quit save", () => {
 
     expect(preventDefault).toHaveBeenCalled();
     expect(useShellStore.getState().activeMainCard).toBe("editor");
-    expect(useEditorStore.getState().activePath).toBe(FILE_B);
+    expect(useEditorStore.getState().activeTabId).toBe(FILE_B);
     expect(useEditorStore.getState().buffers[FILE_A]?.dirty).toBe(false);
     expect(useEditorStore.getState().buffers[FILE_B]?.dirty).toBe(true);
     expect(useEditorStore.getState().buffers[FILE_B]?.saveError).toBe("disk full");

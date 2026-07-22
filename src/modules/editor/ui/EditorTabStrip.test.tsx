@@ -19,8 +19,9 @@ function resetEditorStore(): void {
     api: null,
     projectRoot: null,
     tabs: [],
-    activePath: null,
+    activeTabId: null,
     buffers: {},
+    nextUntitled: 1,
   });
 }
 
@@ -59,8 +60,8 @@ describe("EditorTabStrip", () => {
   it("renders basenames, dirty marker, and selected active tab", () => {
     useEditorStore.setState({
       projectRoot: PROJECT_ROOT,
-      tabs: [{ path: FILE_A }, { path: FILE_B }],
-      activePath: FILE_B,
+      tabs: [{ id: FILE_A }, { id: FILE_B }],
+      activeTabId: FILE_B,
       buffers: {
         [FILE_A]: seedBuffer(FILE_A, { dirty: true }),
         [FILE_B]: seedBuffer(FILE_B),
@@ -76,33 +77,33 @@ describe("EditorTabStrip", () => {
     );
   });
 
-  it("clicking a tab calls setActivePath", async () => {
+  it("clicking a tab calls setActiveTabId", async () => {
     const user = userEvent.setup();
     useEditorStore.setState({
       projectRoot: PROJECT_ROOT,
-      tabs: [{ path: FILE_A }, { path: FILE_B }],
-      activePath: FILE_B,
+      tabs: [{ id: FILE_A }, { id: FILE_B }],
+      activeTabId: FILE_B,
       buffers: {
         [FILE_A]: seedBuffer(FILE_A),
         [FILE_B]: seedBuffer(FILE_B),
       },
     });
-    const setActivePath = vi.spyOn(useEditorStore.getState(), "setActivePath");
+    const setActiveTabId = vi.spyOn(useEditorStore.getState(), "setActiveTabId");
 
     render(<EditorTabStrip onRequestCloseTab={vi.fn()} />);
 
     await user.click(screen.getByRole("tab", { name: /a\.ts/i }));
 
-    expect(setActivePath).toHaveBeenCalledWith(FILE_A);
+    expect(setActiveTabId).toHaveBeenCalledWith(FILE_A);
   });
 
-  it("close button calls onRequestCloseTab with that path", async () => {
+  it("close button calls onRequestCloseTab with that id", async () => {
     const user = userEvent.setup();
     const onRequestCloseTab = vi.fn();
     useEditorStore.setState({
       projectRoot: PROJECT_ROOT,
-      tabs: [{ path: FILE_A }],
-      activePath: FILE_A,
+      tabs: [{ id: FILE_A }],
+      activeTabId: FILE_A,
       buffers: { [FILE_A]: seedBuffer(FILE_A) },
     });
 
