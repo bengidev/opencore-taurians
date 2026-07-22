@@ -514,6 +514,9 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
     const { api, projectRoot, buffers } = get();
     const buffer = buffers[sourceId];
     if (!api || !projectRoot || !buffer) return false;
+    if (buffer.readOnly) {
+      return false;
+    }
     set({
       buffers: patchBuffer(buffers, sourceId, { status: "saving", saveError: null }),
     });
