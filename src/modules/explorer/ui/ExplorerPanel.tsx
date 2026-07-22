@@ -54,6 +54,11 @@ async function handleExternalDrop(payload: ExplorerDropPayload): Promise<void> {
     return;
   }
 
+  const el = document.elementFromPoint(payload.x, payload.y);
+  if (el?.closest("[data-editor-drop-zone]")) {
+    return;
+  }
+
   try {
     const targetDir = resolveDropTargetDir(payload, projectRoot);
     await api.copyPaths(projectRoot, targetDir, payload.paths);

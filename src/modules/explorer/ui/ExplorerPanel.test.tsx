@@ -1,9 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useProjectStore } from "../../project/state/projectStore";
 import { createMemoryExplorerApi } from "../api/createMemoryExplorerApi";
+import type { ExplorerApi } from "../api/explorerApi";
+import type { ExplorerDropPayload } from "../domain/explorerTypes";
 import { useExplorerStore } from "../state/explorerStore";
 import { ExplorerPanel } from "./ExplorerPanel";
 
@@ -407,5 +410,55 @@ describe("ExplorerPanel", () => {
       "zzz",
     );
     expect(screen.getByText(/no matching files/i)).toBeInTheDocument();
+  });
+
+  it("skips copy when OS drop hits the editor drop zone", async () => {
+    const folderPath = "/proj";
+    useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+
+    const copyPaths = vi.fn().mockResolvedValue([]);
+    let dropHandler: ((payload: ExplorerDropPayload) => void) | undefined;
+
+    const baseApi = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: {
+        [folderPath]: [{ name: "a.ts", path: "/proj/a.ts", isDir: false }],
+      },
+    });
+
+    const api: ExplorerApi = {
+      ...baseApi,
+      copyPaths,
+      onDrop: async (callback) => {
+        dropHandler = callback;
+        return (() => {
+          dropHandler = undefined;
+        }) satisfies UnlistenFn;
+      },
+    };
+
+    const editorZone = document.createElement("div");
+    editorZone.setAttribute("data-editor-drop-zone", "");
+    document.body.appendChild(editorZone);
+    document.elementFromPoint = vi.fn().mockReturnValue(editorZone);
+
+    render(<ExplorerPanel explorerApi={api} />);
+
+    await waitFor(() => expect(dropHandler).toBeDefined());
+
+    dropHandler!({
+      paths: ["/external/file.ts"],
+      x: 12,
+      y: 34,
+    });
+
+    await waitFor(() => {
+      expect(copyPaths).not.toHaveBeenCalled();
+    });
+
+    editorZone.remove();
   });
 });
