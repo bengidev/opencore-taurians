@@ -123,6 +123,53 @@ describe("editorStore", () => {
     await expect(api.readFile(PROJECT_ROOT, FILE_A)).resolves.toBe("file-a");
   });
 
+  it("same-path ready early return clears saveError", async () => {
+    const api = createMemoryEditorApi({
+      files: {
+        [FILE_A]: "file-a",
+        [FILE_B]: "file-b",
+      },
+    });
+    const writeSpy = vi.spyOn(api, "writeFile").mockRejectedValueOnce(new Error("disk full"));
+    useEditorStore.getState().bindApi(api);
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_A);
+    useEditorStore.getState().setContentFromEditor("file-a-edited");
+
+    const blocked = await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_B);
+    expect(blocked).toBe(false);
+    expect(useEditorStore.getState().saveError).toBe("disk full");
+
+    const reopened = await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_A);
+    writeSpy.mockRestore();
+
+    expect(reopened).toBe(true);
+    expect(useEditorStore.getState().saveError).toBeNull();
+  });
+
+  it("openFile load start clears saveError", async () => {
+    const api = createMemoryEditorApi({
+      files: {
+        [FILE_A]: "file-a",
+        [FILE_B]: "file-b",
+      },
+    });
+    const writeSpy = vi.spyOn(api, "writeFile").mockRejectedValueOnce(new Error("disk full"));
+    useEditorStore.getState().bindApi(api);
+    await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_A);
+    useEditorStore.getState().setContentFromEditor("file-a-edited");
+
+    const failedSave = await useEditorStore.getState().save();
+    expect(failedSave).toBe(false);
+    expect(useEditorStore.getState().saveError).toBe("disk full");
+
+    writeSpy.mockRestore();
+    const ok = await useEditorStore.getState().openFile(PROJECT_ROOT, FILE_B);
+
+    expect(ok).toBe(true);
+    expect(useEditorStore.getState().saveError).toBeNull();
+    expect(useEditorStore.getState().path).toBe(FILE_B);
+  });
+
   it("load failure sets status error and errorMessage", async () => {
     const api = createMemoryEditorApi({
       files: { [FILE_A]: "hello" },
