@@ -23,7 +23,7 @@ describe("projectActivation", () => {
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    useProjectStore.getState().setTrunkRestore(trunk.id, { activeMainCard: "terminal" });
+    useProjectStore.getState().setTrunkActiveMainCard(trunk.id, "terminal");
     projectActivateTrunk(trunk.id);
     expect(useWorkspaceStore.getState().workspacePath).toBe(project.folderPath);
     expect(useShellStore.getState().activeMainCard).toBe("terminal");
