@@ -19,6 +19,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .manage(ExplorerWatchState::default())
+        .manage(git::repository::GitRepositoryState::default())
         .invoke_handler(tauri::generate_handler![
             greet,
             editor::read::editor_read_file,
@@ -37,6 +38,10 @@ pub fn run() {
             explorer::watch::explorer_watch,
             explorer::watch::explorer_unwatch,
             explorer::reveal::explorer_reveal,
+            git::git_resolve_checkout,
+            git::git_get_snapshot,
+            git::git_refresh,
+            git::git_initialize,
         ])
         .on_window_event(|window, event| {
             use tauri::{DragDropEvent, WindowEvent};
