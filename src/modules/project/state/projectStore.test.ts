@@ -69,6 +69,29 @@ describe("projectStore", () => {
     expect(useProjectStore.getState().trunks.find((c) => c.id === trunk.id)?.pinned).toBe(true);
   });
 
+  it("updates restore fields independently", () => {
+    const { trunk } = useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    useProjectStore.getState().setTrunkRightPanelFeature(trunk.id, "git");
+    useProjectStore.getState().setTrunkActiveMainCard(trunk.id, "editor");
+    useProjectStore.getState().setTrunkGitCheckout(trunk.id, {
+      kind: "project-root",
+      repositoryIdentity: "repo-1",
+      savedRefName: "main",
+    });
+    expect(useProjectStore.getState().trunks.find((item) => item.id === trunk.id)?.restore).toEqual({
+      activeMainCard: "editor",
+      rightPanelFeature: "git",
+      gitCheckout: {
+        kind: "project-root",
+        repositoryIdentity: "repo-1",
+        savedRefName: "main",
+      },
+    });
+  });
+
   it("renameTrunk updates title", () => {
     const { trunk } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",

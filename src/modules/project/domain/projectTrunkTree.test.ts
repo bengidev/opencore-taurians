@@ -15,7 +15,15 @@ function trunk(
     pinned: false,
     createdAt: "2026-01-01T00:00:00.000Z",
     lastOpenedAt: "2026-01-01T00:00:00.000Z",
-    restore: { activeMainCard: "chat" },
+    restore: {
+      activeMainCard: "chat",
+      rightPanelFeature: "files",
+      gitCheckout: {
+        kind: "project-root",
+        repositoryIdentity: null,
+        savedRefName: null,
+      },
+    },
     siblingOrder: 0,
     ...partial,
   };

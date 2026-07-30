@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useProjectStore } from "../../project/state/projectStore";
 import { createMemoryExplorerApi } from "../api/createMemoryExplorerApi";
+import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { useExplorerStore } from "./explorerStore";
 
 describe("explorerStore", () => {
   beforeEach(() => {
     useMemoryPersistStorage();
     useProjectStore.getState().resetProjectState();
+    useWorkspaceStore.setState({ workspacePath: null });
     useExplorerStore.getState().resetExplorerState();
   });
 
@@ -17,6 +19,7 @@ describe("explorerStore", () => {
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
+    useWorkspaceStore.getState().setWorkspace(folderPath);
 
     const api = createMemoryExplorerApi({
       projectRoot: folderPath,
@@ -38,6 +41,7 @@ describe("explorerStore", () => {
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
+    useWorkspaceStore.getState().setWorkspace(folderPath);
 
     const api = createMemoryExplorerApi({
       projectRoot: folderPath,
@@ -66,6 +70,7 @@ describe("explorerStore", () => {
       folderPath: "/proj-a",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
+    useWorkspaceStore.getState().setWorkspace("/proj-a");
 
     const api = createMemoryExplorerApi({
       dirs: {
@@ -84,6 +89,7 @@ describe("explorerStore", () => {
       folderPath: "/proj-b",
       nowIso: "2026-07-10T00:00:01.000Z",
     });
+    useWorkspaceStore.getState().setWorkspace("/proj-b");
     await useExplorerStore.getState().loadRoot();
 
     const state = useExplorerStore.getState();
@@ -102,6 +108,7 @@ describe("explorerStore", () => {
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
+    useWorkspaceStore.getState().setWorkspace(folderPath);
 
     const api = createMemoryExplorerApi({
       projectRoot: folderPath,
@@ -141,6 +148,7 @@ describe("explorerStore", () => {
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
+    useWorkspaceStore.getState().setWorkspace(folderPath);
     const api = createMemoryExplorerApi({
       projectRoot: folderPath,
       dirs: {
@@ -161,6 +169,7 @@ describe("explorerStore", () => {
       folderPath: "/proj-a",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
+    useWorkspaceStore.getState().setWorkspace("/proj-a");
     const api = createMemoryExplorerApi({
       dirs: {
         "/proj-a": [{ name: "a.ts", path: "/proj-a/a.ts", isDir: false }],
@@ -175,6 +184,7 @@ describe("explorerStore", () => {
       folderPath: "/proj-b",
       nowIso: "2026-07-10T00:00:01.000Z",
     });
+    useWorkspaceStore.getState().setWorkspace("/proj-b");
     await useExplorerStore.getState().loadRoot();
 
     expect(useExplorerStore.getState().searchQuery).toBe("");
@@ -189,6 +199,7 @@ describe("explorerStore", () => {
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
+    useWorkspaceStore.getState().setWorkspace(folderPath);
     const api = createMemoryExplorerApi({
       projectRoot: folderPath,
       dirs: {
@@ -238,6 +249,7 @@ describe("explorerStore", () => {
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
+    useWorkspaceStore.getState().setWorkspace(folderPath);
     const api = {
       ...createMemoryExplorerApi({ projectRoot: folderPath }),
       listDir,

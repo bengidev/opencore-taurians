@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useShellStore, type ShellMainCard } from "../state/shellStore";
 import { ShellPanelToggle } from "./shellPanelToggle";
 import { ShellSettingsButton } from "./shellSettingsButton";
+import { ShellRightPanelFeatureControls } from "./shellRightPanelFeatureControls";
 
 const MAIN_CARDS = ["chat", "terminal", "editor"] as const satisfies readonly ShellMainCard[];
 
@@ -51,7 +52,12 @@ export function ShellMainCardTabs() {
         })}
       </div>
       <div className="flex min-w-0 items-center justify-end gap-1">
-        {!rightVisible ? <ShellPanelToggle side="right" /> : null}
+        {!rightVisible ? (
+          <>
+            <ShellRightPanelFeatureControls />
+            <ShellPanelToggle side="right" />
+          </>
+        ) : null}
       </div>
     </header>
   );

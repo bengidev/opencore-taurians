@@ -107,7 +107,7 @@ function TrunkRow({
                 )}
               />
             }
-            onClick={() => projectActivateTrunk(trunk.id)}
+            onClick={() => void projectActivateTrunk(trunk.id)}
             onDragStart={(event) => {
               event.dataTransfer.effectAllowed = "move";
               event.dataTransfer.setData(TRUNK_DRAG_ID_MIME, trunk.id);

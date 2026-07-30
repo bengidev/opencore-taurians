@@ -104,7 +104,7 @@ export function SessionRoot({
 
   useEffect(() => {
     if (!ready) return;
-    projectBootMigrateAndSweep({
+    void projectBootMigrateAndSweep({
       workspacePath: useWorkspaceStore.getState().workspacePath,
       nowIso: new Date().toISOString(),
       nowMs: Date.now(),
