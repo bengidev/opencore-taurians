@@ -86,7 +86,7 @@ export function WorkspacePopup({
     try {
       const path = await folderPicker.pickFolder();
       if (path === null) return;
-      projectOpenFolder(path);
+      await projectOpenFolder(path);
       onWorkspaceOpened?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

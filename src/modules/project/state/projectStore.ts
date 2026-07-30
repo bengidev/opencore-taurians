@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ProjectCheckoutRuntimeState } from "../domain/projectCheckout";
 import { persist } from "zustand/middleware";
 import { useChatStore } from "../../chat/state/chatStore";
 import { createSessionPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
@@ -43,6 +44,7 @@ const EMPTY = {
   activeTrunkId: null as string | null,
   expandedProjectIds: [] as string[],
   panelError: null as string | null,
+  checkoutRuntimeByTrunkId: {} as Record<string, ProjectCheckoutRuntimeState>,
 };
 
 export interface ProjectState {
@@ -53,8 +55,10 @@ export interface ProjectState {
   activeTrunkId: string | null;
   expandedProjectIds: string[];
   panelError: string | null;
+  checkoutRuntimeByTrunkId: Record<string, ProjectCheckoutRuntimeState>;
   resetProjectState: () => void;
   setPanelError: (message: string | null) => void;
+  setCheckoutRuntime: (trunkId: string, runtime: ProjectCheckoutRuntimeState) => void;
   createProjectWithRootTrunk: (input: {
     folderPath: string;
     nowIso: string;
@@ -104,6 +108,13 @@ export const useProjectStore = create<ProjectState>()(
       ...EMPTY,
       resetProjectState: () => set({ ...EMPTY }),
       setPanelError: (message) => set({ panelError: message }),
+      setCheckoutRuntime: (trunkId, runtime) =>
+        set((state) => ({
+          checkoutRuntimeByTrunkId: {
+            ...state.checkoutRuntimeByTrunkId,
+            [trunkId]: runtime,
+          },
+        })),
       createProjectWithRootTrunk: (input) => {
         const projectId = input.projectId ?? crypto.randomUUID();
         const trunkId = input.trunkId ?? crypto.randomUUID();
