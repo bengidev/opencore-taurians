@@ -30,7 +30,7 @@ export function projectSyncRestoreFromShell(): void {
   const trunkId = useProjectStore.getState().activeTrunkId;
   if (!trunkId) return;
   const card = useShellStore.getState().activeMainCard;
-  useProjectStore.getState().setTrunkRestore(trunkId, { activeMainCard: card });
+  useProjectStore.getState().setTrunkActiveMainCard(trunkId, card);
 }
 
 export function projectOpenFolder(folderPath: string, nowIso = new Date().toISOString()) {
