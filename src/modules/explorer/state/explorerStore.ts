@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { ExplorerApi } from "../api/explorerApi";
 import type { ExplorerEntry } from "../domain/explorerTypes";
 import { projectNormalizeFolderPath } from "../../project/domain/projectPath";
-import { useProjectStore } from "../../project/state/projectStore";
+import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 
 function parentDir(path: string): string {
   const index = path.lastIndexOf("/");
@@ -117,17 +117,17 @@ export interface ExplorerState {
   ensureSearchTreeLoaded: () => Promise<void>;
 }
 
-let projectSubscription: (() => void) | undefined;
+let workspaceSubscription: (() => void) | undefined;
 
-function unsubscribeFromActiveProject(): void {
-  projectSubscription?.();
-  projectSubscription = undefined;
+function unsubscribeFromWorkspace(): void {
+  workspaceSubscription?.();
+  workspaceSubscription = undefined;
 }
 
-function subscribeToActiveProject(loadRoot: () => Promise<void>): void {
-  unsubscribeFromActiveProject();
-  projectSubscription = useProjectStore.subscribe((state, prev) => {
-    if (state.activeProjectId === prev.activeProjectId) {
+function subscribeToWorkspace(loadRoot: () => Promise<void>): void {
+  unsubscribeFromWorkspace();
+  workspaceSubscription = useWorkspaceStore.subscribe((state, prev) => {
+    if (state.workspacePath === prev.workspacePath) {
       return;
     }
     void loadRoot();
@@ -236,10 +236,9 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
 
   const loadRoot = async (): Promise<void> => {
     const { api } = get();
-    const { activeProjectId, projects } = useProjectStore.getState();
-    const project = projects.find((item) => item.id === activeProjectId);
+    const workspacePath = useWorkspaceStore.getState().workspacePath;
 
-    if (!api || !project) {
+    if (!api || !workspacePath) {
       set({
         ...createEmptyState(),
         api,
@@ -247,7 +246,7 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
       return;
     }
 
-    const projectRoot = projectNormalizeFolderPath(project.folderPath);
+    const projectRoot = projectNormalizeFolderPath(workspacePath);
 
     // Remounting the explorer (e.g. hide/show right panel) calls loadRoot again.
     // Keep expansion/selection when the active project root is unchanged.
@@ -275,12 +274,12 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
   return {
     ...createEmptyState(),
     resetExplorerState: () => {
-      unsubscribeFromActiveProject();
+      unsubscribeFromWorkspace();
       set(createEmptyState());
     },
     bindApi: (api) => {
       set({ api });
-      subscribeToActiveProject(loadRoot);
+      subscribeToWorkspace(loadRoot);
     },
     loadRoot,
     loadDir,
