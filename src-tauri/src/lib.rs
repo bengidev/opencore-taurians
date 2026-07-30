@@ -1,5 +1,6 @@
 mod editor;
 mod explorer;
+mod git;
 mod path_scope;
 
 use explorer::ExplorerWatchState;
