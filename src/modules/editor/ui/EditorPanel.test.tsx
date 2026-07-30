@@ -5,6 +5,7 @@ import type { EditorBuffer } from "../state/editorStore";
 import { useEditorStore } from "../state/editorStore";
 import { useShellStore } from "../../shell/state/shellStore";
 import { EditorPanel } from "./EditorPanel";
+import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 
 vi.mock("./MonacoEditorHost", () => ({
   MonacoEditorHost: () => <div data-testid="monaco-host" />,
@@ -55,6 +56,7 @@ describe("EditorPanel", () => {
   beforeEach(() => {
     resetEditorStore();
     resetShellStore();
+    useWorkspaceStore.setState({ workspacePath: PROJECT_ROOT });
   });
 
   it("shows empty state when no path", () => {
@@ -102,6 +104,14 @@ describe("EditorPanel", () => {
     });
     render(<EditorPanel />);
     expect(screen.getByText("not found")).toBeInTheDocument();
+  });
+
+  it("synchronizes the editor root from the validated workspace", async () => {
+    useWorkspaceStore.setState({ workspacePath: "/worktree/feature" });
+    render(<EditorPanel />);
+    await waitFor(() => {
+      expect(useEditorStore.getState().projectRoot).toBe("/worktree/feature");
+    });
   });
 
   it("shows Monaco host when ready", async () => {

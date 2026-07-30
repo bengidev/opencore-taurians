@@ -21,7 +21,7 @@ export async function projectRequestOpenFolder(
   }
   const path = await folderPicker.pickFolder();
   if (path === null) return;
-  projectOpenFolder(path);
+  await projectOpenFolder(path);
 }
 
 export function ProjectAddButton({
