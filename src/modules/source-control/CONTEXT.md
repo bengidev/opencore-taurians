@@ -1,4 +1,4 @@
-# Git App Context
+# Source Control App Context
 
 ## Owns
 

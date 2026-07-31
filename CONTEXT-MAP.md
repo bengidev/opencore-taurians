@@ -12,6 +12,7 @@ Multi-context domain documentation for OpenCore Taurians.
 | **chat** | [`src/modules/chat/CONTEXT.md`](src/modules/chat/CONTEXT.md) | — |
 | **explorer** | [`src/modules/explorer/CONTEXT.md`](src/modules/explorer/CONTEXT.md) | — |
 | **editor** | [`src/modules/editor/CONTEXT.md`](src/modules/editor/CONTEXT.md) | — |
+| **source-control** | [`src/modules/source-control/CONTEXT.md`](src/modules/source-control/CONTEXT.md) | — |
 | **app** | [`src/CONTEXT.md`](src/CONTEXT.md) | [`src/docs/adr/`](src/docs/adr/) |
 | **desktop** | [`src-tauri/CONTEXT.md`](src-tauri/CONTEXT.md) | [`src-tauri/docs/adr/`](src-tauri/docs/adr/) |
 | *(system-wide)* | — | [`docs/adr/`](docs/adr/) |
