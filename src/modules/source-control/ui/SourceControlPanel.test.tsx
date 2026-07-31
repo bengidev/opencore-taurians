@@ -1,0 +1,249 @@
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
+import { useProjectStore } from "../../project/state/projectStore";
+import { useSourceControlStore } from "../state/sourceControlStore";
+import { createMemorySourceControlApi } from "../api/createMemorySourceControlApi";
+import type {
+  SourceControlFileStatus,
+  SourceControlRepositorySnapshot,
+  ResolvedSourceControlCheckout,
+} from "../api/sourceControlContracts";
+import { SourceControlPanel } from "./SourceControlPanel";
+
+const CHECKOUT: ResolvedSourceControlCheckout = {
+  kind: "project-root",
+  checkoutPath: "/work/app",
+  checkoutIdentity: "checkout:/work/app",
+  repositoryIdentity: "repository:/work/app",
+  savedRefName: "main",
+  managedByApp: false,
+  normalizedRestore: {
+    kind: "project-root",
+    repositoryIdentity: "repository:/work/app",
+    savedRefName: "main",
+  },
+};
+
+function makeSnapshot(
+  overrides: Partial<SourceControlRepositorySnapshot> = {},
+): SourceControlRepositorySnapshot {
+  return {
+    projectId: "project-1",
+    trunkId: "trunk-1",
+    checkoutPath: "/work/app",
+    checkoutIdentity: CHECKOUT.checkoutIdentity,
+    repositoryIdentity: "repository:/work/app",
+    revision: 1,
+    capturedAt: "2026-07-30T00:00:00.000Z",
+    repositoryState: "ready",
+    worktreeLabel: "main",
+    head: { kind: "branch", name: "main" },
+    upstream: "origin/main",
+    defaultBranch: "main",
+    ahead: 0,
+    behind: 0,
+    files: [],
+    conflictCount: 0,
+    operation: null,
+    remotes: [{ name: "origin", fetchUrl: "https://example.com", pushUrl: "https://example.com", provider: null }],
+    sectionCounts: {
+      changes: 0,
+      stagedChanges: 0,
+      stashes: 0,
+      worktrees: 0,
+      submodules: 0,
+      lfsPatterns: 0,
+    },
+    capabilities: { gitVersion: "2.40", supportsWorktrees: true, lfsAvailable: false },
+    ...overrides,
+  };
+}
+
+const changedFile: SourceControlFileStatus = {
+  path: "src/a.ts",
+  oldPath: null,
+  indexStatus: null,
+  worktreeStatus: "modified",
+  conflictStatus: null,
+  additions: 3,
+  deletions: 1,
+  binary: false,
+  submodule: false,
+  lfsPointer: false,
+};
+
+const stagedFile: SourceControlFileStatus = {
+  path: "src/b.ts",
+  oldPath: null,
+  indexStatus: "modified",
+  worktreeStatus: null,
+  conflictStatus: null,
+  additions: 2,
+  deletions: 0,
+  binary: false,
+  submodule: false,
+  lfsPointer: false,
+};
+
+describe("SourceControlPanel", () => {
+  afterEach(cleanup);
+
+  beforeEach(() => {
+    useMemoryPersistStorage();
+    useProjectStore.getState().resetProjectState();
+    useSourceControlStore.setState({
+      snapshotsByTrunkId: {},
+      loadingByTrunkId: {},
+      errorByTrunkId: {},
+      lastRevisionByTrunkId: {},
+      activeOperations: {},
+      api: null,
+    });
+  });
+
+  function setupTrunk(
+    snapshot?: SourceControlRepositorySnapshot,
+    runtimeStatus: "ready" | "invalid" | "resolving" | "unresolved" = "ready",
+  ) {
+    const { trunk } = useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-30T00:00:00.000Z",
+      trunkId: "trunk-1",
+      projectId: "project-1",
+    });
+    if (runtimeStatus === "ready") {
+      useProjectStore.getState().setCheckoutRuntime(trunk.id, {
+        status: "ready",
+        checkout: CHECKOUT,
+      });
+    } else if (runtimeStatus === "invalid") {
+      useProjectStore.getState().setCheckoutRuntime(trunk.id, {
+        status: "invalid",
+        safeWorkspacePath: "/work/app",
+        reason: "missing-worktree",
+        message: "The saved worktree no longer exists.",
+        worktreePath: null,
+        repositoryIdentity: null,
+        savedRefName: null,
+      });
+    } else {
+      useProjectStore.getState().setCheckoutRuntime(trunk.id, {
+        status: runtimeStatus,
+      });
+    }
+    const seed = snapshot
+      ? { snapshotsByCheckoutIdentity: { [CHECKOUT.checkoutIdentity]: snapshot } }
+      : {};
+    const sourceControlApi = createMemorySourceControlApi(seed);
+    useSourceControlStore.getState().bindApi(sourceControlApi);
+    // Pre-seed the store so the panel renders with the snapshot already present
+    // (loadSnapshot is async and would otherwise race the first render).
+    if (snapshot) {
+      useSourceControlStore.setState((state) => ({
+        snapshotsByTrunkId: { ...state.snapshotsByTrunkId, [trunk.id]: snapshot },
+        lastRevisionByTrunkId: { ...state.lastRevisionByTrunkId, [trunk.id]: snapshot.revision },
+      }));
+    }
+    return { sourceControlApi, trunk };
+  }
+
+  it("prompts to select a trunk when none is active", () => {
+    render(<SourceControlPanel />);
+    expect(
+      screen.getByText("Select a trunk to view source control."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the invalid-checkout message when runtime is invalid", () => {
+    setupTrunk(undefined, "invalid");
+    render(<SourceControlPanel />);
+    expect(
+      screen.getByText("The saved checkout is no longer valid."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows not-a-repository state with an initialize button", () => {
+    const snapshot = makeSnapshot({ repositoryState: "not-repository" });
+    setupTrunk(snapshot);
+    render(<SourceControlPanel />);
+    expect(screen.getByText("Not a SourceControl repository.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Initialize repository" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows source control unavailable state", () => {
+    const snapshot = makeSnapshot({ repositoryState: "git-unavailable" });
+    setupTrunk(snapshot);
+    render(<SourceControlPanel />);
+    expect(
+      screen.getByText("Git is not installed on this system."),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the Changes section with a changed file and stage action", () => {
+    const snapshot = makeSnapshot({
+      files: [changedFile],
+      sectionCounts: { ...makeSnapshot().sectionCounts, changes: 1 },
+    });
+    setupTrunk(snapshot);
+    render(<SourceControlPanel />);
+
+    expect(screen.getByText("src/a.ts")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stage" })).toBeInTheDocument();
+  });
+
+  it("stages a file when its stage button is clicked", async () => {
+    const snapshot = makeSnapshot({
+      files: [changedFile],
+      sectionCounts: { ...makeSnapshot().sectionCounts, changes: 1 },
+    });
+    const { sourceControlApi } = setupTrunk(snapshot);
+    const user = userEvent.setup();
+    render(<SourceControlPanel sourceControlApi={sourceControlApi} />);
+
+    await user.click(screen.getByRole("button", { name: "Stage" }));
+
+    await waitFor(() => {
+      expect(sourceControlApi.calls.find((c) => c.method === "stage")).toBeDefined();
+    });
+    const stageCall = sourceControlApi.calls.find((c) => c.method === "stage");
+    expect(stageCall?.input).toMatchObject({
+      checkoutPath: "/work/app",
+      paths: ["src/a.ts"],
+      mode: "stage",
+    });
+  });
+
+  it("shows the inline commit textarea and button when there are staged files", () => {
+    const snapshot = makeSnapshot({
+      files: [stagedFile],
+      sectionCounts: { ...makeSnapshot().sectionCounts, stagedChanges: 1 },
+    });
+    const { sourceControlApi } = setupTrunk(snapshot);
+    render(<SourceControlPanel sourceControlApi={sourceControlApi} />);
+
+    expect(screen.getByPlaceholderText(/Message/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Commit" })).toBeInTheDocument();
+  });
+
+  it("shows fetch/pull/push toolbar in the header", () => {
+    setupTrunk(makeSnapshot());
+    render(<SourceControlPanel />);
+
+    expect(screen.getByRole("button", { name: "Fetch" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pull" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Push" })).toBeInTheDocument();
+  });
+
+  it("shows ahead/behind when upstream is set", () => {
+    const snapshot = makeSnapshot({ ahead: 2, behind: 1 });
+    setupTrunk(snapshot);
+    render(<SourceControlPanel />);
+
+    expect(screen.getByText(/↑2/)).toBeInTheDocument();
+    expect(screen.getByText(/↓1/)).toBeInTheDocument();
+  });
+});
