@@ -1,15 +1,37 @@
 mod editor;
 mod explorer;
-mod git;
+mod source_control;
 mod path_scope;
+mod provider;
+mod quit;
+mod watch;
 
 use explorer::ExplorerWatchState;
-use tauri::Emitter;
+use tauri::{Emitter, State};
+
+use watch::{WatchBroker, WatchSubscribeInput, WatchUnsubscribeInput};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+#[tauri::command]
+fn watch_subscribe(
+    input: WatchSubscribeInput,
+    app: tauri::AppHandle,
+    broker: State<'_, WatchBroker>,
+) -> Result<(), String> {
+    broker.subscribe(input, &app)
+}
+
+#[tauri::command]
+fn watch_unsubscribe(
+    input: WatchUnsubscribeInput,
+    broker: State<'_, WatchBroker>,
+) -> Result<(), String> {
+    broker.unsubscribe(input)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -19,7 +41,9 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .manage(ExplorerWatchState::default())
-        .manage(git::repository::GitRepositoryState::default())
+        .manage(source_control::repository::SourceControlRepositoryState::default())
+        .manage(watch::WatchBroker::default())
+        .manage(quit::QuitGuard::default())
         .invoke_handler(tauri::generate_handler![
             greet,
             editor::read::editor_read_file,
@@ -38,10 +62,36 @@ pub fn run() {
             explorer::watch::explorer_watch,
             explorer::watch::explorer_unwatch,
             explorer::reveal::explorer_reveal,
-            git::git_resolve_checkout,
-            git::git_get_snapshot,
-            git::git_refresh,
-            git::git_initialize,
+            source_control::git_resolve_checkout,
+            source_control::git_get_snapshot,
+            source_control::git_refresh,
+            source_control::git_initialize,
+            source_control::git_worktree_create,
+            source_control::git_worktree_attach,
+            source_control::git_worktree_repair,
+            source_control::git_worktree_inspect_removal,
+            source_control::git_worktree_remove,
+            source_control::git_get_diff,
+            source_control::git_stage,
+            source_control::git_discard,
+            source_control::git_commit,
+            source_control::git_stash,
+            source_control::git_fetch,
+            source_control::git_pull,
+            source_control::git_push,
+            source_control::git_list_refs,
+            source_control::git_mutate_ref,
+            source_control::git_log,
+            source_control::git_compare,
+            source_control::git_submodule,
+            source_control::git_lfs,
+            source_control::git_clone,
+            source_control::git_enumerate_hooks,
+            watch_subscribe,
+            watch_unsubscribe,
+            provider::keychain::keychain_save,
+            provider::keychain::keychain_read,
+            provider::keychain::keychain_delete,
         ])
         .on_window_event(|window, event| {
             use tauri::{DragDropEvent, WindowEvent};
