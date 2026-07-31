@@ -24,7 +24,7 @@ import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { projectSelectExpired } from "../domain/projectRetention";
 import type {
   Project,
-  GitCheckoutRestore,
+  SourceControlCheckoutRestore,
   ProjectTrunk,
   ProjectGroup,
   RightPanelFeature,
@@ -83,7 +83,7 @@ export interface ProjectState {
     card: import("../../shell/state/shellStore").ShellMainCard,
   ) => void;
   setTrunkRightPanelFeature: (trunkId: string, feature: RightPanelFeature) => void;
-  setTrunkGitCheckout: (trunkId: string, checkout: GitCheckoutRestore) => void;
+  setTrunkGitCheckout: (trunkId: string, checkout: SourceControlCheckoutRestore) => void;
   touchTrunkActivity: (trunkId: string, nowIso: string) => void;
   setActiveIds: (projectId: string | null, trunkId: string | null) => void;
   toggleProjectExpanded: (projectId: string) => void;
