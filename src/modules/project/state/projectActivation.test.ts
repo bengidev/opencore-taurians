@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createMemoryGitApi } from "../../git";
+import { createMemorySourceControlApi } from "../../source-control";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useShellStore } from "../../shell/state/shellStore";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
@@ -44,11 +44,11 @@ describe("projectActivation", () => {
       nowIso: "2026-07-10T00:00:00.000Z",
     });
     useProjectStore.getState().setTrunkActiveMainCard(trunk.id, "terminal");
-    const api = createMemoryGitApi({
+    const api = createMemorySourceControlApi({
       resolveByTrunkId: { [trunk.id]: readyCheckout("/canonical/work/app") },
     });
 
-    await projectActivateTrunk(trunk.id, { gitApi: api });
+    await projectActivateTrunk(trunk.id, { sourceControlApi: api });
 
     expect(useWorkspaceStore.getState().workspacePath).toBe("/canonical/work/app");
     expect(useShellStore.getState().activeMainCard).toBe("terminal");
@@ -64,7 +64,7 @@ describe("projectActivation", () => {
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    const api = createMemoryGitApi({
+    const api = createMemorySourceControlApi({
       resolveByTrunkId: {
         [trunk.id]: {
           status: "invalid",
@@ -77,7 +77,7 @@ describe("projectActivation", () => {
       },
     });
 
-    await expect(projectActivateTrunk(trunk.id, { gitApi: api })).resolves.toEqual({
+    await expect(projectActivateTrunk(trunk.id, { sourceControlApi: api })).resolves.toEqual({
       status: "checkout-invalid",
       reason: "missing-worktree",
     });
@@ -106,14 +106,14 @@ describe("projectActivation", () => {
           }),
       ),
     };
-    const secondApi = createMemoryGitApi({
+    const secondApi = createMemorySourceControlApi({
       resolveByTrunkId: {
         [second.trunk.id]: readyCheckout("/canonical/second", "repo-2"),
       },
     });
 
-    const firstActivation = projectActivateTrunk(first.trunk.id, { gitApi: firstApi });
-    await projectActivateTrunk(second.trunk.id, { gitApi: secondApi });
+    const firstActivation = projectActivateTrunk(first.trunk.id, { sourceControlApi: firstApi });
+    await projectActivateTrunk(second.trunk.id, { sourceControlApi: secondApi });
     resolveFirst(readyCheckout("/canonical/first"));
 
     await expect(firstActivation).resolves.toEqual({ status: "superseded" });
@@ -125,10 +125,10 @@ describe("projectActivation", () => {
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
-    const api = createMemoryGitApi({
+    const api = createMemorySourceControlApi({
       resolveByTrunkId: { [trunk.id]: readyCheckout("/work/app") },
     });
-    await projectActivateTrunk(trunk.id, { gitApi: api });
+    await projectActivateTrunk(trunk.id, { sourceControlApi: api });
     useShellStore.getState().setActiveMainCard("editor");
     projectSyncRestoreFromShell();
     expect(
@@ -138,7 +138,7 @@ describe("projectActivation", () => {
   });
 
   it("openFolder finds or creates project", async () => {
-    const firstApi = createMemoryGitApi();
+    const firstApi = createMemorySourceControlApi();
     const createResolve = vi.spyOn(firstApi, "resolveCheckout").mockResolvedValue(
       readyCheckout("/work/app"),
     );
@@ -167,7 +167,7 @@ describe("projectActivation", () => {
       nowIso: "2026-07-01T00:00:00.000Z",
     });
     useProjectStore.getState().setActiveIds(stale.project.id, stale.trunk.id);
-    const api = createMemoryGitApi({
+    const api = createMemorySourceControlApi({
       resolveByTrunkId: { [fresh.trunk.id]: readyCheckout("/work/current") },
     });
 
@@ -176,7 +176,7 @@ describe("projectActivation", () => {
       nowIso: "2026-07-10T00:00:00.000Z",
       nowMs: Date.parse("2026-07-10T00:00:00.000Z"),
       retentionDays: 30,
-      gitApi: api,
+      sourceControlApi: api,
     });
 
     expect(useProjectStore.getState().projects).toHaveLength(1);

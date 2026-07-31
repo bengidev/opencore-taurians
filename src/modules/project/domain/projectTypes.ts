@@ -2,7 +2,7 @@ import type { ShellMainCard } from "../../shell/state/shellStore";
 
 export type RightPanelFeature = "files" | "git";
 
-export type GitCheckoutRestore =
+export type SourceControlCheckoutRestore =
   | {
       kind: "project-root";
       repositoryIdentity: string | null;
@@ -19,7 +19,7 @@ export type GitCheckoutRestore =
 export interface ProjectTrunkRestore {
   activeMainCard: ShellMainCard;
   rightPanelFeature: RightPanelFeature;
-  gitCheckout: GitCheckoutRestore;
+  gitCheckout: SourceControlCheckoutRestore;
 }
 
 export interface Project {

@@ -1,16 +1,16 @@
 import type {
-  GitCheckoutInvalidReason,
-  ResolvedGitCheckout,
-} from "../../git/api/gitContracts";
+  SourceControlCheckoutInvalidReason,
+  ResolvedSourceControlCheckout,
+} from "../../source-control/api/sourceControlContracts";
 
 export type ProjectCheckoutRuntimeState =
   | { status: "unresolved" }
   | { status: "resolving" }
-  | { status: "ready"; checkout: ResolvedGitCheckout }
+  | { status: "ready"; checkout: ResolvedSourceControlCheckout }
   | {
       status: "invalid";
       safeWorkspacePath: string;
-      reason: GitCheckoutInvalidReason;
+      reason: SourceControlCheckoutInvalidReason;
       message: string;
       worktreePath: string | null;
       repositoryIdentity: string | null;
@@ -18,7 +18,7 @@ export type ProjectCheckoutRuntimeState =
     };
 
 export type ProjectActivationResult =
-  | { status: "activated"; checkout: ResolvedGitCheckout }
-  | { status: "checkout-invalid"; reason: GitCheckoutInvalidReason }
+  | { status: "activated"; checkout: ResolvedSourceControlCheckout }
+  | { status: "checkout-invalid"; reason: SourceControlCheckoutInvalidReason }
   | { status: "superseded" }
   | { status: "not-found" };
