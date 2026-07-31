@@ -1,8 +1,8 @@
 import {
-  createTauriGitApi,
-  type GitApi,
-  type GitResolveCheckoutResult,
-} from "../../git";
+  createTauriSourceControlApi,
+  type SourceControlApi,
+  type SourceControlResolveCheckoutResult,
+} from "../../source-control";
 import { useShellStore } from "../../shell/state/shellStore";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import type { ProjectActivationResult } from "../domain/projectCheckout";
@@ -14,7 +14,7 @@ export async function projectActivateTrunk(
   trunkId: string,
   options: {
     nowIso?: string;
-    gitApi?: Pick<GitApi, "resolveCheckout">;
+    sourceControlApi?: Pick<SourceControlApi, "resolveCheckout">;
   } = {},
 ): Promise<ProjectActivationResult> {
   const state = useProjectStore.getState();
@@ -25,7 +25,7 @@ export async function projectActivateTrunk(
 
   const generation = ++activationGeneration;
   const nowIso = options.nowIso ?? new Date().toISOString();
-  const gitApi = options.gitApi ?? createTauriGitApi();
+  const sourceControlApi = options.sourceControlApi ?? createTauriSourceControlApi();
 
   state.touchTrunkActivity(trunkId, nowIso);
   state.setActiveIds(project.id, trunk.id);
@@ -33,9 +33,9 @@ export async function projectActivateTrunk(
   useWorkspaceStore.getState().setWorkspace(project.folderPath);
   useShellStore.getState().setActiveMainCard(trunk.restore.activeMainCard);
 
-  let result: GitResolveCheckoutResult;
+  let result: SourceControlResolveCheckoutResult;
   try {
-    result = await gitApi.resolveCheckout({
+    result = await sourceControlApi.resolveCheckout({
       projectId: project.id,
       trunkId: trunk.id,
       projectFolderPath: project.folderPath,
@@ -112,12 +112,12 @@ export function projectSyncRestoreFromShell(): void {
 export async function projectOpenFolder(
   folderPath: string,
   nowIso = new Date().toISOString(),
-  gitApi?: Pick<GitApi, "resolveCheckout">,
+  sourceControlApi?: Pick<SourceControlApi, "resolveCheckout">,
 ) {
   const state = useProjectStore.getState();
   const existing = state.findProjectByFolderPath(folderPath);
   if (existing) {
-    await projectActivateProject(existing.id, { nowIso, gitApi });
+    await projectActivateProject(existing.id, { nowIso, sourceControlApi });
     return {
       project: existing,
       trunk: state.trunks.find(
@@ -126,7 +126,7 @@ export async function projectOpenFolder(
     };
   }
   const created = state.createProjectWithRootTrunk({ folderPath, nowIso });
-  await projectActivateTrunk(created.trunk.id, { nowIso, gitApi });
+  await projectActivateTrunk(created.trunk.id, { nowIso, sourceControlApi });
   return created;
 }
 
@@ -135,7 +135,7 @@ export async function projectBootMigrateAndSweep(input: {
   nowIso: string;
   nowMs: number;
   retentionDays?: number;
-  gitApi?: Pick<GitApi, "resolveCheckout">;
+  sourceControlApi?: Pick<SourceControlApi, "resolveCheckout">;
 }): Promise<void> {
   const state = useProjectStore.getState();
   state.applyMigration(input.workspacePath, input.nowIso);
@@ -147,14 +147,14 @@ export async function projectBootMigrateAndSweep(input: {
   if (fresh.activeTrunkId) {
     await projectActivateTrunk(fresh.activeTrunkId, {
       nowIso: input.nowIso,
-      gitApi: input.gitApi,
+      sourceControlApi: input.sourceControlApi,
     });
   } else if (input.workspacePath) {
     const project = fresh.findProjectByFolderPath(input.workspacePath);
     if (project) {
       await projectActivateProject(project.id, {
         nowIso: input.nowIso,
-        gitApi: input.gitApi,
+        sourceControlApi: input.sourceControlApi,
       });
     }
   }

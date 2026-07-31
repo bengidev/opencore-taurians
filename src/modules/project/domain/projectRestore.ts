@@ -1,6 +1,6 @@
 import type { ShellMainCard } from "../../shell/state/shellStore";
 import type {
-  GitCheckoutRestore,
+  SourceControlCheckoutRestore,
   ProjectTrunkRestore,
   RightPanelFeature,
 } from "./projectTypes";
@@ -48,7 +48,7 @@ export function projectNormalizeTrunkRestore(
   };
 }
 
-export function projectCheckoutRestoreIsMalformed(checkout: GitCheckoutRestore): boolean {
+export function projectCheckoutRestoreIsMalformed(checkout: SourceControlCheckoutRestore): boolean {
   return (
     checkout.kind === "worktree" &&
     (checkout.worktreePath.length === 0 || checkout.repositoryIdentity.length === 0)
@@ -65,7 +65,7 @@ function normalizeFeature(value: unknown): RightPanelFeature {
   return value === "git" ? "git" : "files";
 }
 
-function normalizeCheckout(value: unknown, isRootTrunk: boolean): GitCheckoutRestore {
+function normalizeCheckout(value: unknown, isRootTrunk: boolean): SourceControlCheckoutRestore {
   if (!isRecord(value)) {
     return isRootTrunk
       ? projectDefaultRootRestore().gitCheckout
