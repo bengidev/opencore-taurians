@@ -15,9 +15,11 @@ describe("ShellRightPanelFeatureControls", () => {
     useShellStore.setState({ rightVisible: false, rightPanelWidth: 208 });
   });
 
-  it("is unreachable while the release gate is disabled", () => {
+  it("is reachable now that the release gate is enabled", () => {
     render(<ShellRightPanelFeatureControls />);
-    expect(screen.queryByRole("group", { name: "Right panel feature" })).toBeNull();
+    expect(screen.getByRole("group", { name: "Right panel feature" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Files" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Source control" })).toBeInTheDocument();
   });
 
   it("selects Git for only the active trunk and opens the panel", async () => {

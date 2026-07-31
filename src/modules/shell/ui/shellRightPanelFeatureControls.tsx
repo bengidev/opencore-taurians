@@ -1,6 +1,6 @@
 import { FolderTree, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { GIT_SUITE_RELEASE_ENABLED } from "../../git/domain/gitFeatureAvailability";
+import { SOURCE_CONTROL_SUITE_RELEASE_ENABLED } from "../../source-control/domain/sourceControlFeatureAvailability";
 import { useProjectStore } from "../../project/state/projectStore";
 import type { RightPanelFeature } from "../../project/domain/projectTypes";
 import { PanelToolButton } from "../../project/ui/panelToolButton";
@@ -20,7 +20,7 @@ const FEATURES: Array<{
 ];
 
 export function ShellRightPanelFeatureControls({
-  enabled = GIT_SUITE_RELEASE_ENABLED,
+  enabled = SOURCE_CONTROL_SUITE_RELEASE_ENABLED,
 }: ShellRightPanelFeatureControlsProps) {
   const activeTrunkId = useProjectStore((state) => state.activeTrunkId);
   const feature = useProjectStore((state) =>
