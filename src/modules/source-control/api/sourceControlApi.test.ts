@@ -10,16 +10,16 @@ const { invokeMock, listenMock } = vi.hoisted(() => ({
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
 
-import { createMemoryGitApi } from "./createMemoryGitApi";
-import { createTauriGitApi } from "./gitApi";
+import { createMemorySourceControlApi } from "./createMemorySourceControlApi";
+import { createTauriSourceControlApi } from "./sourceControlApi";
 import type {
-  GitOperationEvent,
-  GitRepositorySnapshot,
-  GitResolveCheckoutInput,
-  GitResolveCheckoutResult,
-} from "./gitContracts";
+  SourceControlOperationEvent,
+  SourceControlRepositorySnapshot,
+  SourceControlResolveCheckoutInput,
+  SourceControlResolveCheckoutResult,
+} from "./sourceControlContracts";
 
-const resolveInput: GitResolveCheckoutInput = {
+const resolveInput: SourceControlResolveCheckoutInput = {
   projectId: "project-1",
   trunkId: "trunk-1",
   projectFolderPath: "/work/app",
@@ -44,7 +44,7 @@ const resolvedCheckout = {
   },
 };
 
-const snapshot: GitRepositorySnapshot = {
+const snapshot: SourceControlRepositorySnapshot = {
   projectId: "project-1",
   trunkId: "trunk-1",
   checkoutPath: "/work/app",
@@ -78,20 +78,20 @@ const snapshot: GitRepositorySnapshot = {
   },
 };
 
-describe("createTauriGitApi", () => {
+describe("createTauriSourceControlApi", () => {
   beforeEach(() => {
     invokeMock.mockReset();
     listenMock.mockClear();
   });
 
   it("serializes checkout resolution as a task-level command", async () => {
-    const result: GitResolveCheckoutResult = {
+    const result: SourceControlResolveCheckoutResult = {
       status: "ready",
       checkout: resolvedCheckout,
     };
     invokeMock.mockResolvedValue(result);
 
-    const api = createTauriGitApi();
+    const api = createTauriSourceControlApi();
     await expect(api.resolveCheckout(resolveInput)).resolves.toEqual(result);
     expect(invokeMock).toHaveBeenCalledWith("git_resolve_checkout", {
       input: resolveInput,
@@ -105,7 +105,7 @@ describe("createTauriGitApi", () => {
       .mockResolvedValueOnce(snapshot)
       .mockResolvedValueOnce({
         source: { kind: "working-tree" },
-        patch: "diff --git a/a.ts b/a.ts",
+        patch: "diff --sourceControl a/a.ts b/a.ts",
         files: [],
         additions: 1,
         deletions: 0,
@@ -113,17 +113,18 @@ describe("createTauriGitApi", () => {
         truncated: false,
       });
 
-    const api = createTauriGitApi();
+    const api = createTauriSourceControlApi();
     await api.getSnapshot({ projectId: "project-1", trunkId: "trunk-1", checkout: resolvedCheckout });
     await api.refreshLocal({ projectId: "project-1", trunkId: "trunk-1", checkout: resolvedCheckout });
     await api.initialize({ projectId: "project-1", trunkId: "trunk-1", checkoutPath: "/work/app" });
     await api.getDiff({
       projectId: "project-1",
       trunkId: "trunk-1",
-      checkout: resolvedCheckout,
+      checkoutPath: "/work/app",
       source: { kind: "working-tree" },
       ignoreWhitespace: false,
       maxBytes: 1_048_576,
+      pathspec: null,
     });
 
     expect(invokeMock.mock.calls.map(([command]) => command)).toEqual([
@@ -135,15 +136,15 @@ describe("createTauriGitApi", () => {
   });
 
   it("subscribes to sanitized operation events", async () => {
-    const api = createTauriGitApi();
-    const callback = vi.fn<(event: GitOperationEvent) => void>();
+    const api = createTauriSourceControlApi();
+    const callback = vi.fn<(event: SourceControlOperationEvent) => void>();
     await api.onOperationEvent(callback);
 
-    expect(listenMock).toHaveBeenCalledWith("git://operation", expect.any(Function));
+    expect(listenMock).toHaveBeenCalledWith("sourceControl://operation", expect.any(Function));
     const handler = listenMock.mock.calls[0]?.[1] as
-      | ((event: { payload: GitOperationEvent }) => void)
+      | ((event: { payload: SourceControlOperationEvent }) => void)
       | undefined;
-    const event: GitOperationEvent = {
+    const event: SourceControlOperationEvent = {
       kind: "progress",
       operationId: "op-1",
       repositoryId: "repo-1",
@@ -159,9 +160,9 @@ describe("createTauriGitApi", () => {
   });
 });
 
-describe("createMemoryGitApi", () => {
+describe("createMemorySourceControlApi", () => {
   it("records task-level calls and advances revisions deterministically", async () => {
-    const api = createMemoryGitApi({
+    const api = createMemorySourceControlApi({
       resolveByTrunkId: {
         "trunk-1": { status: "ready", checkout: resolvedCheckout },
       },
@@ -186,7 +187,7 @@ describe("createMemoryGitApi", () => {
   });
 
   it("exposes no arbitrary command execution method", () => {
-    const api = createMemoryGitApi();
+    const api = createMemorySourceControlApi();
     expect("run" in api).toBe(false);
     expect("exec" in api).toBe(false);
     expect("command" in api).toBe(false);
