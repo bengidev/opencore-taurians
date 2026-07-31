@@ -1,12 +1,12 @@
-use crate::git::contracts::{GitFileCode, GitFileStatus, GitHeadSummary};
+use crate::source_control::contracts::{SourceControlFileCode, SourceControlFileStatus, SourceControlHeadSummary};
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct ParsedStatus {
-    pub head: Option<GitHeadSummary>,
+    pub head: Option<SourceControlHeadSummary>,
     pub upstream: Option<String>,
     pub ahead: u64,
     pub behind: u64,
-    pub files: Vec<GitFileStatus>,
+    pub files: Vec<SourceControlFileStatus>,
 }
 
 pub fn parse_porcelain_v2(input: &[u8]) -> ParsedStatus {
@@ -18,15 +18,15 @@ pub fn parse_porcelain_v2(input: &[u8]) -> ParsedStatus {
         let line = String::from_utf8_lossy(raw);
         if let Some(value) = line.strip_prefix("# branch.head ") {
             result.head = Some(if value == "(detached)" {
-                GitHeadSummary::Detached { oid: String::new() }
+                SourceControlHeadSummary::Detached { oid: String::new() }
             } else if value == "(unknown)" {
-                GitHeadSummary::Unborn { name: None }
-            } else if matches!(result.head, Some(GitHeadSummary::Unborn { .. })) {
-                GitHeadSummary::Unborn {
+                SourceControlHeadSummary::Unborn { name: None }
+            } else if matches!(result.head, Some(SourceControlHeadSummary::Unborn { .. })) {
+                SourceControlHeadSummary::Unborn {
                     name: Some(value.to_string()),
                 }
             } else {
-                GitHeadSummary::Branch {
+                SourceControlHeadSummary::Branch {
                     name: value.to_string(),
                 }
             });
@@ -34,9 +34,9 @@ pub fn parse_porcelain_v2(input: &[u8]) -> ParsedStatus {
         }
         if let Some(value) = line.strip_prefix("# branch.oid ") {
             match result.head.as_mut() {
-                Some(GitHeadSummary::Detached { oid }) => *oid = value.to_string(),
+                Some(SourceControlHeadSummary::Detached { oid }) => *oid = value.to_string(),
                 None if value == "(initial)" => {
-                    result.head = Some(GitHeadSummary::Unborn { name: None })
+                    result.head = Some(SourceControlHeadSummary::Unborn { name: None })
                 }
                 _ => {}
             }
@@ -63,12 +63,12 @@ pub fn parse_porcelain_v2(input: &[u8]) -> ParsedStatus {
     result
 }
 
-fn parse_file_record(line: &str) -> Option<GitFileStatus> {
+fn parse_file_record(line: &str) -> Option<SourceControlFileStatus> {
     if let Some(path) = line.strip_prefix("? ") {
-        return Some(file_status(path, None, None, Some(GitFileCode::Untracked)));
+        return Some(file_status(path, None, None, Some(SourceControlFileCode::Untracked)));
     }
     if let Some(path) = line.strip_prefix("! ") {
-        return Some(file_status(path, None, None, Some(GitFileCode::Ignored)));
+        return Some(file_status(path, None, None, Some(SourceControlFileCode::Ignored)));
     }
     let fields: Vec<&str> = line.splitn(10, ' ').collect();
     match fields.first().copied()? {
@@ -97,11 +97,11 @@ fn parse_file_record(line: &str) -> Option<GitFileStatus> {
         }
         "u" => {
             let path = fields.get(10).or_else(|| fields.last())?.to_string();
-            Some(GitFileStatus {
+            Some(SourceControlFileStatus {
                 path,
                 old_path: None,
-                index_status: Some(GitFileCode::Conflicted),
-                worktree_status: Some(GitFileCode::Conflicted),
+                index_status: Some(SourceControlFileCode::Conflicted),
+                worktree_status: Some(SourceControlFileCode::Conflicted),
                 conflict_status: fields.get(1).map(|value| (*value).to_string()),
                 additions: None,
                 deletions: None,
@@ -117,10 +117,10 @@ fn parse_file_record(line: &str) -> Option<GitFileStatus> {
 fn file_status(
     path: &str,
     old_path: Option<String>,
-    index_status: Option<GitFileCode>,
-    worktree_status: Option<GitFileCode>,
-) -> GitFileStatus {
-    GitFileStatus {
+    index_status: Option<SourceControlFileCode>,
+    worktree_status: Option<SourceControlFileCode>,
+) -> SourceControlFileStatus {
+    SourceControlFileStatus {
         path: path.to_string(),
         old_path,
         index_status,
@@ -134,16 +134,16 @@ fn file_status(
     }
 }
 
-fn code(value: u8) -> Option<GitFileCode> {
+fn code(value: u8) -> Option<SourceControlFileCode> {
     match value {
         b'.' | b' ' => None,
-        b'A' => Some(GitFileCode::Added),
-        b'M' => Some(GitFileCode::Modified),
-        b'D' => Some(GitFileCode::Deleted),
-        b'R' => Some(GitFileCode::Renamed),
-        b'C' => Some(GitFileCode::Copied),
-        b'T' => Some(GitFileCode::TypeChanged),
-        b'U' => Some(GitFileCode::Conflicted),
+        b'A' => Some(SourceControlFileCode::Added),
+        b'M' => Some(SourceControlFileCode::Modified),
+        b'D' => Some(SourceControlFileCode::Deleted),
+        b'R' => Some(SourceControlFileCode::Renamed),
+        b'C' => Some(SourceControlFileCode::Copied),
+        b'T' => Some(SourceControlFileCode::TypeChanged),
+        b'U' => Some(SourceControlFileCode::Conflicted),
         _ => None,
     }
 }
@@ -157,7 +157,7 @@ mod tests {
         let parsed = parse_porcelain_v2(b"# branch.oid (initial)\0# branch.head main\0");
         assert_eq!(
             parsed.head,
-            Some(GitHeadSummary::Unborn {
+            Some(SourceControlHeadSummary::Unborn {
                 name: Some("main".to_string())
             })
         );
@@ -166,18 +166,21 @@ mod tests {
     #[test]
     fn parses_branch_divergence_and_files() {
         let parsed = parse_porcelain_v2(
-            b"# branch.oid abc\0# branch.head feature/x\0# branch.upstream origin/feature/x\0# branch.ab +2 -3\01 M. N... 100644 100644 100644 abc def src/a.ts\0? new file.txt\0",
+            b"# branch.oid abc\0# branch.head feature/x\0# branch.upstream origin/feature/x\0# branch.ab +2 -3\x001 M. N... 100644 100644 100644 abc def src/a.ts\0? new file.txt\0",
         );
         assert_eq!(
             parsed.head,
-            Some(GitHeadSummary::Branch {
+            Some(SourceControlHeadSummary::Branch {
                 name: "feature/x".to_string()
             })
         );
         assert_eq!(parsed.upstream.as_deref(), Some("origin/feature/x"));
         assert_eq!((parsed.ahead, parsed.behind), (2, 3));
         assert_eq!(parsed.files.len(), 2);
-        assert_eq!(parsed.files[0].index_status, Some(GitFileCode::Modified));
-        assert_eq!(parsed.files[1].worktree_status, Some(GitFileCode::Untracked));
+        assert_eq!(parsed.files[0].index_status, Some(SourceControlFileCode::Modified));
+        assert_eq!(
+            parsed.files[1].worktree_status,
+            Some(SourceControlFileCode::Untracked)
+        );
     }
 }

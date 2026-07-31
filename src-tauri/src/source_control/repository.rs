@@ -1,10 +1,10 @@
-use crate::git::contracts::{
-    GitCapabilities, GitCheckoutRequest, GitHeadSummary, GitInitializeInput, GitPanelSectionCounts,
-    GitRepositorySnapshot, GitRepositoryStatus, PublicGitError, ResolvedGitCheckout,
+use crate::source_control::contracts::{
+    SourceControlCapabilities, SourceControlCheckoutRequest, SourceControlHeadSummary, SourceControlInitializeInput, SourceControlPanelSectionCounts,
+    SourceControlRepositorySnapshot, SourceControlRepositoryStatus, PublicSourceControlError, ResolvedSourceControlCheckout,
 };
-use crate::git::parse::parse_porcelain_v2;
-use crate::git::process::{GitCommandSpec, GitProcess, GitExecutionPolicy, SystemGitProcess};
-use crate::git::scope::detect_repository;
+use crate::source_control::parse::parse_porcelain_v2;
+use crate::source_control::process::{SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess};
+use crate::source_control::scope::detect_repository;
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::path::Path;
@@ -12,11 +12,11 @@ use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[derive(Default)]
-pub struct GitRepositoryState {
+pub struct SourceControlRepositoryState {
     revisions: Mutex<HashMap<String, u64>>,
 }
 
-impl GitRepositoryState {
+impl SourceControlRepositoryState {
     fn next_revision(&self, checkout_identity: &str) -> u64 {
         let mut revisions = self.revisions.lock().unwrap();
         let revision = revisions.entry(checkout_identity.to_string()).or_default();
@@ -26,44 +26,44 @@ impl GitRepositoryState {
 }
 
 pub fn get_snapshot(
-    state: &GitRepositoryState,
-    input: GitCheckoutRequest,
-) -> Result<GitRepositorySnapshot, PublicGitError> {
+    state: &SourceControlRepositoryState,
+    input: SourceControlCheckoutRequest,
+) -> Result<SourceControlRepositorySnapshot, PublicSourceControlError> {
     snapshot_with(&SystemGitProcess, state, input)
 }
 
 pub fn refresh(
-    state: &GitRepositoryState,
-    input: GitCheckoutRequest,
-) -> Result<GitRepositorySnapshot, PublicGitError> {
+    state: &SourceControlRepositoryState,
+    input: SourceControlCheckoutRequest,
+) -> Result<SourceControlRepositorySnapshot, PublicSourceControlError> {
     snapshot_with(&SystemGitProcess, state, input)
 }
 
 pub fn initialize(
-    state: &GitRepositoryState,
-    input: GitInitializeInput,
-) -> Result<GitRepositorySnapshot, PublicGitError> {
+    state: &SourceControlRepositoryState,
+    input: SourceControlInitializeInput,
+) -> Result<SourceControlRepositorySnapshot, PublicSourceControlError> {
     let checkout_path = Path::new(&input.checkout_path);
-    let spec = GitCommandSpec {
+    let spec = SourceControlCommandSpec {
         checkout: checkout_path.to_path_buf(),
         operation: "initialize",
         args: vec![OsString::from("init")],
         timeout: Duration::from_secs(30),
         stdout_limit: 256 * 1024,
         stderr_limit: 256 * 1024,
-        policy: GitExecutionPolicy::TrustedMutation,
+        policy: SourceControlExecutionPolicy::TrustedMutation,
     };
     SystemGitProcess.run(spec)?;
     let scope = detect_repository(&SystemGitProcess, checkout_path)
-        .map_err(|_| PublicGitError::not_repository("initialize"))?;
-    let checkout = ResolvedGitCheckout {
-        kind: crate::git::contracts::ResolvedGitCheckoutKind::ProjectRoot,
+        .map_err(|_| PublicSourceControlError::not_repository("initialize"))?;
+    let checkout = ResolvedSourceControlCheckout {
+        kind: crate::source_control::contracts::ResolvedSourceControlCheckoutKind::ProjectRoot,
         checkout_path: scope.checkout_path.to_string_lossy().into_owned(),
         checkout_identity: scope.checkout_identity,
         repository_identity: Some(scope.repository_identity.clone()),
         saved_ref_name: scope.ref_name.clone(),
         managed_by_app: false,
-        normalized_restore: crate::git::contracts::GitCheckoutRestore::ProjectRoot {
+        normalized_restore: crate::source_control::contracts::SourceControlCheckoutRestore::ProjectRoot {
             repository_identity: Some(scope.repository_identity),
             saved_ref_name: scope.ref_name,
         },
@@ -71,7 +71,7 @@ pub fn initialize(
     snapshot_with(
         &SystemGitProcess,
         state,
-        GitCheckoutRequest {
+        SourceControlCheckoutRequest {
             project_id: input.project_id,
             trunk_id: input.trunk_id,
             checkout,
@@ -80,10 +80,10 @@ pub fn initialize(
 }
 
 fn snapshot_with(
-    process: &impl GitProcess,
-    state: &GitRepositoryState,
-    input: GitCheckoutRequest,
-) -> Result<GitRepositorySnapshot, PublicGitError> {
+    process: &impl SourceControlProcess,
+    state: &SourceControlRepositoryState,
+    input: SourceControlCheckoutRequest,
+) -> Result<SourceControlRepositorySnapshot, PublicSourceControlError> {
     let version = SystemGitProcess.discover().ok();
     let checkout = &input.checkout;
     let path = Path::new(&checkout.checkout_path);
@@ -95,7 +95,7 @@ fn snapshot_with(
             .map(|scope| scope.repository_identity.as_str()),
     ) {
         if expected != actual {
-            return Err(PublicGitError::checkout_invalid(
+            return Err(PublicSourceControlError::checkout_invalid(
                 "snapshot",
                 "The repository identity changed after checkout validation.",
             ));
@@ -114,7 +114,7 @@ fn snapshot_with(
         .unwrap_or_else(|| checkout.checkout_path.clone());
 
     let Some(scope) = detected else {
-        return Ok(GitRepositorySnapshot {
+        return Ok(SourceControlRepositorySnapshot {
             project_id: input.project_id,
             trunk_id: input.trunk_id,
             checkout_path: checkout.checkout_path.clone(),
@@ -123,9 +123,9 @@ fn snapshot_with(
             revision,
             captured_at,
             repository_state: if version.is_some() {
-                GitRepositoryStatus::NotRepository
+                SourceControlRepositoryStatus::NotRepository
             } else {
-                GitRepositoryStatus::GitUnavailable
+                SourceControlRepositoryStatus::SourceControlUnavailable
             },
             worktree_label,
             head: None,
@@ -137,8 +137,8 @@ fn snapshot_with(
             conflict_count: 0,
             operation: None,
             remotes: Vec::new(),
-            section_counts: GitPanelSectionCounts::default(),
-            capabilities: GitCapabilities {
+            section_counts: SourceControlPanelSectionCounts::default(),
+            capabilities: SourceControlCapabilities {
                 git_version: version,
                 supports_worktrees: false,
                 lfs_available: false,
@@ -146,21 +146,21 @@ fn snapshot_with(
         });
     };
 
-    let output = process.run(GitCommandSpec::parsed_read(
+    let output = process.run(SourceControlCommandSpec::parsed_read(
         path,
         "status",
         ["status", "--porcelain=v2", "--branch", "-z", "--ignored=no"],
     ))?;
     let mut parsed = parse_porcelain_v2(&output.stdout);
-    if matches!(parsed.head, Some(GitHeadSummary::Unborn { name: None })) {
-        parsed.head = Some(GitHeadSummary::Unborn {
+    if matches!(parsed.head, Some(SourceControlHeadSummary::Unborn { name: None })) {
+        parsed.head = Some(SourceControlHeadSummary::Unborn {
             name: scope.ref_name.clone(),
         });
     }
-    let repository_state = if matches!(parsed.head, Some(GitHeadSummary::Unborn { .. })) {
-        GitRepositoryStatus::Unborn
+    let repository_state = if matches!(parsed.head, Some(SourceControlHeadSummary::Unborn { .. })) {
+        SourceControlRepositoryStatus::Unborn
     } else {
-        GitRepositoryStatus::Ready
+        SourceControlRepositoryStatus::Ready
     };
     let changes = parsed
         .files
@@ -178,7 +178,7 @@ fn snapshot_with(
         .filter(|file| file.conflict_status.is_some())
         .count();
 
-    Ok(GitRepositorySnapshot {
+    Ok(SourceControlRepositorySnapshot {
         project_id: input.project_id,
         trunk_id: input.trunk_id,
         checkout_path: scope.checkout_path.to_string_lossy().into_owned(),
@@ -197,13 +197,13 @@ fn snapshot_with(
         conflict_count,
         operation: None,
         remotes: Vec::new(),
-        section_counts: GitPanelSectionCounts {
+        section_counts: SourceControlPanelSectionCounts {
             changes,
             staged_changes,
             worktrees: 1,
-            ..GitPanelSectionCounts::default()
+            ..SourceControlPanelSectionCounts::default()
         },
-        capabilities: GitCapabilities {
+        capabilities: SourceControlCapabilities {
             git_version: version,
             supports_worktrees: true,
             lfs_available: false,
@@ -214,25 +214,23 @@ fn snapshot_with(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::git::contracts::{
-        GitCheckoutRestore, ResolvedGitCheckoutKind,
-    };
-    use crate::git::scope::resolve_checkout;
+    use crate::source_control::contracts::{SourceControlCheckoutRestore, ResolvedSourceControlCheckoutKind};
+    use crate::source_control::scope::resolve_checkout;
     use std::fs;
     use std::process::Command;
     use tempfile::tempdir;
 
-    fn resolve_root(path: &Path) -> ResolvedGitCheckout {
-        let result = resolve_checkout(crate::git::contracts::GitResolveCheckoutInput {
+    fn resolve_root(path: &Path) -> ResolvedSourceControlCheckout {
+        let result = resolve_checkout(crate::source_control::contracts::SourceControlResolveCheckoutInput {
             project_id: "p".into(),
             trunk_id: "t".into(),
             project_folder_path: path.to_string_lossy().into_owned(),
-            git_checkout: GitCheckoutRestore::ProjectRoot {
+            git_checkout: SourceControlCheckoutRestore::ProjectRoot {
                 repository_identity: None,
                 saved_ref_name: None,
             },
         });
-        let crate::git::contracts::GitResolveCheckoutResult::Ready { checkout } = result else {
+        let crate::source_control::contracts::SourceControlResolveCheckoutResult::Ready { checkout } = result else {
             panic!("expected ready")
         };
         checkout
@@ -243,32 +241,35 @@ mod tests {
         let dir = tempdir().unwrap();
         let checkout = resolve_root(dir.path());
         let snapshot = get_snapshot(
-            &GitRepositoryState::default(),
-            GitCheckoutRequest {
+            &SourceControlRepositoryState::default(),
+            SourceControlCheckoutRequest {
                 project_id: "p".into(),
                 trunk_id: "t".into(),
                 checkout,
             },
         )
         .unwrap();
-        assert_eq!(snapshot.repository_state, GitRepositoryStatus::NotRepository);
+        assert_eq!(
+            snapshot.repository_state,
+            SourceControlRepositoryStatus::NotRepository
+        );
         assert_eq!(snapshot.revision, 1);
     }
 
     #[test]
     fn initializes_and_reports_unborn_repository() {
         let dir = tempdir().unwrap();
-        let state = GitRepositoryState::default();
+        let state = SourceControlRepositoryState::default();
         let snapshot = initialize(
             &state,
-            GitInitializeInput {
+            SourceControlInitializeInput {
                 project_id: "p".into(),
                 trunk_id: "t".into(),
                 checkout_path: dir.path().to_string_lossy().into_owned(),
             },
         )
         .unwrap();
-        assert_eq!(snapshot.repository_state, GitRepositoryStatus::Unborn);
+        assert_eq!(snapshot.repository_state, SourceControlRepositoryStatus::Unborn);
         assert!(snapshot.repository_identity.is_some());
     }
 
@@ -289,10 +290,10 @@ mod tests {
             .unwrap()
             .success());
         let checkout = resolve_root(dir.path());
-        assert_eq!(checkout.kind, ResolvedGitCheckoutKind::ProjectRoot);
+        assert_eq!(checkout.kind, ResolvedSourceControlCheckoutKind::ProjectRoot);
         let snapshot = get_snapshot(
-            &GitRepositoryState::default(),
-            GitCheckoutRequest {
+            &SourceControlRepositoryState::default(),
+            SourceControlCheckoutRequest {
                 project_id: "p".into(),
                 trunk_id: "t".into(),
                 checkout,
