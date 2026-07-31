@@ -1,8 +1,8 @@
-use crate::git::contracts::{
-    GitCheckoutInvalidReason, GitCheckoutRestore, GitResolveCheckoutInput,
-    GitResolveCheckoutResult, ResolvedGitCheckout, ResolvedGitCheckoutKind,
+use crate::source_control::contracts::{
+    SourceControlCheckoutInvalidReason, SourceControlCheckoutRestore, SourceControlResolveCheckoutInput,
+    SourceControlResolveCheckoutResult, ResolvedSourceControlCheckout, ResolvedSourceControlCheckoutKind,
 };
-use crate::git::process::{GitCommandSpec, GitProcess, SystemGitProcess};
+use crate::source_control::process::{SourceControlCommandSpec, SourceControlProcess, SystemGitProcess};
 use crate::path_scope::normalize_path;
 use std::path::{Path, PathBuf};
 
@@ -14,28 +14,28 @@ pub struct RepositoryScope {
     pub ref_name: Option<String>,
 }
 
-pub fn resolve_checkout(input: GitResolveCheckoutInput) -> GitResolveCheckoutResult {
+pub fn resolve_checkout(input: SourceControlResolveCheckoutInput) -> SourceControlResolveCheckoutResult {
     resolve_checkout_with(&SystemGitProcess, input)
 }
 
 pub fn resolve_checkout_with(
-    process: &impl GitProcess,
-    input: GitResolveCheckoutInput,
-) -> GitResolveCheckoutResult {
+    process: &impl SourceControlProcess,
+    input: SourceControlResolveCheckoutInput,
+) -> SourceControlResolveCheckoutResult {
     let project_path = normalize_path(Path::new(&input.project_folder_path));
     let (kind, checkout_path, expected_identity, saved_ref_name, managed_by_app) =
         match &input.git_checkout {
-            GitCheckoutRestore::ProjectRoot {
+            SourceControlCheckoutRestore::ProjectRoot {
                 repository_identity,
                 saved_ref_name,
             } => (
-                ResolvedGitCheckoutKind::ProjectRoot,
+                ResolvedSourceControlCheckoutKind::ProjectRoot,
                 project_path.clone(),
                 repository_identity.clone(),
                 saved_ref_name.clone(),
                 false,
             ),
-            GitCheckoutRestore::Worktree {
+            SourceControlCheckoutRestore::Worktree {
                 worktree_path,
                 repository_identity,
                 saved_ref_name,
@@ -44,7 +44,7 @@ pub fn resolve_checkout_with(
                 let worktree = PathBuf::from(worktree_path);
                 if !worktree.exists() {
                     return invalid(
-                        GitCheckoutInvalidReason::MissingWorktree,
+                        SourceControlCheckoutInvalidReason::MissingWorktree,
                         "The saved worktree no longer exists.",
                         Some(worktree_path.clone()),
                         Some(repository_identity.clone()),
@@ -52,7 +52,7 @@ pub fn resolve_checkout_with(
                     );
                 }
                 (
-                    ResolvedGitCheckoutKind::Worktree,
+                    ResolvedSourceControlCheckoutKind::Worktree,
                     normalize_path(&worktree),
                     Some(repository_identity.clone()),
                     saved_ref_name.clone(),
@@ -64,11 +64,11 @@ pub fn resolve_checkout_with(
     let project_scope = detect_repository(process, &project_path).ok();
     let checkout_scope = match detect_repository(process, &checkout_path) {
         Ok(scope) => Some(scope),
-        Err(_) if matches!(kind, ResolvedGitCheckoutKind::ProjectRoot) => None,
+        Err(_) if matches!(kind, ResolvedSourceControlCheckoutKind::ProjectRoot) => None,
         Err(_) => {
             return invalid(
-                GitCheckoutInvalidReason::RepositoryMismatch,
-                "The saved worktree is not a Git checkout.",
+                SourceControlCheckoutInvalidReason::RepositoryMismatch,
+                "The saved worktree is not a SourceControl checkout.",
                 Some(checkout_path.to_string_lossy().into_owned()),
                 expected_identity,
                 saved_ref_name,
@@ -79,7 +79,7 @@ pub fn resolve_checkout_with(
     if let (Some(project), Some(checkout)) = (&project_scope, &checkout_scope) {
         if project.repository_identity != checkout.repository_identity {
             return invalid(
-                GitCheckoutInvalidReason::RepositoryMismatch,
+                SourceControlCheckoutInvalidReason::RepositoryMismatch,
                 "The saved worktree belongs to a different repository.",
                 Some(checkout_path.to_string_lossy().into_owned()),
                 expected_identity,
@@ -96,7 +96,7 @@ pub fn resolve_checkout_with(
     ) {
         if !expected.is_empty() && expected != actual {
             return invalid(
-                GitCheckoutInvalidReason::RepositoryIdentityChanged,
+                SourceControlCheckoutInvalidReason::RepositoryIdentityChanged,
                 "The repository identity no longer matches the saved trunk.",
                 Some(checkout_path.to_string_lossy().into_owned()),
                 Some(expected.to_string()),
@@ -113,11 +113,11 @@ pub fn resolve_checkout_with(
         .and_then(|scope| scope.ref_name.clone())
         .or(saved_ref_name);
     let normalized_restore = match kind {
-        ResolvedGitCheckoutKind::ProjectRoot => GitCheckoutRestore::ProjectRoot {
+        ResolvedSourceControlCheckoutKind::ProjectRoot => SourceControlCheckoutRestore::ProjectRoot {
             repository_identity: repository_identity.clone(),
             saved_ref_name: resolved_ref.clone(),
         },
-        ResolvedGitCheckoutKind::Worktree => GitCheckoutRestore::Worktree {
+        ResolvedSourceControlCheckoutKind::Worktree => SourceControlCheckoutRestore::Worktree {
             worktree_path: checkout_path.to_string_lossy().into_owned(),
             repository_identity: repository_identity.clone().unwrap_or_default(),
             saved_ref_name: resolved_ref.clone(),
@@ -125,8 +125,8 @@ pub fn resolve_checkout_with(
         },
     };
 
-    GitResolveCheckoutResult::Ready {
-        checkout: ResolvedGitCheckout {
+    SourceControlResolveCheckoutResult::Ready {
+        checkout: ResolvedSourceControlCheckout {
             kind,
             checkout_path: checkout_path.to_string_lossy().into_owned(),
             checkout_identity: checkout_identity(&checkout_path),
@@ -139,7 +139,7 @@ pub fn resolve_checkout_with(
 }
 
 pub fn detect_repository(
-    process: &impl GitProcess,
+    process: &impl SourceControlProcess,
     checkout: &Path,
 ) -> Result<RepositoryScope, ()> {
     let root = run_line(
@@ -172,13 +172,13 @@ pub fn detect_repository(
 }
 
 fn run_line<const N: usize>(
-    process: &impl GitProcess,
+    process: &impl SourceControlProcess,
     checkout: &Path,
     operation: &'static str,
     args: [&str; N],
 ) -> Result<String, ()> {
     let output = process
-        .run(GitCommandSpec::parsed_read(checkout, operation, args))
+        .run(SourceControlCommandSpec::parsed_read(checkout, operation, args))
         .map_err(|_| ())?;
     let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if value.is_empty() {
@@ -197,13 +197,13 @@ fn repository_identity(path: &Path) -> String {
 }
 
 fn invalid(
-    reason: GitCheckoutInvalidReason,
+    reason: SourceControlCheckoutInvalidReason,
     message: &str,
     worktree_path: Option<String>,
     repository_identity: Option<String>,
     saved_ref_name: Option<String>,
-) -> GitResolveCheckoutResult {
-    GitResolveCheckoutResult::Invalid {
+) -> SourceControlResolveCheckoutResult {
+    SourceControlResolveCheckoutResult::Invalid {
         reason,
         message: message.to_string(),
         worktree_path,
@@ -231,20 +231,20 @@ mod tests {
     #[test]
     fn resolves_non_repository_project_root_without_inventing_identity() {
         let root = tempdir().unwrap();
-        let result = resolve_checkout(GitResolveCheckoutInput {
+        let result = resolve_checkout(SourceControlResolveCheckoutInput {
             project_id: "p".into(),
             trunk_id: "t".into(),
             project_folder_path: root.path().to_string_lossy().into_owned(),
-            git_checkout: GitCheckoutRestore::ProjectRoot {
+            git_checkout: SourceControlCheckoutRestore::ProjectRoot {
                 repository_identity: None,
                 saved_ref_name: None,
             },
         });
-        let GitResolveCheckoutResult::Ready { checkout } = result else {
+        let SourceControlResolveCheckoutResult::Ready { checkout } = result else {
             panic!("expected ready")
         };
         assert_eq!(checkout.repository_identity, None);
-        assert_eq!(checkout.kind, ResolvedGitCheckoutKind::ProjectRoot);
+        assert_eq!(checkout.kind, ResolvedSourceControlCheckoutKind::ProjectRoot);
     }
 
     #[test]
@@ -253,11 +253,11 @@ mod tests {
         let other = tempdir().unwrap();
         init(project.path());
         init(other.path());
-        let result = resolve_checkout(GitResolveCheckoutInput {
+        let result = resolve_checkout(SourceControlResolveCheckoutInput {
             project_id: "p".into(),
             trunk_id: "t".into(),
             project_folder_path: project.path().to_string_lossy().into_owned(),
-            git_checkout: GitCheckoutRestore::Worktree {
+            git_checkout: SourceControlCheckoutRestore::Worktree {
                 worktree_path: other.path().to_string_lossy().into_owned(),
                 repository_identity: String::new(),
                 saved_ref_name: None,
@@ -266,8 +266,8 @@ mod tests {
         });
         assert!(matches!(
             result,
-            GitResolveCheckoutResult::Invalid {
-                reason: GitCheckoutInvalidReason::RepositoryMismatch,
+            SourceControlResolveCheckoutResult::Invalid {
+                reason: SourceControlCheckoutInvalidReason::RepositoryMismatch,
                 ..
             }
         ));
@@ -278,11 +278,11 @@ mod tests {
         let project = tempdir().unwrap();
         init(project.path());
         let missing = project.path().join("missing");
-        let result = resolve_checkout(GitResolveCheckoutInput {
+        let result = resolve_checkout(SourceControlResolveCheckoutInput {
             project_id: "p".into(),
             trunk_id: "t".into(),
             project_folder_path: project.path().to_string_lossy().into_owned(),
-            git_checkout: GitCheckoutRestore::Worktree {
+            git_checkout: SourceControlCheckoutRestore::Worktree {
                 worktree_path: missing.to_string_lossy().into_owned(),
                 repository_identity: "repository:expected".into(),
                 saved_ref_name: Some("main".into()),
@@ -291,8 +291,8 @@ mod tests {
         });
         assert!(matches!(
             result,
-            GitResolveCheckoutResult::Invalid {
-                reason: GitCheckoutInvalidReason::MissingWorktree,
+            SourceControlResolveCheckoutResult::Invalid {
+                reason: SourceControlCheckoutInvalidReason::MissingWorktree,
                 ..
             }
         ));

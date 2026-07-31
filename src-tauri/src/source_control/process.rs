@@ -1,4 +1,4 @@
-use crate::git::contracts::PublicGitError;
+use crate::source_control::contracts::PublicSourceControlError;
 use std::ffi::OsString;
 use std::io::Read;
 use std::path::PathBuf;
@@ -11,24 +11,24 @@ const DEFAULT_OUTPUT_LIMIT: usize = 256 * 1024;
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GitExecutionPolicy {
+pub enum SourceControlExecutionPolicy {
     ParsedRead,
     BackgroundNetwork,
     TrustedMutation,
 }
 
 #[derive(Debug, Clone)]
-pub struct GitCommandSpec {
+pub struct SourceControlCommandSpec {
     pub checkout: PathBuf,
     pub operation: &'static str,
     pub args: Vec<OsString>,
     pub timeout: Duration,
     pub stdout_limit: usize,
     pub stderr_limit: usize,
-    pub policy: GitExecutionPolicy,
+    pub policy: SourceControlExecutionPolicy,
 }
 
-impl GitCommandSpec {
+impl SourceControlCommandSpec {
     pub fn parsed_read(
         checkout: impl Into<PathBuf>,
         operation: &'static str,
@@ -41,41 +41,41 @@ impl GitCommandSpec {
             timeout: Duration::from_secs(30),
             stdout_limit: DEFAULT_OUTPUT_LIMIT,
             stderr_limit: DEFAULT_OUTPUT_LIMIT,
-            policy: GitExecutionPolicy::ParsedRead,
+            policy: SourceControlExecutionPolicy::ParsedRead,
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GitProcessOutput {
+pub struct SourceControlProcessOutput {
     pub status: ExitStatus,
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
 }
 
-pub trait GitProcess: Send + Sync {
-    fn run(&self, spec: GitCommandSpec) -> Result<GitProcessOutput, PublicGitError>;
+pub trait SourceControlProcess: Send + Sync {
+    fn run(&self, spec: SourceControlCommandSpec) -> Result<SourceControlProcessOutput, PublicSourceControlError>;
 }
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SystemGitProcess;
 
 impl SystemGitProcess {
-    pub fn discover(&self) -> Result<String, PublicGitError> {
+    pub fn discover(&self) -> Result<String, PublicSourceControlError> {
         let output = Command::new("git")
             .arg("--version")
             .env("LC_ALL", "C")
             .env("LANG", "C")
             .stdin(Stdio::null())
             .output()
-            .map_err(|_| PublicGitError::git_unavailable("discover"))?;
+            .map_err(|_| PublicSourceControlError::git_unavailable("discover"))?;
         if !output.status.success() {
-            return Err(PublicGitError::git_unavailable("discover"));
+            return Err(PublicSourceControlError::git_unavailable("discover"));
         }
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
-    fn command(spec: &GitCommandSpec) -> Command {
+    fn command(spec: &SourceControlCommandSpec) -> Command {
         let mut command = Command::new("git");
         command
             .arg("-C")
@@ -89,37 +89,36 @@ impl SystemGitProcess {
             .stderr(Stdio::piped());
 
         match spec.policy {
-            GitExecutionPolicy::ParsedRead => {
-                command
-                    .arg("-c")
-                    .arg("diff.external=")
-                    .arg("-c")
-                    .arg("diff.trustExitCode=false")
-                    .arg("-c")
-                    .arg("core.pager=cat");
+            SourceControlExecutionPolicy::ParsedRead => {
+                command.arg("-c").arg("core.pager=cat");
             }
-            GitExecutionPolicy::BackgroundNetwork => {
+            SourceControlExecutionPolicy::BackgroundNetwork => {
                 command
                     .env("GIT_TERMINAL_PROMPT", "0")
                     .env("GCM_INTERACTIVE", "Never");
             }
-            GitExecutionPolicy::TrustedMutation => {}
+            SourceControlExecutionPolicy::TrustedMutation => {}
         }
         command.args(&spec.args);
         command
     }
 }
 
-impl GitProcess for SystemGitProcess {
-    fn run(&self, spec: GitCommandSpec) -> Result<GitProcessOutput, PublicGitError> {
+impl SourceControlProcess for SystemGitProcess {
+    fn run(&self, spec: SourceControlCommandSpec) -> Result<SourceControlProcessOutput, PublicSourceControlError> {
         let mut child = Self::command(&spec)
             .spawn()
-            .map_err(|_| PublicGitError::git_unavailable(spec.operation))?;
+            .map_err(|_| PublicSourceControlError::git_unavailable(spec.operation))?;
         let stdout = child.stdout.take().expect("stdout is piped");
         let stderr = child.stderr.take().expect("stderr is piped");
         let (sender, receiver) = mpsc::channel();
 
-        spawn_bounded_reader(stdout, spec.stdout_limit, StreamKind::Stdout, sender.clone());
+        spawn_bounded_reader(
+            stdout,
+            spec.stdout_limit,
+            StreamKind::Stdout,
+            sender.clone(),
+        );
         spawn_bounded_reader(stderr, spec.stderr_limit, StreamKind::Stderr, sender);
 
         let started = Instant::now();
@@ -127,12 +126,12 @@ impl GitProcess for SystemGitProcess {
             if started.elapsed() > spec.timeout {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(PublicGitError::timeout(spec.operation));
+                return Err(PublicSourceControlError::timeout(spec.operation));
             }
             match child.try_wait() {
                 Ok(Some(status)) => break status,
                 Ok(None) => thread::sleep(POLL_INTERVAL),
-                Err(_) => return Err(PublicGitError::process_failed(spec.operation, true)),
+                Err(_) => return Err(PublicSourceControlError::process_failed(spec.operation, true)),
             }
         };
 
@@ -141,20 +140,20 @@ impl GitProcess for SystemGitProcess {
         for _ in 0..2 {
             let stream = receiver
                 .recv_timeout(Duration::from_secs(1))
-                .map_err(|_| PublicGitError::process_failed(spec.operation, true))?;
+                .map_err(|_| PublicSourceControlError::process_failed(spec.operation, true))?;
             match stream {
                 StreamResult::Data(StreamKind::Stdout, data) => stdout = Some(data),
                 StreamResult::Data(StreamKind::Stderr, data) => stderr = Some(data),
                 StreamResult::LimitExceeded => {
-                    return Err(PublicGitError::output_limit(spec.operation));
+                    return Err(PublicSourceControlError::output_limit(spec.operation));
                 }
                 StreamResult::ReadFailed => {
-                    return Err(PublicGitError::process_failed(spec.operation, true));
+                    return Err(PublicSourceControlError::process_failed(spec.operation, true));
                 }
             }
         }
 
-        let output = GitProcessOutput {
+        let output = SourceControlProcessOutput {
             status,
             stdout: stdout.unwrap_or_default(),
             stderr: stderr.unwrap_or_default(),
@@ -163,9 +162,9 @@ impl GitProcess for SystemGitProcess {
             return Ok(output);
         }
         if stderr_looks_like_authentication(&output.stderr) {
-            return Err(PublicGitError::authentication_required(spec.operation));
+            return Err(PublicSourceControlError::authentication_required(spec.operation));
         }
-        Err(PublicGitError::process_failed(spec.operation, false))
+        Err(PublicSourceControlError::process_failed(spec.operation, false))
     }
 }
 
@@ -233,7 +232,7 @@ fn stderr_looks_like_authentication(stderr: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::git::contracts::PublicGitErrorCode;
+    use crate::source_control::contracts::PublicSourceControlErrorCode;
     use std::fs;
     use std::io;
     use tempfile::tempdir;
@@ -268,7 +267,7 @@ mod tests {
         assert!(output.status.success());
 
         let output = SystemGitProcess
-            .run(GitCommandSpec::parsed_read(
+            .run(SourceControlCommandSpec::parsed_read(
                 &checkout,
                 "rev-parse",
                 ["rev-parse", "--show-toplevel"],
@@ -283,15 +282,17 @@ mod tests {
     #[test]
     fn enforces_output_limit() {
         let repository = init_repository();
-        let mut spec = GitCommandSpec::parsed_read(
+        let mut spec = SourceControlCommandSpec::parsed_read(
             repository.path(),
             "config-list",
             ["config", "--list", "--show-origin"],
         );
         spec.stdout_limit = 1;
         let error = SystemGitProcess.run(spec).unwrap_err();
-        assert_eq!(error.code, PublicGitErrorCode::OutputLimit);
-        assert!(!error.message.contains(repository.path().to_string_lossy().as_ref()));
+        assert_eq!(error.code, PublicSourceControlErrorCode::OutputLimit);
+        assert!(!error
+            .message
+            .contains(repository.path().to_string_lossy().as_ref()));
     }
 
     #[test]
@@ -305,8 +306,8 @@ mod tests {
         assert!(stderr_looks_like_authentication(
             b"fatal: could not read Username for 'https://example.com': terminal prompts disabled"
         ));
-        let error = PublicGitError::authentication_required("fetch");
-        assert_eq!(error.code, PublicGitErrorCode::AuthenticationRequired);
+        let error = PublicSourceControlError::authentication_required("fetch");
+        assert_eq!(error.code, PublicSourceControlErrorCode::AuthenticationRequired);
         assert!(!error.message.contains("example.com"));
     }
 }

@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum PublicGitErrorCode {
-    GitUnavailable,
+pub enum PublicSourceControlErrorCode {
+    #[serde(rename = "git-unavailable")]
+    SourceControlUnavailable,
     NotRepository,
     CheckoutInvalid,
     ScopeViolation,
@@ -19,35 +20,36 @@ pub enum PublicGitErrorCode {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PublicGitError {
-    pub code: PublicGitErrorCode,
+pub struct PublicSourceControlError {
+    pub code: PublicSourceControlErrorCode,
     pub operation: String,
     pub message: String,
     pub retryable: bool,
 }
 
-impl PublicGitError {
+#[allow(dead_code)] // Public error-construction API for the git suite; consumed by command modules behind GIT_SUITE_RELEASE_ENABLED.
+impl PublicSourceControlError {
     pub fn git_unavailable(operation: &str) -> Self {
         Self::new(
-            PublicGitErrorCode::GitUnavailable,
+            PublicSourceControlErrorCode::SourceControlUnavailable,
             operation,
-            "System Git is unavailable.",
+            "System SourceControl is unavailable.",
             true,
         )
     }
 
     pub fn not_repository(operation: &str) -> Self {
         Self::new(
-            PublicGitErrorCode::NotRepository,
+            PublicSourceControlErrorCode::NotRepository,
             operation,
-            "The selected checkout is not a Git repository.",
+            "The selected checkout is not a SourceControl repository.",
             false,
         )
     }
 
     pub fn checkout_invalid(operation: &str, message: &str) -> Self {
         Self::new(
-            PublicGitErrorCode::CheckoutInvalid,
+            PublicSourceControlErrorCode::CheckoutInvalid,
             operation,
             message,
             false,
@@ -56,55 +58,77 @@ impl PublicGitError {
 
     pub fn scope_violation(operation: &str) -> Self {
         Self::new(
-            PublicGitErrorCode::ScopeViolation,
+            PublicSourceControlErrorCode::ScopeViolation,
             operation,
-            "The Git checkout is outside the validated project scope.",
+            "The SourceControl checkout is outside the validated project scope.",
             false,
         )
     }
 
     pub fn timeout(operation: &str) -> Self {
         Self::new(
-            PublicGitErrorCode::Timeout,
+            PublicSourceControlErrorCode::Timeout,
             operation,
-            "The Git operation timed out.",
+            "The SourceControl operation timed out.",
             true,
         )
     }
 
     pub fn output_limit(operation: &str) -> Self {
         Self::new(
-            PublicGitErrorCode::OutputLimit,
+            PublicSourceControlErrorCode::OutputLimit,
             operation,
-            "The Git operation produced too much output.",
+            "The SourceControl operation produced too much output.",
             false,
         )
     }
 
     pub fn process_failed(operation: &str, retryable: bool) -> Self {
         Self::new(
-            PublicGitErrorCode::ProcessFailed,
+            PublicSourceControlErrorCode::ProcessFailed,
             operation,
-            "The Git operation failed.",
+            "The SourceControl operation failed.",
             retryable,
         )
     }
 
     pub fn authentication_required(operation: &str) -> Self {
         Self::new(
-            PublicGitErrorCode::AuthenticationRequired,
+            PublicSourceControlErrorCode::AuthenticationRequired,
             operation,
-            "Git authentication is required.",
+            "SourceControl authentication is required.",
             true,
         )
     }
 
-    fn new(
-        code: PublicGitErrorCode,
-        operation: &str,
-        message: &str,
-        retryable: bool,
-    ) -> Self {
+    pub fn precondition_failed(operation: &str, message: &str) -> Self {
+        Self::new(
+            PublicSourceControlErrorCode::PreconditionFailed,
+            operation,
+            message,
+            false,
+        )
+    }
+
+    pub fn not_found(operation: &str) -> Self {
+        Self::new(
+            PublicSourceControlErrorCode::NotFound,
+            operation,
+            "The requested SourceControl resource was not found.",
+            false,
+        )
+    }
+
+    pub fn cancelled(operation: &str) -> Self {
+        Self::new(
+            PublicSourceControlErrorCode::Cancelled,
+            operation,
+            "The SourceControl operation was cancelled.",
+            false,
+        )
+    }
+
+    fn new(code: PublicSourceControlErrorCode, operation: &str, message: &str, retryable: bool) -> Self {
         Self {
             code,
             operation: operation.to_string(),
@@ -116,7 +140,7 @@ impl PublicGitError {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
-pub enum GitCheckoutRestore {
+pub enum SourceControlCheckoutRestore {
     ProjectRoot {
         #[serde(rename = "repositoryIdentity")]
         repository_identity: Option<String>,
@@ -137,35 +161,35 @@ pub enum GitCheckoutRestore {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GitResolveCheckoutInput {
+pub struct SourceControlResolveCheckoutInput {
     pub project_id: String,
     pub trunk_id: String,
     pub project_folder_path: String,
-    pub git_checkout: GitCheckoutRestore,
+    pub git_checkout: SourceControlCheckoutRestore,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum ResolvedGitCheckoutKind {
+pub enum ResolvedSourceControlCheckoutKind {
     ProjectRoot,
     Worktree,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ResolvedGitCheckout {
-    pub kind: ResolvedGitCheckoutKind,
+pub struct ResolvedSourceControlCheckout {
+    pub kind: ResolvedSourceControlCheckoutKind,
     pub checkout_path: String,
     pub checkout_identity: String,
     pub repository_identity: Option<String>,
     pub saved_ref_name: Option<String>,
     pub managed_by_app: bool,
-    pub normalized_restore: GitCheckoutRestore,
+    pub normalized_restore: SourceControlCheckoutRestore,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum GitCheckoutInvalidReason {
+pub enum SourceControlCheckoutInvalidReason {
     MalformedRestore,
     MissingWorktree,
     MovedWorktree,
@@ -180,10 +204,12 @@ pub enum GitCheckoutInvalidReason {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "kebab-case")]
-pub enum GitResolveCheckoutResult {
-    Ready { checkout: ResolvedGitCheckout },
+pub enum SourceControlResolveCheckoutResult {
+    Ready {
+        checkout: ResolvedSourceControlCheckout,
+    },
     Invalid {
-        reason: GitCheckoutInvalidReason,
+        reason: SourceControlCheckoutInvalidReason,
         message: String,
         #[serde(rename = "worktreePath")]
         worktree_path: Option<String>,
@@ -196,15 +222,15 @@ pub enum GitResolveCheckoutResult {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GitCheckoutRequest {
+pub struct SourceControlCheckoutRequest {
     pub project_id: String,
     pub trunk_id: String,
-    pub checkout: ResolvedGitCheckout,
+    pub checkout: ResolvedSourceControlCheckout,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GitInitializeInput {
+pub struct SourceControlInitializeInput {
     pub project_id: String,
     pub trunk_id: String,
     pub checkout_path: String,
@@ -212,7 +238,7 @@ pub struct GitInitializeInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
-pub enum GitHeadSummary {
+pub enum SourceControlHeadSummary {
     Branch { name: String },
     Detached { oid: String },
     Unborn { name: Option<String> },
@@ -220,7 +246,7 @@ pub enum GitHeadSummary {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum GitOperationKind {
+pub enum SourceControlOperationKind {
     Merge,
     Rebase,
     CherryPick,
@@ -230,7 +256,7 @@ pub enum GitOperationKind {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum GitFileCode {
+pub enum SourceControlFileCode {
     Added,
     Modified,
     Deleted,
@@ -244,11 +270,11 @@ pub enum GitFileCode {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GitFileStatus {
+pub struct SourceControlFileStatus {
     pub path: String,
     pub old_path: Option<String>,
-    pub index_status: Option<GitFileCode>,
-    pub worktree_status: Option<GitFileCode>,
+    pub index_status: Option<SourceControlFileCode>,
+    pub worktree_status: Option<SourceControlFileCode>,
     pub conflict_status: Option<String>,
     pub additions: Option<u64>,
     pub deletions: Option<u64>,
@@ -259,7 +285,7 @@ pub struct GitFileStatus {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum GitProviderKind {
+pub enum SourceControlProviderKind {
     Github,
     Gitlab,
     Bitbucket,
@@ -268,16 +294,16 @@ pub enum GitProviderKind {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GitRemoteSummary {
+pub struct SourceControlRemoteSummary {
     pub name: String,
     pub fetch_url: String,
     pub push_url: String,
-    pub provider: Option<GitProviderKind>,
+    pub provider: Option<SourceControlProviderKind>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct GitPanelSectionCounts {
+pub struct SourceControlPanelSectionCounts {
     pub changes: usize,
     pub staged_changes: usize,
     pub stashes: usize,
@@ -288,7 +314,7 @@ pub struct GitPanelSectionCounts {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GitCapabilities {
+pub struct SourceControlCapabilities {
     pub git_version: Option<String>,
     pub supports_worktrees: bool,
     pub lfs_available: bool,
@@ -296,8 +322,9 @@ pub struct GitCapabilities {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum GitRepositoryStatus {
-    GitUnavailable,
+pub enum SourceControlRepositoryStatus {
+    #[serde(rename = "git-unavailable")]
+    SourceControlUnavailable,
     NotRepository,
     Unborn,
     Ready,
@@ -305,7 +332,7 @@ pub enum GitRepositoryStatus {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GitRepositorySnapshot {
+pub struct SourceControlRepositorySnapshot {
     pub project_id: String,
     pub trunk_id: String,
     pub checkout_path: String,
@@ -313,24 +340,24 @@ pub struct GitRepositorySnapshot {
     pub repository_identity: Option<String>,
     pub revision: u64,
     pub captured_at: String,
-    pub repository_state: GitRepositoryStatus,
+    pub repository_state: SourceControlRepositoryStatus,
     pub worktree_label: String,
-    pub head: Option<GitHeadSummary>,
+    pub head: Option<SourceControlHeadSummary>,
     pub upstream: Option<String>,
     pub default_branch: Option<String>,
     pub ahead: u64,
     pub behind: u64,
-    pub files: Vec<GitFileStatus>,
+    pub files: Vec<SourceControlFileStatus>,
     pub conflict_count: usize,
-    pub operation: Option<GitOperationSummary>,
-    pub remotes: Vec<GitRemoteSummary>,
-    pub section_counts: GitPanelSectionCounts,
-    pub capabilities: GitCapabilities,
+    pub operation: Option<SourceControlOperationSummary>,
+    pub remotes: Vec<SourceControlRemoteSummary>,
+    pub section_counts: SourceControlPanelSectionCounts,
+    pub capabilities: SourceControlCapabilities,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GitOperationSummary {
-    pub kind: GitOperationKind,
+pub struct SourceControlOperationSummary {
+    pub kind: SourceControlOperationKind,
     pub phase: String,
 }
