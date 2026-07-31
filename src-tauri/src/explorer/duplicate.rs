@@ -4,8 +4,8 @@ use std::path::Path;
 
 use super::error::ExplorerError;
 use super::list_dir::ExplorerEntry;
-use crate::path_scope::ensure_under_root;
 use super::trash::ExplorerPathInput;
+use crate::path_scope::ensure_under_root;
 
 /// Duplicate naming: `foo.txt` → `foo copy.txt`, `mydir` → `mydir copy`.
 fn duplicate_name(file_name: &str, is_dir: bool) -> String {
@@ -56,11 +56,8 @@ pub fn explorer_duplicate(input: ExplorerPathInput) -> Result<ExplorerEntry, Exp
         .parent()
         .ok_or_else(|| ExplorerError::Invalid("no parent".into()))?;
     let dest_name = duplicate_name(file_name, is_dir);
-    let dest = ensure_under_root(
-        Path::new(&input.project_root),
-        &parent.join(&dest_name),
-    )
-    .map_err(|_| ExplorerError::OutsideProject(dest_name.clone()))?;
+    let dest = ensure_under_root(Path::new(&input.project_root), &parent.join(&dest_name))
+        .map_err(|_| ExplorerError::OutsideProject(dest_name.clone()))?;
     if dest.exists() {
         return Err(ExplorerError::AlreadyExists(
             dest.to_string_lossy().into_owned(),
