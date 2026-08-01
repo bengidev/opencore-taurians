@@ -360,9 +360,10 @@ mod tests {
                 ["rev-parse", "--show-toplevel"],
             ))
             .unwrap();
+        let git_toplevel = PathBuf::from(String::from_utf8_lossy(&output.stdout).trim());
         assert_eq!(
-            String::from_utf8_lossy(&output.stdout).trim(),
-            fs::canonicalize(&checkout).unwrap().to_string_lossy()
+            fs::canonicalize(&git_toplevel).unwrap(),
+            fs::canonicalize(&checkout).unwrap()
         );
     }
 
