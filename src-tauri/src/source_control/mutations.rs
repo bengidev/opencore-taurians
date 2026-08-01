@@ -1,4 +1,7 @@
 use crate::source_control::contracts::PublicSourceControlError;
+use crate::source_control::coordinator::{
+    SourceControlOperationContext, SourceControlOperationCoordinatorState,
+};
 use crate::source_control::process::{
     SourceControlCommandSpec, SourceControlProcess, SystemGitProcess,
 };
@@ -68,8 +71,17 @@ fn run_mutation(
     process: &impl SourceControlProcess,
     checkout: &Path,
     args: Vec<OsString>,
+    operation: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<Vec<u8>, PublicSourceControlError> {
-    let spec = SourceControlCommandSpec::trusted_mutation(checkout, args);
+    let mut spec = SourceControlCommandSpec::trusted_mutation(checkout, args);
+    if let Some((ctx, coordinator)) = operation {
+        if let Some(slot) = coordinator.child_slot(&ctx.operation_id) {
+            spec = spec.attach_operation(ctx.cancellation.clone(), slot);
+        }
+    }
     process.run(spec).map(|o| o.stdout)
 }
 
@@ -85,6 +97,7 @@ fn repository_has_commits(
             OsString::from("--verify"),
             OsString::from("HEAD"),
         ],
+        None,
     )
     .map(|_| true)
     .or_else(|error| {
@@ -195,13 +208,17 @@ pub fn stage(
     input: SourceControlStageInput,
     scope: &SourceControlScopeRecord,
 ) -> Result<SourceControlMutationResult, PublicSourceControlError> {
-    stage_with(&SystemGitProcess, input, scope)
+    stage_with(&SystemGitProcess, input, scope, None)
 }
 
 pub fn stage_with(
     process: &impl SourceControlProcess,
     input: SourceControlStageInput,
     scope: &SourceControlScopeRecord,
+    operation: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<SourceControlMutationResult, PublicSourceControlError> {
     let checkout = scope.checkout_path.as_path();
     if input.paths.is_empty() {
@@ -221,7 +238,7 @@ pub fn stage_with(
         }
     };
     append_pathspec_args(&mut args, &input.paths)?;
-    run_mutation(process, checkout, args)?;
+    run_mutation(process, checkout, args, operation)?;
     Ok(SourceControlMutationResult {
         message: format!(
             "{} {} file(s)",
@@ -238,13 +255,17 @@ pub fn discard(
     input: SourceControlDiscardInput,
     scope: &SourceControlScopeRecord,
 ) -> Result<SourceControlMutationResult, PublicSourceControlError> {
-    discard_with(&SystemGitProcess, input, scope)
+    discard_with(&SystemGitProcess, input, scope, None)
 }
 
 pub fn discard_with(
     process: &impl SourceControlProcess,
     input: SourceControlDiscardInput,
     scope: &SourceControlScopeRecord,
+    operation: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<SourceControlMutationResult, PublicSourceControlError> {
     let checkout = scope.checkout_path.as_path();
     if input.paths.is_empty() {
@@ -256,7 +277,7 @@ pub fn discard_with(
         SourceControlDiscardMode::Tracked => {
             let mut args = vec![OsString::from("checkout")];
             append_pathspec_args(&mut args, &input.paths)?;
-            run_mutation(process, checkout, args)?;
+            run_mutation(process, checkout, args, operation)?;
         }
         SourceControlDiscardMode::Untracked => {
             for pathspec in &input.paths {
@@ -274,13 +295,17 @@ pub fn commit(
     input: SourceControlCommitInput,
     scope: &SourceControlScopeRecord,
 ) -> Result<SourceControlMutationResult, PublicSourceControlError> {
-    commit_with(&SystemGitProcess, input, scope)
+    commit_with(&SystemGitProcess, input, scope, None)
 }
 
 pub fn commit_with(
     process: &impl SourceControlProcess,
     input: SourceControlCommitInput,
     scope: &SourceControlScopeRecord,
+    operation: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<SourceControlMutationResult, PublicSourceControlError> {
     let checkout = scope.checkout_path.as_path();
     if let Some(branch) = &input.new_branch {
@@ -292,6 +317,7 @@ pub fn commit_with(
                 OsString::from("-c"),
                 OsString::from(branch.as_str()),
             ],
+            operation,
         )?;
     }
 
@@ -314,7 +340,7 @@ pub fn commit_with(
     if let Some(selected) = &input.selected_paths {
         append_pathspec_args(&mut args, selected)?;
     }
-    run_mutation(process, checkout, args)?;
+    run_mutation(process, checkout, args, operation)?;
     Ok(SourceControlMutationResult {
         message: "Committed".into(),
     })
@@ -324,13 +350,17 @@ pub fn stash(
     input: SourceControlStashInput,
     scope: &SourceControlScopeRecord,
 ) -> Result<SourceControlMutationResult, PublicSourceControlError> {
-    stash_with(&SystemGitProcess, input, scope)
+    stash_with(&SystemGitProcess, input, scope, None)
 }
 
 pub fn stash_with(
     process: &impl SourceControlProcess,
     input: SourceControlStashInput,
     scope: &SourceControlScopeRecord,
+    operation: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<SourceControlMutationResult, PublicSourceControlError> {
     let path = scope.checkout_path.as_path();
     match input.action {
@@ -343,7 +373,7 @@ pub fn stash_with(
                 args.push(OsString::from("-m"));
                 args.push(OsString::from(msg.as_str()));
             }
-            run_mutation(process, path, args)?;
+            run_mutation(process, path, args, operation)?;
             Ok(SourceControlMutationResult {
                 message: "Stashed".into(),
             })
@@ -358,6 +388,7 @@ pub fn stash_with(
                     OsString::from("apply"),
                     OsString::from(stash_ref),
                 ],
+                operation,
             )?;
             Ok(SourceControlMutationResult {
                 message: format!("Applied stash@{{{}}}", index),
@@ -373,6 +404,7 @@ pub fn stash_with(
                     OsString::from("pop"),
                     OsString::from(stash_ref),
                 ],
+                operation,
             )?;
             Ok(SourceControlMutationResult {
                 message: format!("Popped stash@{{{}}}", index),
@@ -389,6 +421,7 @@ pub fn stash_with(
                     OsString::from(branch_name.as_str()),
                     OsString::from(stash_ref),
                 ],
+                operation,
             )?;
             Ok(SourceControlMutationResult {
                 message: format!("Created branch {} from stash@{{{}}}", branch_name, index),
@@ -404,6 +437,7 @@ pub fn stash_with(
                     OsString::from("drop"),
                     OsString::from(stash_ref),
                 ],
+                operation,
             )?;
             Ok(SourceControlMutationResult {
                 message: format!("Dropped stash@{{{}}}", index),
@@ -618,6 +652,7 @@ mod tests {
                 mode: SourceControlDiscardMode::Tracked,
             },
             &scope_for(dir.path()),
+            None,
         )
         .unwrap();
 
@@ -641,6 +676,7 @@ mod tests {
                 mode: SourceControlDiscardMode::Untracked,
             },
             &scope_for(dir.path()),
+            None,
         )
         .unwrap();
 
@@ -664,6 +700,7 @@ mod tests {
                 mode: SourceControlDiscardMode::Untracked,
             },
             &scope,
+            None,
         )
         .unwrap_err();
         assert_eq!(
@@ -679,6 +716,7 @@ mod tests {
                 mode: SourceControlStageMode::Stage,
             },
             &scope,
+            None,
         )
         .unwrap_err();
         assert_eq!(
@@ -706,6 +744,7 @@ mod tests {
                 selected_paths: None,
             },
             &scope_for(dir.path()),
+            None,
         )
         .unwrap();
 
@@ -749,6 +788,7 @@ mod tests {
                 selected_paths: Some(vec!["a.txt".into()]),
             },
             &scope_for(dir.path()),
+            None,
         )
         .unwrap();
 

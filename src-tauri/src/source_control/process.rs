@@ -3,7 +3,8 @@ use std::ffi::OsString;
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::{Command, ExitStatus, Stdio};
-use std::sync::mpsc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -26,6 +27,8 @@ pub struct SourceControlCommandSpec {
     pub stdout_limit: usize,
     pub stderr_limit: usize,
     pub policy: SourceControlExecutionPolicy,
+    pub cancellation: Option<Arc<AtomicBool>>,
+    pub child_slot: Option<Arc<Mutex<Option<std::process::Child>>>>,
 }
 
 impl SourceControlCommandSpec {
@@ -42,6 +45,8 @@ impl SourceControlCommandSpec {
             stdout_limit: DEFAULT_OUTPUT_LIMIT,
             stderr_limit: DEFAULT_OUTPUT_LIMIT,
             policy: SourceControlExecutionPolicy::ParsedRead,
+            cancellation: None,
+            child_slot: None,
         }
     }
 
@@ -57,7 +62,19 @@ impl SourceControlCommandSpec {
             stdout_limit: DEFAULT_OUTPUT_LIMIT,
             stderr_limit: DEFAULT_OUTPUT_LIMIT,
             policy: SourceControlExecutionPolicy::TrustedMutation,
+            cancellation: None,
+            child_slot: None,
         }
+    }
+
+    pub fn attach_operation(
+        mut self,
+        cancellation: Arc<AtomicBool>,
+        child_slot: Arc<Mutex<Option<std::process::Child>>>,
+    ) -> Self {
+        self.cancellation = Some(cancellation);
+        self.child_slot = Some(child_slot);
+        self
     }
 }
 
@@ -128,11 +145,17 @@ impl SourceControlProcess for SystemGitProcess {
         &self,
         spec: SourceControlCommandSpec,
     ) -> Result<SourceControlProcessOutput, PublicSourceControlError> {
+        let child_slot = spec
+            .child_slot
+            .clone()
+            .unwrap_or_else(|| Arc::new(Mutex::new(None)));
         let mut child = Self::command(&spec)
             .spawn()
             .map_err(|_| PublicSourceControlError::git_unavailable(spec.operation))?;
         let stdout = child.stdout.take().expect("stdout is piped");
         let stderr = child.stderr.take().expect("stderr is piped");
+        *child_slot.lock().unwrap() = Some(child);
+
         let (sender, receiver) = mpsc::channel();
 
         spawn_bounded_reader(
@@ -145,14 +168,34 @@ impl SourceControlProcess for SystemGitProcess {
 
         let started = Instant::now();
         let status = loop {
+            if spec
+                .cancellation
+                .as_ref()
+                .is_some_and(|flag| flag.load(Ordering::SeqCst))
+            {
+                kill_child(&child_slot);
+                return Err(PublicSourceControlError::cancelled(spec.operation));
+            }
             if started.elapsed() > spec.timeout {
-                let _ = child.kill();
-                let _ = child.wait();
+                kill_child(&child_slot);
                 return Err(PublicSourceControlError::timeout(spec.operation));
             }
+            let mut guard = child_slot.lock().unwrap();
+            let Some(ref mut child) = *guard else {
+                return Err(PublicSourceControlError::process_failed(
+                    spec.operation,
+                    true,
+                ));
+            };
             match child.try_wait() {
-                Ok(Some(status)) => break status,
-                Ok(None) => thread::sleep(POLL_INTERVAL),
+                Ok(Some(status)) => {
+                    *guard = None;
+                    break status;
+                }
+                Ok(None) => {
+                    drop(guard);
+                    thread::sleep(POLL_INTERVAL);
+                }
                 Err(_) => {
                     return Err(PublicSourceControlError::process_failed(
                         spec.operation,
@@ -200,6 +243,15 @@ impl SourceControlProcess for SystemGitProcess {
             spec.operation,
             false,
         ))
+    }
+}
+
+fn kill_child(child_slot: &Arc<Mutex<Option<std::process::Child>>>) {
+    if let Ok(mut guard) = child_slot.lock() {
+        if let Some(mut child) = guard.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
     }
 }
 
@@ -347,5 +399,115 @@ mod tests {
             PublicSourceControlErrorCode::AuthenticationRequired
         );
         assert!(!error.message.contains("example.com"));
+    }
+
+    #[derive(Debug, Default, Clone, Copy)]
+    struct BlockingSleepProcess;
+
+    impl SourceControlProcess for BlockingSleepProcess {
+        fn run(
+            &self,
+            spec: SourceControlCommandSpec,
+        ) -> Result<SourceControlProcessOutput, PublicSourceControlError> {
+            let child_slot = spec
+                .child_slot
+                .clone()
+                .unwrap_or_else(|| Arc::new(Mutex::new(None)));
+            let mut child = Command::new("sleep")
+                .arg("30")
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|_| PublicSourceControlError::git_unavailable(spec.operation))?;
+            let stdout = child.stdout.take().expect("stdout is piped");
+            let stderr = child.stderr.take().expect("stderr is piped");
+            *child_slot.lock().unwrap() = Some(child);
+
+            let (sender, receiver) = mpsc::channel();
+            spawn_bounded_reader(
+                stdout,
+                spec.stdout_limit,
+                StreamKind::Stdout,
+                sender.clone(),
+            );
+            spawn_bounded_reader(stderr, spec.stderr_limit, StreamKind::Stderr, sender);
+
+            let started = Instant::now();
+            let status = loop {
+                if spec
+                    .cancellation
+                    .as_ref()
+                    .is_some_and(|flag| flag.load(Ordering::SeqCst))
+                {
+                    kill_child(&child_slot);
+                    return Err(PublicSourceControlError::cancelled(spec.operation));
+                }
+                if started.elapsed() > spec.timeout {
+                    kill_child(&child_slot);
+                    return Err(PublicSourceControlError::timeout(spec.operation));
+                }
+                let mut guard = child_slot.lock().unwrap();
+                let Some(ref mut child) = *guard else {
+                    return Err(PublicSourceControlError::process_failed(
+                        spec.operation,
+                        true,
+                    ));
+                };
+                match child.try_wait() {
+                    Ok(Some(status)) => {
+                        *guard = None;
+                        break status;
+                    }
+                    Ok(None) => {
+                        drop(guard);
+                        thread::sleep(POLL_INTERVAL);
+                    }
+                    Err(_) => {
+                        return Err(PublicSourceControlError::process_failed(
+                            spec.operation,
+                            true,
+                        ))
+                    }
+                }
+            };
+
+            for _ in 0..2 {
+                let _ = receiver.recv_timeout(Duration::from_secs(1));
+            }
+            Ok(SourceControlProcessOutput {
+                status,
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            })
+        }
+    }
+
+    #[test]
+    fn cancellation_kills_long_running_child() {
+        let cancellation = Arc::new(AtomicBool::new(false));
+        let child_slot = Arc::new(Mutex::new(None));
+        let cancel_flag = cancellation.clone();
+        let handle = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(50));
+            cancel_flag.store(true, Ordering::SeqCst);
+        });
+
+        let spec = SourceControlCommandSpec {
+            checkout: PathBuf::from("."),
+            operation: "sleep",
+            args: vec![OsString::from("30")],
+            timeout: Duration::from_secs(60),
+            stdout_limit: DEFAULT_OUTPUT_LIMIT,
+            stderr_limit: DEFAULT_OUTPUT_LIMIT,
+            policy: SourceControlExecutionPolicy::TrustedMutation,
+            cancellation: Some(cancellation),
+            child_slot: Some(child_slot.clone()),
+        };
+
+        let error = BlockingSleepProcess.run(spec).unwrap_err();
+        handle.join().unwrap();
+        assert_eq!(error.code, PublicSourceControlErrorCode::Cancelled);
+        assert!(child_slot.lock().unwrap().is_none());
     }
 }

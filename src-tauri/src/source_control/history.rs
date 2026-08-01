@@ -71,6 +71,8 @@ fn run_history(
         stdout_limit: HISTORY_LIMIT,
         stderr_limit: HISTORY_LIMIT,
         policy: SourceControlExecutionPolicy::ParsedRead,
+        cancellation: None,
+        child_slot: None,
     };
     process.run(spec).map(|o| o.stdout)
 }

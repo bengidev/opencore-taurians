@@ -215,6 +215,15 @@ describe("createTauriSourceControlApi", () => {
     handler?.({ payload: event });
     expect(callback).toHaveBeenCalledWith(event);
   });
+
+  it("invokes cancel through git_operation_cancel", async () => {
+    const api = createTauriSourceControlApi();
+    invokeMock.mockResolvedValueOnce(undefined);
+    await api.cancelOperation("op-1");
+    expect(invokeMock).toHaveBeenCalledWith("git_operation_cancel", {
+      input: { operationId: "op-1" },
+    });
+  });
 });
 
 describe("createMemorySourceControlApi", () => {

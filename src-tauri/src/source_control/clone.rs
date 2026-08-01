@@ -1,4 +1,7 @@
 use crate::source_control::contracts::PublicSourceControlError;
+use crate::source_control::coordinator::{
+    SourceControlOperationContext, SourceControlOperationCoordinatorState,
+};
 use crate::source_control::process::{
     SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
 };
@@ -75,13 +78,17 @@ pub fn clone_repository(
     input: SourceControlCloneInput,
     parent: &SourceControlScopeRecord,
 ) -> Result<SourceControlCloneResult, PublicSourceControlError> {
-    clone_repository_with(&SystemGitProcess, input, parent)
+    clone_repository_with(&SystemGitProcess, input, parent, None)
 }
 
 pub fn clone_repository_with(
     process: &impl SourceControlProcess,
     input: SourceControlCloneInput,
     parent: &SourceControlScopeRecord,
+    operation: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<SourceControlCloneResult, PublicSourceControlError> {
     validate_clone_url(&input.url)?;
     validate_destination_name(&input.destination_name)?;
@@ -110,7 +117,7 @@ pub fn clone_repository_with(
     let staging_str = staging.to_string_lossy();
     args.push(staging_str.as_ref());
 
-    let spec = SourceControlCommandSpec {
+    let mut spec = SourceControlCommandSpec {
         checkout: parent_path.to_path_buf(),
         operation: "clone",
         args: args.iter().map(|s| OsString::from(*s)).collect(),
@@ -118,7 +125,14 @@ pub fn clone_repository_with(
         stdout_limit: LIMIT,
         stderr_limit: LIMIT,
         policy: SourceControlExecutionPolicy::BackgroundNetwork,
+        cancellation: None,
+        child_slot: None,
     };
+    if let Some((ctx, coordinator)) = operation {
+        if let Some(slot) = coordinator.child_slot(&ctx.operation_id) {
+            spec = spec.attach_operation(ctx.cancellation.clone(), slot);
+        }
+    }
     match process.run(spec) {
         Ok(_) => {
             std::fs::rename(&staging, &dest).map_err(|_| {

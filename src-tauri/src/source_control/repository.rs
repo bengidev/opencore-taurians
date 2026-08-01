@@ -70,6 +70,8 @@ pub fn initialize_with(
         stdout_limit: 256 * 1024,
         stderr_limit: 256 * 1024,
         policy: SourceControlExecutionPolicy::TrustedMutation,
+        cancellation: None,
+        child_slot: None,
     };
     process.run(spec)?;
     let detected = detect_repository(process, checkout_path)
