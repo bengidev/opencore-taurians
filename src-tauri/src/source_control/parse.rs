@@ -13,7 +13,9 @@ pub struct ParsedStatus {
 
 pub fn parse_porcelain_v2(input: &[u8]) -> ParsedStatus {
     let mut result = ParsedStatus::default();
-    for raw in input.split(|byte| *byte == 0) {
+    let mut records = input.split(|byte| *byte == 0).peekable();
+
+    while let Some(raw) = records.next() {
         if raw.is_empty() {
             continue;
         }
@@ -58,14 +60,17 @@ pub fn parse_porcelain_v2(input: &[u8]) -> ParsedStatus {
             }
             continue;
         }
-        if let Some(file) = parse_file_record(&line) {
+        if let Some(file) = parse_file_record(&line, &mut records) {
             result.files.push(file);
         }
     }
     result
 }
 
-fn parse_file_record(line: &str) -> Option<SourceControlFileStatus> {
+fn parse_file_record<'a, I>(line: &str, records: &mut I) -> Option<SourceControlFileStatus>
+where
+    I: Iterator<Item = &'a [u8]>,
+{
     if let Some(path) = line.strip_prefix("? ") {
         return Some(file_status(
             path,
@@ -96,19 +101,24 @@ fn parse_file_record(line: &str) -> Option<SourceControlFileStatus> {
         }
         "2" => {
             let xy = fields.get(1)?.as_bytes();
-            let path_pair = fields.get(9)?.split_once('\t');
-            let (path, old_path) = path_pair
-                .map(|(new_path, old_path)| (new_path, Some(old_path.to_string())))
-                .unwrap_or((fields.get(9)?, None));
+            let path = fields.last()?.to_string();
+            let old_path = records.next().and_then(|raw| {
+                if raw.is_empty() {
+                    None
+                } else {
+                    Some(String::from_utf8_lossy(raw).into_owned())
+                }
+            });
             Some(file_status(
-                path,
+                &path,
                 old_path,
                 code(xy.first().copied()?),
                 code(xy.get(1).copied()?),
             ))
         }
         "u" => {
-            let path = fields.get(10).or_else(|| fields.last())?.to_string();
+            let fields: Vec<&str> = line.splitn(11, ' ').collect();
+            let path = fields.get(10)?.to_string();
             Some(SourceControlFileStatus {
                 path,
                 old_path: None,
@@ -197,5 +207,133 @@ mod tests {
             parsed.files[1].worktree_status,
             Some(SourceControlFileCode::Untracked)
         );
+    }
+
+    #[test]
+    fn parses_staged_rename_old_path_from_following_nul_record() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        std::process::Command::new("git")
+            .args(["init", "-q", "-b", "main"])
+            .arg(repo)
+            .status()
+            .unwrap();
+        for (key, value) in [("user.email", "t@t.com"), ("user.name", "T")] {
+            std::process::Command::new("git")
+                .args(["-C", repo.to_str().unwrap(), "config", key, value])
+                .status()
+                .unwrap();
+        }
+        std::fs::write(repo.join("old.txt"), "content").unwrap();
+        std::process::Command::new("git")
+            .args(["-C", repo.to_str().unwrap(), "add", "old.txt"])
+            .status()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["-C", repo.to_str().unwrap(), "commit", "-m", "base"])
+            .status()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["-C", repo.to_str().unwrap(), "mv", "old.txt", "new.txt"])
+            .status()
+            .unwrap();
+
+        let output = std::process::Command::new("git")
+            .args([
+                "-C",
+                repo.to_str().unwrap(),
+                "status",
+                "--porcelain=v2",
+                "--branch",
+                "-z",
+                "--ignored=no",
+            ])
+            .output()
+            .unwrap();
+
+        let parsed = parse_porcelain_v2(&output.stdout);
+        let rename = parsed
+            .files
+            .iter()
+            .find(|file| file.path == "new.txt")
+            .expect("rename record missing");
+        assert_eq!(rename.old_path.as_deref(), Some("old.txt"));
+    }
+
+    #[test]
+    fn parses_unmerged_conflict_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        std::process::Command::new("git")
+            .args(["init", "-q", "-b", "main"])
+            .arg(repo)
+            .status()
+            .unwrap();
+        for (key, value) in [("user.email", "t@t.com"), ("user.name", "T")] {
+            std::process::Command::new("git")
+                .args(["-C", repo.to_str().unwrap(), "config", key, value])
+                .status()
+                .unwrap();
+        }
+        std::fs::write(repo.join("conflict.txt"), "base").unwrap();
+        std::process::Command::new("git")
+            .args(["-C", repo.to_str().unwrap(), "add", "conflict.txt"])
+            .status()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["-C", repo.to_str().unwrap(), "commit", "-m", "base"])
+            .status()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["-C", repo.to_str().unwrap(), "checkout", "-b", "other"])
+            .status()
+            .unwrap();
+        std::fs::write(repo.join("conflict.txt"), "other").unwrap();
+        std::process::Command::new("git")
+            .args(["-C", repo.to_str().unwrap(), "add", "conflict.txt"])
+            .status()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["-C", repo.to_str().unwrap(), "commit", "-m", "other"])
+            .status()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["-C", repo.to_str().unwrap(), "checkout", "main"])
+            .status()
+            .unwrap();
+        std::fs::write(repo.join("conflict.txt"), "main").unwrap();
+        std::process::Command::new("git")
+            .args(["-C", repo.to_str().unwrap(), "add", "conflict.txt"])
+            .status()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["-C", repo.to_str().unwrap(), "commit", "-m", "main"])
+            .status()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["-C", repo.to_str().unwrap(), "merge", "other"])
+            .status()
+            .unwrap();
+
+        let output = std::process::Command::new("git")
+            .args([
+                "-C",
+                repo.to_str().unwrap(),
+                "status",
+                "--porcelain=v2",
+                "--branch",
+                "-z",
+                "--ignored=no",
+            ])
+            .output()
+            .unwrap();
+
+        let parsed = parse_porcelain_v2(&output.stdout);
+        let conflict = parsed
+            .files
+            .iter()
+            .find(|file| file.conflict_status.is_some())
+            .expect("conflict record missing");
+        assert_eq!(conflict.path, "conflict.txt");
     }
 }
