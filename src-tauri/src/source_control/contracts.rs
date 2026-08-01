@@ -372,7 +372,7 @@ pub struct SourceControlOperationCancelInput {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case")]
+#[serde(tag = "kind", rename_all = "kebab-case", rename_all_fields = "camelCase")]
 pub enum SourceControlOperationEvent {
     Started {
         operation_id: String,
@@ -410,4 +410,55 @@ pub enum SourceControlOperationEvent {
         repository_id: String,
         trunk_id: String,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    #[test]
+    fn operation_event_serializes_camel_case_fields() {
+        let event = SourceControlOperationEvent::Completed {
+            operation_id: "op-1".into(),
+            repository_id: "repo-1".into(),
+            trunk_id: "trunk-1".into(),
+            result_summary: "done".into(),
+        };
+        let json = serde_json::to_value(&event).expect("serialize");
+        assert_eq!(json["kind"], "completed");
+        assert_eq!(json["operationId"], "op-1");
+        assert_eq!(json["repositoryId"], "repo-1");
+        assert_eq!(json["trunkId"], "trunk-1");
+        assert_eq!(json["resultSummary"], "done");
+        assert!(json.get("operation_id").is_none());
+        assert!(json.get("result_summary").is_none());
+    }
+
+    #[test]
+    fn operation_event_round_trips_camel_case_json() {
+        let raw = r#"{
+            "kind": "started",
+            "operationId": "op-2",
+            "repositoryId": "repo-2",
+            "trunkId": "trunk-2",
+            "phase": "fetch",
+            "cancellable": true
+        }"#;
+        let parsed: SourceControlOperationEvent =
+            serde_json::from_str(raw).expect("deserialize started");
+        assert_eq!(
+            parsed,
+            SourceControlOperationEvent::Started {
+                operation_id: "op-2".into(),
+                repository_id: "repo-2".into(),
+                trunk_id: "trunk-2".into(),
+                phase: "fetch".into(),
+                cancellable: true,
+            }
+        );
+        let reserialized: Value = serde_json::to_value(parsed).expect("reserialize");
+        assert_eq!(reserialized["operationId"], "op-2");
+        assert_eq!(reserialized["kind"], "started");
+    }
 }

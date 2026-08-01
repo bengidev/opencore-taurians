@@ -256,7 +256,29 @@ impl Drop for SourceControlOperationGuard<'_> {
     }
 }
 
+#[cfg(test)]
+thread_local! {
+    static EVENT_CAPTURE: std::cell::RefCell<Option<Vec<SourceControlOperationEvent>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(test)]
+pub(crate) fn capture_operation_events<R>(run: impl FnOnce() -> R) -> (R, Vec<SourceControlOperationEvent>) {
+    EVENT_CAPTURE.with(|capture| {
+        *capture.borrow_mut() = Some(Vec::new());
+        let result = run();
+        let events = capture.borrow_mut().take().unwrap_or_default();
+        (result, events)
+    })
+}
+
 fn emit_event(app: Option<&AppHandle>, event: SourceControlOperationEvent) {
+    #[cfg(test)]
+    EVENT_CAPTURE.with(|capture| {
+        if let Some(events) = capture.borrow_mut().as_mut() {
+            events.push(event.clone());
+        }
+    });
     if let Some(app) = app {
         let _ = app.emit("sourceControl://operation", &event);
     }
@@ -467,6 +489,37 @@ mod tests {
         let coordinator = SourceControlOperationCoordinatorState::default();
         let error = coordinator.cancel("missing-op").unwrap_err();
         assert_eq!(error.code, PublicSourceControlErrorCode::NotFound);
+    }
+
+    #[test]
+    fn coordinated_operation_emits_started_then_single_terminal() {
+        let coordinator = SourceControlOperationCoordinatorState::default();
+        let quit = QuitGuard::default();
+        let scope = scope("repo-a", "trunk-a");
+
+        let (_, events) = capture_operation_events(|| {
+            let guard = coordinator
+                .begin(&scope, None, &quit, "worktree-create")
+                .expect("begin");
+            guard.complete("Worktree created");
+        });
+
+        assert_eq!(events.len(), 2);
+        assert!(matches!(
+            &events[0],
+            SourceControlOperationEvent::Started {
+                phase,
+                cancellable: true,
+                ..
+            } if phase == "worktree-create"
+        ));
+        assert!(matches!(
+            &events[1],
+            SourceControlOperationEvent::Completed {
+                result_summary,
+                ..
+            } if result_summary == "Worktree created"
+        ));
     }
 
     #[test]
