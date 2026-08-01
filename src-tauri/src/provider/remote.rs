@@ -102,7 +102,9 @@ impl ProviderError {
             ProviderError::AuthFailed { message: _ } => {
                 PublicSourceControlError::authentication_required(operation)
             }
-            ProviderError::NotFound { message: _ } => PublicSourceControlError::not_found(operation),
+            ProviderError::NotFound { message: _ } => {
+                PublicSourceControlError::not_found(operation)
+            }
             ProviderError::RateLimited { message: _ } => {
                 PublicSourceControlError::process_failed(operation, true)
             }

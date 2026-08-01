@@ -4,8 +4,6 @@ use std::path::{Component, Path, PathBuf};
 pub enum PathScopeError {
     #[error("path escapes project root")]
     OutsideProject,
-    #[error("invalid path")]
-    Invalid,
 }
 
 pub fn normalize_path(path: &Path) -> PathBuf {
