@@ -108,13 +108,6 @@ fn run_read(
     process.run(spec).map(|o| o.stdout)
 }
 
-pub fn git_fetch(
-    input: SourceControlFetchInput,
-    scope: &SourceControlScopeRecord,
-) -> Result<SourceControlRemoteResult, PublicSourceControlError> {
-    git_fetch_with(&SystemGitProcess, input, scope, None)
-}
-
 pub fn git_fetch_with(
     process: &impl SourceControlProcess,
     input: SourceControlFetchInput,
@@ -138,13 +131,6 @@ pub fn git_fetch_with(
     })
 }
 
-pub fn git_pull(
-    input: SourceControlPullInput,
-    scope: &SourceControlScopeRecord,
-) -> Result<SourceControlRemoteResult, PublicSourceControlError> {
-    git_pull_with(&SystemGitProcess, input, scope, None)
-}
-
 pub fn git_pull_with(
     process: &impl SourceControlProcess,
     input: SourceControlPullInput,
@@ -166,13 +152,6 @@ pub fn git_pull_with(
     Ok(SourceControlRemoteResult {
         message: "Pulled".into(),
     })
-}
-
-pub fn git_push(
-    input: SourceControlPushInput,
-    scope: &SourceControlScopeRecord,
-) -> Result<SourceControlRemoteResult, PublicSourceControlError> {
-    git_push_with(&SystemGitProcess, input, scope, None)
 }
 
 pub fn git_push_with(
