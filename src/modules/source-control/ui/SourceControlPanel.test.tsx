@@ -304,7 +304,7 @@ describe("SourceControlPanel", () => {
         stagedChanges: 1,
       },
     });
-    const { sourceControlApi, trunk } = setupTrunk(snapshot);
+    const { sourceControlApi } = setupTrunk(snapshot);
     const user = userEvent.setup();
     render(<SourceControlPanel sourceControlApi={sourceControlApi} />);
 
