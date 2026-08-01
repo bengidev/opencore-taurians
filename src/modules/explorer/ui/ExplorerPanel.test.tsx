@@ -6,11 +6,17 @@ import { createMemoryEditorApi } from "../../editor/api/createMemoryEditorApi";
 import { useEditorStore } from "../../editor/state/editorStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useProjectStore } from "../../project/state/projectStore";
+import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { createMemoryExplorerApi } from "../api/createMemoryExplorerApi";
 import type { ExplorerApi } from "../api/explorerApi";
 import type { ExplorerDropPayload } from "../domain/explorerTypes";
 import { useExplorerStore } from "../state/explorerStore";
 import { ExplorerPanel } from "./ExplorerPanel";
+
+function createActiveProject(input: { folderPath: string; nowIso: string }): void {
+  useProjectStore.getState().createProjectWithRootTrunk(input);
+  useWorkspaceStore.getState().setWorkspace(input.folderPath);
+}
 
 describe("ExplorerPanel", () => {
   afterEach(() => {
@@ -22,6 +28,7 @@ describe("ExplorerPanel", () => {
     useMemoryPersistStorage();
     useProjectStore.getState().resetProjectState();
     useExplorerStore.getState().resetExplorerState();
+    useWorkspaceStore.setState({ workspacePath: null });
     useEditorStore.setState({
       api: null,
       projectRoot: null,
@@ -35,7 +42,7 @@ describe("ExplorerPanel", () => {
 
   it("context menu shows Rename, Delete, and Copy Path on file row", async () => {
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -61,7 +68,7 @@ describe("ExplorerPanel", () => {
     const user = userEvent.setup();
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -88,7 +95,7 @@ describe("ExplorerPanel", () => {
     const user = userEvent.setup();
     vi.spyOn(window, "confirm").mockReturnValue(false);
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -118,7 +125,7 @@ describe("ExplorerPanel", () => {
     const user = userEvent.setup();
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -153,7 +160,7 @@ describe("ExplorerPanel", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const folderPath = "/proj";
     const subDir = "/proj/src";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -188,7 +195,7 @@ describe("ExplorerPanel", () => {
     const user = userEvent.setup();
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -221,7 +228,7 @@ describe("ExplorerPanel", () => {
   it("context menu Rename enters rename mode", async () => {
     const user = userEvent.setup();
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -246,7 +253,7 @@ describe("ExplorerPanel", () => {
   it("cancels rename when Escape is pressed", async () => {
     const user = userEvent.setup();
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -274,7 +281,7 @@ describe("ExplorerPanel", () => {
   it("cancels rename when another file is clicked", async () => {
     const user = userEvent.setup();
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -305,7 +312,7 @@ describe("ExplorerPanel", () => {
   it("cancels rename when clicking empty explorer area", async () => {
     const user = userEvent.setup();
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -359,7 +366,7 @@ describe("ExplorerPanel", () => {
     });
 
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -384,7 +391,7 @@ describe("ExplorerPanel", () => {
   it("context menu New File creates a file in the target folder", async () => {
     const user = userEvent.setup();
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -413,7 +420,7 @@ describe("ExplorerPanel", () => {
     const folderPath = "/proj";
     const subDir = "/proj/src";
 
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -438,7 +445,7 @@ describe("ExplorerPanel", () => {
     const folderPath = "/proj";
     const subDir = "/proj/src";
 
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -476,7 +483,7 @@ describe("ExplorerPanel", () => {
     const folderPath = "/proj";
     const subDir = "/proj/src";
 
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -508,7 +515,7 @@ describe("ExplorerPanel", () => {
     const user = userEvent.setup();
     const folderPath = "/proj";
 
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -539,7 +546,7 @@ describe("ExplorerPanel", () => {
     const user = userEvent.setup();
     const folderPath = "/proj";
 
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -563,7 +570,7 @@ describe("ExplorerPanel", () => {
 
   it("skips copy when OS drop hits the editor drop zone", async () => {
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
