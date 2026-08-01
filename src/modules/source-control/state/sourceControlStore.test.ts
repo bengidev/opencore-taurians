@@ -8,6 +8,7 @@ import { useSourceControlStore } from "./sourceControlStore";
 
 const resolvedCheckout: ResolvedSourceControlCheckout = {
   kind: "project-root",
+  scopeId: "scope-1",
   checkoutPath: "/work/app",
   checkoutIdentity: "checkout-1",
   repositoryIdentity: "repo-1",
@@ -23,6 +24,7 @@ const resolvedCheckout: ResolvedSourceControlCheckout = {
 const baseSnapshot: SourceControlRepositorySnapshot = {
   projectId: "project-1",
   trunkId: "trunk-1",
+  scopeId: "scope-1",
   checkoutPath: "/work/app",
   checkoutIdentity: "checkout-1",
   repositoryIdentity: "repo-1",
@@ -117,14 +119,12 @@ describe("sourceControlStore", () => {
       snapshotsByCheckoutIdentity: { "checkout-1": baseSnapshot },
     });
     useSourceControlStore.getState().bindApi(api);
+    await useSourceControlStore.getState().runStage("trunk-1", resolvedCheckout, {
+      scopeId: "scope-1",
+      paths: ["a.ts"],
+      mode: "stage",
+    });
 
-    await useSourceControlStore
-      .getState()
-      .runStage("trunk-1", resolvedCheckout, {
-        checkoutPath: "/work/app",
-        paths: ["a.ts"],
-        mode: "stage",
-      });
 
     const calls = api.calls.map((c) => c.method);
     expect(calls).toContain("stage");
@@ -144,14 +144,14 @@ describe("sourceControlStore", () => {
       },
     };
     useSourceControlStore.getState().bindApi(failingApi as typeof api);
-
     await expect(
       useSourceControlStore.getState().runStage("trunk-1", resolvedCheckout, {
-        checkoutPath: "/work/app",
+        scopeId: "scope-1",
         paths: ["a.ts"],
         mode: "stage",
       }),
     ).rejects.toThrow("staging failed");
+
 
     expect(useSourceControlStore.getState().errorByTrunkId["trunk-1"]?.message).toBe(
       "staging failed",

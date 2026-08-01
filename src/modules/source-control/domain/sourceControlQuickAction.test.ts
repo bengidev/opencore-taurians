@@ -3,6 +3,7 @@ import type { SourceControlRepositorySnapshot } from "../api/sourceControlContra
 import { resolveSourceControlQuickActions } from "./sourceControlQuickAction";
 
 const baseSnapshot: SourceControlRepositorySnapshot = {
+  scopeId: "scope-1",
   projectId: "project-1",
   trunkId: "trunk-1",
   checkoutPath: "/work/app",

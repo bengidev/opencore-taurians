@@ -1,5 +1,8 @@
 use crate::source_control::contracts::PublicSourceControlError;
-use crate::source_control::process::{SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess};
+use crate::source_control::process::{
+    SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
+};
+use crate::source_control::scope_registry::SourceControlScopeRecord;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::path::Path;
@@ -29,9 +32,7 @@ pub enum SourceControlDiffSource {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlDiffInput {
-    pub project_id: String,
-    pub trunk_id: String,
-    pub checkout_path: String,
+    pub scope_id: String,
     pub source: SourceControlDiffSource,
     pub ignore_whitespace: bool,
     pub max_bytes: usize,
@@ -64,15 +65,19 @@ pub struct SourceControlDiffResult {
     pub truncated: bool,
 }
 
-pub fn get_diff(input: SourceControlDiffInput) -> Result<SourceControlDiffResult, PublicSourceControlError> {
-    get_diff_with(&SystemGitProcess, input)
+pub fn get_diff(
+    input: SourceControlDiffInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlDiffResult, PublicSourceControlError> {
+    get_diff_with(&SystemGitProcess, input, scope)
 }
 
 pub fn get_diff_with(
     process: &impl SourceControlProcess,
     input: SourceControlDiffInput,
+    scope: &SourceControlScopeRecord,
 ) -> Result<SourceControlDiffResult, PublicSourceControlError> {
-    let checkout = Path::new(&input.checkout_path);
+    let checkout = scope.checkout_path.as_path();
     let max_bytes = if input.max_bytes == 0 {
         DEFAULT_MAX_BYTES
     } else {
@@ -188,8 +193,12 @@ pub fn get_diff_with(
         && patch.is_empty()
         && files.is_empty()
     {
-        let synthesized =
-            synthesize_untracked_patch(process, checkout, input.pathspec.as_deref().unwrap(), max_bytes)?;
+        let synthesized = synthesize_untracked_patch(
+            process,
+            checkout,
+            input.pathspec.as_deref().unwrap(),
+            max_bytes,
+        )?;
         if let Some(syn) = synthesized {
             files = syn.files.clone();
             additions = syn.additions;
@@ -426,6 +435,18 @@ mod tests {
             .unwrap()
             .success());
     }
+    fn scope(path: &Path) -> SourceControlScopeRecord {
+        SourceControlScopeRecord {
+            scope_id: "scope-1".into(),
+            project_id: "p".into(),
+            trunk_id: "t".into(),
+            project_root: path.to_path_buf(),
+            checkout_path: path.to_path_buf(),
+            checkout_identity: format!("checkout:{}", path.display()),
+            repository_identity: None,
+            managed_by_app: false,
+        }
+    }
 
     #[test]
     fn diffs_working_tree_changes() {
@@ -442,15 +463,16 @@ mod tests {
             .unwrap();
         fs::write(dir.path().join("a.txt"), "modified").unwrap();
 
-        let result = get_diff(SourceControlDiffInput {
-            project_id: "p".into(),
-            trunk_id: "t".into(),
-            checkout_path: dir.path().to_string_lossy().into_owned(),
-            source: SourceControlDiffSource::WorkingTree,
-            ignore_whitespace: false,
-            max_bytes: DEFAULT_MAX_BYTES,
-            pathspec: None,
-        })
+        let result = get_diff(
+            SourceControlDiffInput {
+                scope_id: "scope-1".into(),
+                source: SourceControlDiffSource::WorkingTree,
+                ignore_whitespace: false,
+                max_bytes: DEFAULT_MAX_BYTES,
+                pathspec: None,
+            },
+            &scope(dir.path()),
+        )
         .unwrap();
 
         assert!(result.patch.contains("modified"));
@@ -477,15 +499,16 @@ mod tests {
             .status()
             .unwrap();
 
-        let result = get_diff(SourceControlDiffInput {
-            project_id: "p".into(),
-            trunk_id: "t".into(),
-            checkout_path: dir.path().to_string_lossy().into_owned(),
-            source: SourceControlDiffSource::Staged,
-            ignore_whitespace: false,
-            max_bytes: DEFAULT_MAX_BYTES,
-            pathspec: None,
-        })
+        let result = get_diff(
+            SourceControlDiffInput {
+                scope_id: "scope-1".into(),
+                source: SourceControlDiffSource::Staged,
+                ignore_whitespace: false,
+                max_bytes: DEFAULT_MAX_BYTES,
+                pathspec: None,
+            },
+            &scope(dir.path()),
+        )
         .unwrap();
 
         assert!(result.patch.contains("modified"));
@@ -512,15 +535,16 @@ mod tests {
             .status()
             .unwrap();
 
-        let result = get_diff(SourceControlDiffInput {
-            project_id: "p".into(),
-            trunk_id: "t".into(),
-            checkout_path: dir.path().to_string_lossy().into_owned(),
-            source: SourceControlDiffSource::Staged,
-            ignore_whitespace: false,
-            max_bytes: 50,
-            pathspec: None,
-        })
+        let result = get_diff(
+            SourceControlDiffInput {
+                scope_id: "scope-1".into(),
+                source: SourceControlDiffSource::Staged,
+                ignore_whitespace: false,
+                max_bytes: 50,
+                pathspec: None,
+            },
+            &scope(dir.path()),
+        )
         .unwrap();
 
         assert!(result.truncated);
@@ -562,15 +586,16 @@ mod tests {
         fs::write(dir.path().join("a.txt"), "modified-a").unwrap();
         fs::write(dir.path().join("b.txt"), "modified-b").unwrap();
 
-        let result = get_diff(SourceControlDiffInput {
-            project_id: "p".into(),
-            trunk_id: "t".into(),
-            checkout_path: dir.path().to_string_lossy().into_owned(),
-            source: SourceControlDiffSource::WorkingTree,
-            ignore_whitespace: false,
-            max_bytes: DEFAULT_MAX_BYTES,
-            pathspec: Some("a.txt".into()),
-        })
+        let result = get_diff(
+            SourceControlDiffInput {
+                scope_id: "scope-1".into(),
+                source: SourceControlDiffSource::WorkingTree,
+                ignore_whitespace: false,
+                max_bytes: DEFAULT_MAX_BYTES,
+                pathspec: Some("a.txt".into()),
+            },
+            &scope(dir.path()),
+        )
         .unwrap();
 
         // Only a.txt appears in the numstat file list.
@@ -597,15 +622,16 @@ mod tests {
         // Add a new untracked file.
         fs::write(dir.path().join("new.txt"), "hello\nworld\n").unwrap();
 
-        let result = get_diff(SourceControlDiffInput {
-            project_id: "p".into(),
-            trunk_id: "t".into(),
-            checkout_path: dir.path().to_string_lossy().into_owned(),
-            source: SourceControlDiffSource::WorkingTree,
-            ignore_whitespace: false,
-            max_bytes: DEFAULT_MAX_BYTES,
-            pathspec: Some("new.txt".into()),
-        })
+        let result = get_diff(
+            SourceControlDiffInput {
+                scope_id: "scope-1".into(),
+                source: SourceControlDiffSource::WorkingTree,
+                ignore_whitespace: false,
+                max_bytes: DEFAULT_MAX_BYTES,
+                pathspec: Some("new.txt".into()),
+            },
+            &scope(dir.path()),
+        )
         .unwrap();
 
         // Untracked files are invisible to `git diff` by default; the backend

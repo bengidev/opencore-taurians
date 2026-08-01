@@ -54,13 +54,17 @@ pub struct SourceControlProcessOutput {
 }
 
 pub trait SourceControlProcess: Send + Sync {
-    fn run(&self, spec: SourceControlCommandSpec) -> Result<SourceControlProcessOutput, PublicSourceControlError>;
+    fn run(
+        &self,
+        spec: SourceControlCommandSpec,
+    ) -> Result<SourceControlProcessOutput, PublicSourceControlError>;
 }
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SystemGitProcess;
 
 impl SystemGitProcess {
+    #[allow(dead_code)]
     pub fn discover(&self) -> Result<String, PublicSourceControlError> {
         let output = Command::new("git")
             .arg("--version")
@@ -105,7 +109,10 @@ impl SystemGitProcess {
 }
 
 impl SourceControlProcess for SystemGitProcess {
-    fn run(&self, spec: SourceControlCommandSpec) -> Result<SourceControlProcessOutput, PublicSourceControlError> {
+    fn run(
+        &self,
+        spec: SourceControlCommandSpec,
+    ) -> Result<SourceControlProcessOutput, PublicSourceControlError> {
         let mut child = Self::command(&spec)
             .spawn()
             .map_err(|_| PublicSourceControlError::git_unavailable(spec.operation))?;
@@ -131,7 +138,12 @@ impl SourceControlProcess for SystemGitProcess {
             match child.try_wait() {
                 Ok(Some(status)) => break status,
                 Ok(None) => thread::sleep(POLL_INTERVAL),
-                Err(_) => return Err(PublicSourceControlError::process_failed(spec.operation, true)),
+                Err(_) => {
+                    return Err(PublicSourceControlError::process_failed(
+                        spec.operation,
+                        true,
+                    ))
+                }
             }
         };
 
@@ -148,7 +160,10 @@ impl SourceControlProcess for SystemGitProcess {
                     return Err(PublicSourceControlError::output_limit(spec.operation));
                 }
                 StreamResult::ReadFailed => {
-                    return Err(PublicSourceControlError::process_failed(spec.operation, true));
+                    return Err(PublicSourceControlError::process_failed(
+                        spec.operation,
+                        true,
+                    ));
                 }
             }
         }
@@ -162,9 +177,14 @@ impl SourceControlProcess for SystemGitProcess {
             return Ok(output);
         }
         if stderr_looks_like_authentication(&output.stderr) {
-            return Err(PublicSourceControlError::authentication_required(spec.operation));
+            return Err(PublicSourceControlError::authentication_required(
+                spec.operation,
+            ));
         }
-        Err(PublicSourceControlError::process_failed(spec.operation, false))
+        Err(PublicSourceControlError::process_failed(
+            spec.operation,
+            false,
+        ))
     }
 }
 
@@ -307,7 +327,10 @@ mod tests {
             b"fatal: could not read Username for 'https://example.com': terminal prompts disabled"
         ));
         let error = PublicSourceControlError::authentication_required("fetch");
-        assert_eq!(error.code, PublicSourceControlErrorCode::AuthenticationRequired);
+        assert_eq!(
+            error.code,
+            PublicSourceControlErrorCode::AuthenticationRequired
+        );
         assert!(!error.message.contains("example.com"));
     }
 }

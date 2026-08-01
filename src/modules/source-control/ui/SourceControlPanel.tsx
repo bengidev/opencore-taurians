@@ -178,7 +178,7 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
 
     await runPanelAction("commit", async () => {
       await useSourceControlStore.getState().runCommit(activeTrunkId, checkout, {
-        checkoutPath: checkout.checkoutPath,
+        scopeId: checkout.scopeId,
         subject,
         body,
         amend,
@@ -198,7 +198,7 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
     if (!activeTrunkId || !checkout) return;
     void runPanelAction("fetch", () =>
       useSourceControlStore.getState().runFetch(activeTrunkId, checkout, {
-        checkoutPath: checkout.checkoutPath,
+        scopeId: checkout.scopeId,
         prune: false,
         remote: null,
       }),
@@ -209,7 +209,7 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
     if (!activeTrunkId || !checkout) return;
     void runPanelAction("pull", () =>
       useSourceControlStore.getState().runPull(activeTrunkId, checkout, {
-        checkoutPath: checkout.checkoutPath,
+        scopeId: checkout.scopeId,
         strategy: "ff-only",
         rebase: false,
       }),
@@ -220,7 +220,7 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
     if (!activeTrunkId || !checkout) return;
     void runPanelAction("push", () =>
       useSourceControlStore.getState().runPush(activeTrunkId, checkout, {
-        checkoutPath: checkout.checkoutPath,
+        scopeId: checkout.scopeId,
         remote: null,
         refspec: null,
         setUpstream: false,
@@ -250,10 +250,7 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
 
     try {
       const result = await sourceControlApi.getDiff({
-        projectId: activeTrunk.projectId,
-        trunkId: activeTrunk.id,
-        checkoutPath: checkout.checkoutPath,
-        source: staged ? { kind: "staged" } : { kind: "working-tree" },
+        scopeId: checkout.scopeId,
         ignoreWhitespace: false,
         maxBytes: 524288,
         pathspec: file.path,
@@ -354,9 +351,7 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
               size="sm"
               onClick={async () => {
                 await sourceControlApi.initialize({
-                  projectId: activeTrunk.projectId,
-                  trunkId: activeTrunk.id,
-                  checkoutPath: checkout.checkoutPath,
+                  scopeId: checkout.scopeId,
                 });
                 await useSourceControlStore
                   .getState()
@@ -500,7 +495,7 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
               onClick={() =>
                 void runPanelAction("stage-all", () =>
                   useSourceControlStore.getState().runStage(activeTrunk.id, checkout, {
-                    checkoutPath: checkout.checkoutPath,
+                    scopeId: checkout.scopeId,
                     paths: changedFiles.map((f) => f.path),
                     mode: "stage",
                   }),
@@ -550,7 +545,7 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
                         activeTrunk.id,
                         checkout,
                         {
-                          checkoutPath: checkout.checkoutPath,
+                          scopeId: checkout.scopeId,
                           paths: [file.path],
                           mode: "stage",
                         },
@@ -608,7 +603,7 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
                         activeTrunk.id,
                         checkout,
                         {
-                          checkoutPath: checkout.checkoutPath,
+                          scopeId: checkout.scopeId,
                           paths: [file.path],
                           mode: "unstage",
                         },
@@ -687,7 +682,7 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
           setDiscardTarget(null);
           void runFileAction(target.path, "discard", () =>
             useSourceControlStore.getState().runDiscard(activeTrunk.id, checkout, {
-              checkoutPath: checkout.checkoutPath,
+              scopeId: checkout.scopeId,
               paths: [target.path],
               mode:
                 target.worktreeStatus === "untracked"

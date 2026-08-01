@@ -3,6 +3,8 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   SourceControlAttachWorktreeInput,
   SourceControlCheckoutRequest,
+  SourceControlCloneInput,
+  SourceControlCloneResult,
   SourceControlCommitInput,
   SourceControlCompareInput,
   SourceControlCompareResult,
@@ -11,7 +13,10 @@ import type {
   SourceControlDiffResult,
   SourceControlDiscardInput,
   SourceControlFetchInput,
+  SourceControlHookInfo,
+  SourceControlHooksInput,
   SourceControlInitializeInput,
+  SourceControlLfsInput,
   SourceControlLogEntry,
   SourceControlLogInput,
   SourceControlMutationResult,
@@ -21,6 +26,7 @@ import type {
   SourceControlRefMutationInput,
   SourceControlRemoteResult,
   SourceControlRefMutationResult,
+  SourceControlRefsInput,
   SourceControlRefSummary,
   SourceControlRemoveWorktreeInput,
   SourceControlRepairWorktreeInput,
@@ -29,10 +35,10 @@ import type {
   SourceControlResolveCheckoutResult,
   SourceControlStageInput,
   SourceControlStashInput,
+  SourceControlSubmoduleInput,
   SourceControlWorktreeMutationResult,
   SourceControlWorktreeRemovalInspection,
 } from "./sourceControlContracts";
-
 export type { UnlistenFn };
 
 export interface SourceControlApi {
@@ -48,16 +54,18 @@ export interface SourceControlApi {
   fetch(input: SourceControlFetchInput): Promise<SourceControlRemoteResult>;
   pull(input: SourceControlPullInput): Promise<SourceControlRemoteResult>;
   push(input: SourceControlPushInput): Promise<SourceControlRemoteResult>;
-  listRefs(checkoutPath: string): Promise<SourceControlRefSummary[]>;
+  listRefs(input: SourceControlRefsInput): Promise<SourceControlRefSummary[]>;
   mutateRef(input: SourceControlRefMutationInput): Promise<SourceControlRefMutationResult>;
   log(input: SourceControlLogInput): Promise<SourceControlLogEntry[]>;
   compare(input: SourceControlCompareInput): Promise<SourceControlCompareResult>;
+  submodule(input: SourceControlSubmoduleInput): Promise<string>;
+  lfs(input: SourceControlLfsInput): Promise<string>;
+  clone(input: SourceControlCloneInput): Promise<SourceControlCloneResult>;
+  enumerateHooks(input: SourceControlHooksInput): Promise<SourceControlHookInfo[]>;
   createWorktree(input: SourceControlCreateWorktreeInput): Promise<SourceControlWorktreeMutationResult>;
   attachWorktree(input: SourceControlAttachWorktreeInput): Promise<SourceControlWorktreeMutationResult>;
   repairWorktree(input: SourceControlRepairWorktreeInput): Promise<SourceControlWorktreeMutationResult>;
-  inspectWorktreeRemoval(
-    input: Pick<SourceControlRemoveWorktreeInput, "worktreePath" | "repositoryIdentity">,
-  ): Promise<SourceControlWorktreeRemovalInspection>;
+  inspectWorktreeRemoval(input: Pick<SourceControlRemoveWorktreeInput, "worktreePath" | "repositoryIdentity">): Promise<SourceControlWorktreeRemovalInspection>;
   removeWorktree(input: SourceControlRemoveWorktreeInput): Promise<void>;
   cancelOperation(operationId: string): Promise<void>;
   onOperationEvent(callback: (event: SourceControlOperationEvent) => void): Promise<UnlistenFn>;
@@ -77,20 +85,21 @@ export function createTauriSourceControlApi(): SourceControlApi {
     fetch: (input) => invoke("git_fetch", { input }),
     pull: (input) => invoke("git_pull", { input }),
     push: (input) => invoke("git_push", { input }),
-    listRefs: (checkoutPath) => invoke("git_list_refs", { checkoutPath }),
+    listRefs: (input) => invoke("git_list_refs", { input }),
     mutateRef: (input) => invoke("git_mutate_ref", { input }),
     log: (input) => invoke("git_log", { input }),
     compare: (input) => invoke("git_compare", { input }),
+    submodule: (input) => invoke("git_submodule", { input }),
+    lfs: (input) => invoke("git_lfs", { input }),
+    clone: (input) => invoke("git_clone", { input }),
+    enumerateHooks: (input) => invoke("git_enumerate_hooks", { input }),
     createWorktree: (input) => invoke("git_worktree_create", { input }),
     attachWorktree: (input) => invoke("git_worktree_attach", { input }),
     repairWorktree: (input) => invoke("git_worktree_repair", { input }),
-    inspectWorktreeRemoval: (input) =>
-      invoke("git_worktree_inspect_removal", { input }),
+    inspectWorktreeRemoval: (input) => invoke("git_worktree_inspect_removal", { input }),
     removeWorktree: (input) => invoke("git_worktree_remove", { input }),
-    cancelOperation: (operationId) =>
-      invoke("git_operation_cancel", { input: { operationId } }),
-    onOperationEvent: (callback) =>
-      listen<SourceControlOperationEvent>("sourceControl://operation", (event) => callback(event.payload)),
+    cancelOperation: (operationId) => invoke("git_operation_cancel", { input: { operationId } }),
+    onOperationEvent: (callback) => listen<SourceControlOperationEvent>("sourceControl://operation", (event) => callback(event.payload)),
   };
 }
 

@@ -1,5 +1,8 @@
 use crate::source_control::contracts::PublicSourceControlError;
-use crate::source_control::process::{SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess};
+use crate::source_control::process::{
+    SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
+};
+use crate::source_control::scope_registry::SourceControlScopeRecord;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::path::Path;
@@ -22,7 +25,7 @@ pub struct SourceControlLogEntry {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlLogInput {
-    pub checkout_path: String,
+    pub scope_id: String,
     pub max_count: usize,
     pub branch: Option<String>,
     pub search: Option<String>,
@@ -31,7 +34,7 @@ pub struct SourceControlLogInput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlCompareInput {
-    pub checkout_path: String,
+    pub scope_id: String,
     pub base: String,
     pub head: String,
 }
@@ -72,8 +75,19 @@ fn run_history(
     process.run(spec).map(|o| o.stdout)
 }
 
-pub fn git_log(input: SourceControlLogInput) -> Result<Vec<SourceControlLogEntry>, PublicSourceControlError> {
-    let path = Path::new(&input.checkout_path);
+pub fn git_log(
+    input: SourceControlLogInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<Vec<SourceControlLogEntry>, PublicSourceControlError> {
+    git_log_with(&SystemGitProcess, input, scope)
+}
+
+pub fn git_log_with(
+    process: &impl SourceControlProcess,
+    input: SourceControlLogInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<Vec<SourceControlLogEntry>, PublicSourceControlError> {
+    let path = scope.checkout_path.as_path();
     let count = input.max_count.to_string();
     let mut args = vec![
         "log",
@@ -83,15 +97,14 @@ pub fn git_log(input: SourceControlLogInput) -> Result<Vec<SourceControlLogEntry
         "-n",
         &count,
     ];
-    if let Some(ref branch) = input.branch {
+    if let Some(branch) = &input.branch {
         args.push(branch);
     }
-    if let Some(ref search) = input.search {
+    if let Some(search) = &input.search {
         args.push("--grep");
         args.push(search);
     }
-
-    let stdout = run_history(&SystemGitProcess, path, &args)?;
+    let stdout = run_history(process, path, &args)?;
     let text = String::from_utf8_lossy(&stdout);
     let mut entries = Vec::new();
     for line in text.lines() {
@@ -118,37 +131,46 @@ pub fn git_log(input: SourceControlLogInput) -> Result<Vec<SourceControlLogEntry
     Ok(entries)
 }
 
-pub fn git_compare(input: SourceControlCompareInput) -> Result<SourceControlCompareResult, PublicSourceControlError> {
-    let path = Path::new(&input.checkout_path);
+pub fn git_compare(
+    input: SourceControlCompareInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlCompareResult, PublicSourceControlError> {
+    git_compare_with(&SystemGitProcess, input, scope)
+}
+
+pub fn git_compare_with(
+    process: &impl SourceControlProcess,
+    input: SourceControlCompareInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlCompareResult, PublicSourceControlError> {
+    let path = scope.checkout_path.as_path();
     let range = format!("{}...{}", input.base, input.head);
     let counts = run_history(
-        &SystemGitProcess,
+        process,
         path,
         &["rev-list", "--left-right", "--count", &range],
     )?;
     let count_text = String::from_utf8_lossy(&counts).trim().to_string();
-    let mut ahead: u64 = 0;
-    let mut behind: u64 = 0;
-    for part in count_text.split('\t') {
-        if ahead == 0 {
-            ahead = part.parse().unwrap_or(0);
-        } else {
-            behind = part.parse().unwrap_or(0);
-        }
-    }
-
+    let mut counts_iter = count_text.split('\t');
+    let ahead = counts_iter
+        .next()
+        .and_then(|part| part.parse().ok())
+        .unwrap_or(0);
+    let behind = counts_iter
+        .next()
+        .and_then(|part| part.parse().ok())
+        .unwrap_or(0);
     let commits_out = run_history(
-        &SystemGitProcess,
+        process,
         path,
         &["rev-list", "--format=%s", "--max-count=100", &range],
     )?;
     let commits = String::from_utf8_lossy(&commits_out)
         .lines()
-        .filter(|l| !l.starts_with("commit "))
-        .map(|l| l.trim().to_string())
-        .filter(|l| !l.is_empty())
+        .filter(|line| !line.starts_with("commit "))
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
         .collect();
-
     Ok(SourceControlCompareResult {
         ahead,
         behind,
@@ -191,6 +213,16 @@ mod tests {
             ])
             .status()
             .unwrap();
+        let scope = SourceControlScopeRecord {
+            scope_id: "scope-1".into(),
+            project_id: "p".into(),
+            trunk_id: "t".into(),
+            project_root: dir.path().to_path_buf(),
+            checkout_path: dir.path().to_path_buf(),
+            checkout_identity: "checkout-1".into(),
+            repository_identity: None,
+            managed_by_app: false,
+        };
         fs::write(dir.path().join("a.txt"), "a").unwrap();
         Command::new("git")
             .args(["-C", dir.path().to_str().unwrap(), "add", "a.txt"])
@@ -210,12 +242,15 @@ mod tests {
             .status()
             .unwrap();
 
-        let entries = git_log(SourceControlLogInput {
-            checkout_path: dir.path().to_string_lossy().into(),
-            max_count: 10,
-            branch: None,
-            search: None,
-        })
+        let entries = git_log(
+            SourceControlLogInput {
+                scope_id: "scope-1".into(),
+                max_count: 10,
+                branch: None,
+                search: None,
+            },
+            &scope,
+        )
         .unwrap();
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].subject, "second");

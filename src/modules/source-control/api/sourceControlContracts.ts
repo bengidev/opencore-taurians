@@ -16,6 +16,7 @@ export type SourceControlCheckoutRestore =
 
 export interface ResolvedSourceControlCheckout {
   kind: "project-root" | "worktree";
+  scopeId: string;
   checkoutPath: string;
   checkoutIdentity: string;
   repositoryIdentity: string | null;
@@ -125,6 +126,7 @@ export type SourceControlRepositoryState =
   | "ready";
 
 export interface SourceControlRepositorySnapshot {
+  scopeId: string;
   projectId: string;
   trunkId: string;
   checkoutPath: string;
@@ -148,15 +150,11 @@ export interface SourceControlRepositorySnapshot {
 }
 
 export interface SourceControlCheckoutRequest {
-  projectId: string;
-  trunkId: string;
-  checkout: ResolvedSourceControlCheckout;
+  scopeId: string;
 }
 
 export interface SourceControlInitializeInput {
-  projectId: string;
-  trunkId: string;
-  checkoutPath: string;
+  scopeId: string;
 }
 
 export type SourceControlDiffSource =
@@ -167,22 +165,15 @@ export type SourceControlDiffSource =
   | { kind: "commit-range"; baseOid: string; headOid: string };
 
 export interface SourceControlDiffInput {
-  projectId: string;
-  trunkId: string;
-  checkoutPath: string;
+  scopeId: string;
   source: SourceControlDiffSource;
   ignoreWhitespace: boolean;
   maxBytes: number;
-  /** When set, restricts the diff to the given path (relative to the
-   * checkout root). For untracked files under `working-tree`, the backend
-   * synthesizes a patch since `sourceControl diff` ignores untracked files. */
   pathspec: string | null;
 }
 
 export type SourceControlStageMode = "stage" | "unstage";
-
 export type SourceControlDiscardMode = "tracked" | "untracked";
-
 export type SourceControlPullStrategy = "ff-only" | "merge";
 
 export type SourceControlStashAction =
@@ -193,19 +184,17 @@ export type SourceControlStashAction =
   | { kind: "drop"; index: number };
 
 export interface SourceControlStageInput {
-  checkoutPath: string;
+  scopeId: string;
   paths: string[];
   mode: SourceControlStageMode;
 }
-
 export interface SourceControlDiscardInput {
-  checkoutPath: string;
+  scopeId: string;
   paths: string[];
   mode: SourceControlDiscardMode;
 }
-
 export interface SourceControlCommitInput {
-  checkoutPath: string;
+  scopeId: string;
   subject: string;
   body: string;
   amend: boolean;
@@ -213,44 +202,34 @@ export interface SourceControlCommitInput {
   newBranch: string | null;
   selectedPaths: string[] | null;
 }
-
 export interface SourceControlStashInput {
-  checkoutPath: string;
+  scopeId: string;
   message: string | null;
   includeUntracked: boolean;
   action: SourceControlStashAction;
 }
-
-export interface SourceControlMutationResult {
-  message: string;
-}
+export interface SourceControlMutationResult { message: string }
 
 export interface SourceControlFetchInput {
-  checkoutPath: string;
+  scopeId: string;
   prune: boolean;
   remote: string | null;
 }
-
 export interface SourceControlPullInput {
-  checkoutPath: string;
+  scopeId: string;
   strategy: SourceControlPullStrategy;
   rebase: boolean;
 }
-
 export interface SourceControlPushInput {
-  checkoutPath: string;
+  scopeId: string;
   remote: string | null;
   refspec: string | null;
   setUpstream: boolean;
   forceWithLease: string | null;
 }
-
-export interface SourceControlRemoteResult {
-  message: string;
-}
+export interface SourceControlRemoteResult { message: string }
 
 export type SourceControlRefKind = "Branch" | "Remote" | "Tag";
-
 export interface SourceControlRefSummary {
   name: string;
   kind: SourceControlRefKind;
@@ -258,26 +237,22 @@ export interface SourceControlRefSummary {
   upstream: string | null;
   isCurrent: boolean;
 }
-
 export interface SourceControlRefMutationInput {
-  checkoutPath: string;
+  scopeId: string;
   action: string;
   name: string;
   target: string | null;
   force: boolean;
 }
-
-export interface SourceControlRefMutationResult {
-  message: string;
-}
+export interface SourceControlRefsInput { scopeId: string }
+export interface SourceControlRefMutationResult { message: string }
 
 export interface SourceControlLogInput {
-  checkoutPath: string;
+  scopeId: string;
   maxCount: number;
   branch: string | null;
   search: string | null;
 }
-
 export interface SourceControlLogEntry {
   oid: string;
   shortOid: string;
@@ -286,18 +261,38 @@ export interface SourceControlLogEntry {
   dateIso: string;
   refs: string[];
 }
-
 export interface SourceControlCompareInput {
-  checkoutPath: string;
+  scopeId: string;
   base: string;
   head: string;
 }
-
 export interface SourceControlCompareResult {
   ahead: number;
   behind: number;
   commits: string[];
 }
+
+export interface SourceControlSubmoduleInput {
+  scopeId: string;
+  action: "init" | "update" | "sync" | "deinit" | "status";
+  recursive: boolean;
+}
+export interface SourceControlLfsInput {
+  scopeId: string;
+  action: "track" | "untrack" | "fetch" | "pull" | "status" | "availability";
+  patterns: string[];
+}
+export interface SourceControlHooksInput { scopeId: string }
+export interface SourceControlHookInfo { path: string; present: boolean }
+export interface SourceControlCloneInput {
+  scopeId: string;
+  url: string;
+  destinationName: string;
+  branch: string | null;
+  recurseSubmodules: boolean;
+}
+export interface SourceControlCloneResult { path: string; message: string }
+
 
 export interface SourceControlDiffFileSummary {
   path: string;

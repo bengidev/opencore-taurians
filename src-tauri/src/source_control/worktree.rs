@@ -1,5 +1,7 @@
 use crate::source_control::contracts::PublicSourceControlError;
-use crate::source_control::process::{SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess};
+use crate::source_control::process::{
+    SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
+};
 use crate::source_control::scope::{detect_repository, RepositoryScope};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -225,7 +227,10 @@ pub fn attach_worktree_with(
     }
 
     let attached_scope = detect_repository(process, worktree_path).map_err(|_| {
-        PublicSourceControlError::checkout_invalid("attach-worktree", "The path is not a valid SourceControl checkout.")
+        PublicSourceControlError::checkout_invalid(
+            "attach-worktree",
+            "The path is not a valid SourceControl checkout.",
+        )
     })?;
 
     if project_scope.repository_identity != attached_scope.repository_identity {
@@ -416,7 +421,9 @@ pub fn inspect_worktree_removal_with(
     })
 }
 
-pub fn remove_worktree(input: SourceControlRemoveWorktreeInput) -> Result<(), PublicSourceControlError> {
+pub fn remove_worktree(
+    input: SourceControlRemoveWorktreeInput,
+) -> Result<(), PublicSourceControlError> {
     remove_worktree_with(&SystemGitProcess, input)
 }
 
@@ -625,7 +632,10 @@ impl WorktreeBuilder {
     }
 }
 
-fn find_main_checkout(process: &impl SourceControlProcess, scope: &RepositoryScope) -> Option<PathBuf> {
+fn find_main_checkout(
+    process: &impl SourceControlProcess,
+    scope: &RepositoryScope,
+) -> Option<PathBuf> {
     let spec = SourceControlCommandSpec {
         checkout: scope.checkout_path.clone(),
         operation: "find-main",
@@ -709,7 +719,10 @@ mod tests {
         fn run(
             &self,
             spec: SourceControlCommandSpec,
-        ) -> Result<crate::source_control::process::SourceControlProcessOutput, PublicSourceControlError> {
+        ) -> Result<
+            crate::source_control::process::SourceControlProcessOutput,
+            PublicSourceControlError,
+        > {
             let args_str: Vec<&str> = spec.args.iter().map(|s| s.to_str().unwrap_or("")).collect();
             let result = (self.git_cmd)(&args_str);
             Ok(crate::source_control::process::SourceControlProcessOutput {

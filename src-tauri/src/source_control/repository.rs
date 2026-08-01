@@ -1,10 +1,14 @@
 use crate::source_control::contracts::{
-    SourceControlCapabilities, SourceControlCheckoutRequest, SourceControlHeadSummary, SourceControlInitializeInput, SourceControlPanelSectionCounts,
-    SourceControlRepositorySnapshot, SourceControlRepositoryStatus, PublicSourceControlError, ResolvedSourceControlCheckout,
+    PublicSourceControlError, SourceControlCapabilities, SourceControlHeadSummary,
+    SourceControlInitializeInput, SourceControlPanelSectionCounts, SourceControlRepositorySnapshot,
+    SourceControlRepositoryStatus,
 };
 use crate::source_control::parse::parse_porcelain_v2;
-use crate::source_control::process::{SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess};
+use crate::source_control::process::{
+    SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
+};
 use crate::source_control::scope::detect_repository;
+use crate::source_control::scope_registry::SourceControlScopeRecord;
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::path::Path;
@@ -26,24 +30,38 @@ impl SourceControlRepositoryState {
 }
 
 pub fn get_snapshot(
+    input: crate::source_control::contracts::SourceControlCheckoutRequest,
     state: &SourceControlRepositoryState,
-    input: SourceControlCheckoutRequest,
+    scope: &SourceControlScopeRecord,
 ) -> Result<SourceControlRepositorySnapshot, PublicSourceControlError> {
-    snapshot_with(&SystemGitProcess, state, input)
+    debug_assert_eq!(input.scope_id, scope.scope_id);
+    snapshot_with(&SystemGitProcess, state, scope)
 }
 
 pub fn refresh(
+    input: crate::source_control::contracts::SourceControlCheckoutRequest,
     state: &SourceControlRepositoryState,
-    input: SourceControlCheckoutRequest,
+    scope: &SourceControlScopeRecord,
 ) -> Result<SourceControlRepositorySnapshot, PublicSourceControlError> {
-    snapshot_with(&SystemGitProcess, state, input)
+    debug_assert_eq!(input.scope_id, scope.scope_id);
+    snapshot_with(&SystemGitProcess, state, scope)
 }
 
 pub fn initialize(
-    state: &SourceControlRepositoryState,
     input: SourceControlInitializeInput,
+    state: &SourceControlRepositoryState,
+    scope: &SourceControlScopeRecord,
 ) -> Result<SourceControlRepositorySnapshot, PublicSourceControlError> {
-    let checkout_path = Path::new(&input.checkout_path);
+    debug_assert_eq!(input.scope_id, scope.scope_id);
+    initialize_with(&SystemGitProcess, state, scope)
+}
+
+pub fn initialize_with(
+    process: &impl SourceControlProcess,
+    state: &SourceControlRepositoryState,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlRepositorySnapshot, PublicSourceControlError> {
+    let checkout_path = scope.checkout_path.as_path();
     let spec = SourceControlCommandSpec {
         checkout: checkout_path.to_path_buf(),
         operation: "initialize",
@@ -53,46 +71,42 @@ pub fn initialize(
         stderr_limit: 256 * 1024,
         policy: SourceControlExecutionPolicy::TrustedMutation,
     };
-    SystemGitProcess.run(spec)?;
-    let scope = detect_repository(&SystemGitProcess, checkout_path)
+    process.run(spec)?;
+    let detected = detect_repository(process, checkout_path)
         .map_err(|_| PublicSourceControlError::not_repository("initialize"))?;
-    let checkout = ResolvedSourceControlCheckout {
-        kind: crate::source_control::contracts::ResolvedSourceControlCheckoutKind::ProjectRoot,
-        checkout_path: scope.checkout_path.to_string_lossy().into_owned(),
-        checkout_identity: scope.checkout_identity,
-        repository_identity: Some(scope.repository_identity.clone()),
-        saved_ref_name: scope.ref_name.clone(),
-        managed_by_app: false,
-        normalized_restore: crate::source_control::contracts::SourceControlCheckoutRestore::ProjectRoot {
-            repository_identity: Some(scope.repository_identity),
-            saved_ref_name: scope.ref_name,
-        },
+    let resolved_scope = SourceControlScopeRecord {
+        checkout_identity: detected.checkout_identity.clone(),
+        checkout_path: detected.checkout_path.clone(),
+        repository_identity: Some(detected.repository_identity),
+        ..scope.clone()
     };
-    snapshot_with(
-        &SystemGitProcess,
-        state,
-        SourceControlCheckoutRequest {
-            project_id: input.project_id,
-            trunk_id: input.trunk_id,
-            checkout,
-        },
-    )
+    snapshot_with(process, state, &resolved_scope)
 }
 
-fn snapshot_with(
+fn discover_git_version(process: &impl SourceControlProcess, checkout: &Path) -> Option<String> {
+    process
+        .run(SourceControlCommandSpec::parsed_read(
+            checkout,
+            "discover",
+            ["--version"],
+        ))
+        .ok()
+        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+pub fn snapshot_with(
     process: &impl SourceControlProcess,
     state: &SourceControlRepositoryState,
-    input: SourceControlCheckoutRequest,
+    scope: &SourceControlScopeRecord,
 ) -> Result<SourceControlRepositorySnapshot, PublicSourceControlError> {
-    let version = SystemGitProcess.discover().ok();
-    let checkout = &input.checkout;
-    let path = Path::new(&checkout.checkout_path);
+    let path = scope.checkout_path.as_path();
+    let version = discover_git_version(process, path);
     let detected = detect_repository(process, path).ok();
     if let (Some(expected), Some(actual)) = (
-        checkout.repository_identity.as_deref(),
+        scope.repository_identity.as_deref(),
         detected
             .as_ref()
-            .map(|scope| scope.repository_identity.as_str()),
+            .map(|item| item.repository_identity.as_str()),
     ) {
         if expected != actual {
             return Err(PublicSourceControlError::checkout_invalid(
@@ -102,7 +116,7 @@ fn snapshot_with(
         }
     }
 
-    let revision = state.next_revision(&checkout.checkout_identity);
+    let revision = state.next_revision(&scope.checkout_identity);
     let captured_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -111,14 +125,15 @@ fn snapshot_with(
     let worktree_label = path
         .file_name()
         .map(|value| value.to_string_lossy().into_owned())
-        .unwrap_or_else(|| checkout.checkout_path.clone());
+        .unwrap_or_else(|| scope.checkout_path.to_string_lossy().into_owned());
 
-    let Some(scope) = detected else {
+    let Some(repository) = detected else {
         return Ok(SourceControlRepositorySnapshot {
-            project_id: input.project_id,
-            trunk_id: input.trunk_id,
-            checkout_path: checkout.checkout_path.clone(),
-            checkout_identity: checkout.checkout_identity.clone(),
+            scope_id: scope.scope_id.clone(),
+            project_id: scope.project_id.clone(),
+            trunk_id: scope.trunk_id.clone(),
+            checkout_path: scope.checkout_path.to_string_lossy().into_owned(),
+            checkout_identity: scope.checkout_identity.clone(),
             repository_identity: None,
             revision,
             captured_at,
@@ -152,9 +167,12 @@ fn snapshot_with(
         ["status", "--porcelain=v2", "--branch", "-z", "--ignored=no"],
     ))?;
     let mut parsed = parse_porcelain_v2(&output.stdout);
-    if matches!(parsed.head, Some(SourceControlHeadSummary::Unborn { name: None })) {
+    if matches!(
+        parsed.head,
+        Some(SourceControlHeadSummary::Unborn { name: None })
+    ) {
         parsed.head = Some(SourceControlHeadSummary::Unborn {
-            name: scope.ref_name.clone(),
+            name: repository.ref_name.clone(),
         });
     }
     let repository_state = if matches!(parsed.head, Some(SourceControlHeadSummary::Unborn { .. })) {
@@ -177,13 +195,13 @@ fn snapshot_with(
         .iter()
         .filter(|file| file.conflict_status.is_some())
         .count();
-
     Ok(SourceControlRepositorySnapshot {
-        project_id: input.project_id,
-        trunk_id: input.trunk_id,
-        checkout_path: scope.checkout_path.to_string_lossy().into_owned(),
-        checkout_identity: checkout.checkout_identity.clone(),
-        repository_identity: Some(scope.repository_identity),
+        scope_id: scope.scope_id.clone(),
+        project_id: scope.project_id.clone(),
+        trunk_id: scope.trunk_id.clone(),
+        checkout_path: repository.checkout_path.to_string_lossy().into_owned(),
+        checkout_identity: scope.checkout_identity.clone(),
+        repository_identity: Some(repository.repository_identity),
         revision,
         captured_at,
         repository_state,
@@ -214,39 +232,61 @@ fn snapshot_with(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::source_control::contracts::{SourceControlCheckoutRestore, ResolvedSourceControlCheckoutKind};
+    use crate::source_control::contracts::{
+        ResolvedSourceControlCheckout, ResolvedSourceControlCheckoutKind,
+        SourceControlCheckoutRequest, SourceControlCheckoutRestore,
+    };
     use crate::source_control::scope::resolve_checkout;
     use std::fs;
     use std::process::Command;
     use tempfile::tempdir;
 
     fn resolve_root(path: &Path) -> ResolvedSourceControlCheckout {
-        let result = resolve_checkout(crate::source_control::contracts::SourceControlResolveCheckoutInput {
-            project_id: "p".into(),
-            trunk_id: "t".into(),
-            project_folder_path: path.to_string_lossy().into_owned(),
-            git_checkout: SourceControlCheckoutRestore::ProjectRoot {
-                repository_identity: None,
-                saved_ref_name: None,
+        let result = resolve_checkout(
+            crate::source_control::contracts::SourceControlResolveCheckoutInput {
+                project_id: "p".into(),
+                trunk_id: "t".into(),
+                project_folder_path: path.to_string_lossy().into_owned(),
+                git_checkout: SourceControlCheckoutRestore::ProjectRoot {
+                    repository_identity: None,
+                    saved_ref_name: None,
+                },
             },
-        });
-        let crate::source_control::contracts::SourceControlResolveCheckoutResult::Ready { checkout } = result else {
+        );
+        let crate::source_control::contracts::SourceControlResolveCheckoutResult::Ready {
+            checkout,
+        } = result
+        else {
             panic!("expected ready")
         };
         checkout
     }
-
+    fn scope_for(
+        path: &Path,
+        checkout: &ResolvedSourceControlCheckout,
+    ) -> SourceControlScopeRecord {
+        SourceControlScopeRecord {
+            scope_id: checkout.scope_id.clone(),
+            project_id: "p".into(),
+            trunk_id: "t".into(),
+            project_root: path.to_path_buf(),
+            checkout_path: path.to_path_buf(),
+            checkout_identity: checkout.checkout_identity.clone(),
+            repository_identity: checkout.repository_identity.clone(),
+            managed_by_app: checkout.managed_by_app,
+        }
+    }
     #[test]
     fn reports_non_repository_without_failing() {
         let dir = tempdir().unwrap();
         let checkout = resolve_root(dir.path());
+        let scope = scope_for(dir.path(), &checkout);
         let snapshot = get_snapshot(
-            &SourceControlRepositoryState::default(),
             SourceControlCheckoutRequest {
-                project_id: "p".into(),
-                trunk_id: "t".into(),
-                checkout,
+                scope_id: checkout.scope_id.clone(),
             },
+            &SourceControlRepositoryState::default(),
+            &scope,
         )
         .unwrap();
         assert_eq!(
@@ -260,16 +300,20 @@ mod tests {
     fn initializes_and_reports_unborn_repository() {
         let dir = tempdir().unwrap();
         let state = SourceControlRepositoryState::default();
+        let checkout = resolve_root(dir.path());
+        let scope = scope_for(dir.path(), &checkout);
         let snapshot = initialize(
-            &state,
             SourceControlInitializeInput {
-                project_id: "p".into(),
-                trunk_id: "t".into(),
-                checkout_path: dir.path().to_string_lossy().into_owned(),
+                scope_id: checkout.scope_id.clone(),
             },
+            &state,
+            &scope,
         )
         .unwrap();
-        assert_eq!(snapshot.repository_state, SourceControlRepositoryStatus::Unborn);
+        assert_eq!(
+            snapshot.repository_state,
+            SourceControlRepositoryStatus::Unborn
+        );
         assert!(snapshot.repository_identity.is_some());
     }
 
@@ -290,14 +334,17 @@ mod tests {
             .unwrap()
             .success());
         let checkout = resolve_root(dir.path());
-        assert_eq!(checkout.kind, ResolvedSourceControlCheckoutKind::ProjectRoot);
+        assert_eq!(
+            checkout.kind,
+            ResolvedSourceControlCheckoutKind::ProjectRoot
+        );
+        let scope = scope_for(dir.path(), &checkout);
         let snapshot = get_snapshot(
-            &SourceControlRepositoryState::default(),
             SourceControlCheckoutRequest {
-                project_id: "p".into(),
-                trunk_id: "t".into(),
-                checkout,
+                scope_id: checkout.scope_id.clone(),
             },
+            &SourceControlRepositoryState::default(),
+            &scope,
         )
         .unwrap();
         assert_eq!(snapshot.section_counts.staged_changes, 1);
