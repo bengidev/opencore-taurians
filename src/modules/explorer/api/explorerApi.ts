@@ -12,6 +12,23 @@ import type {
 
 export type { UnlistenFn };
 
+export interface WatchChangeEvent {
+  root: string;
+  revision: number;
+  kinds: string[];
+}
+
+export interface WatchSubscribeInput {
+  scopeId: string;
+  mode: ExplorerAutoRefresh;
+  identity: string;
+}
+
+export interface WatchUnsubscribeInput {
+  scopeId: string;
+  identity: string;
+}
+
 export interface ExplorerApi {
   listDir(projectRoot: string, dirPath: string): Promise<ExplorerEntry[]>;
   createFile(projectRoot: string, parentDir: string, name?: string): Promise<ExplorerEntry>;
@@ -24,10 +41,10 @@ export interface ExplorerApi {
     targetDir: string,
     sourcePaths: string[],
   ): Promise<ExplorerEntry[]>;
-  watch(projectRoot: string, mode: ExplorerAutoRefresh): Promise<void>;
-  unwatch(projectRoot: string): Promise<void>;
+  watchSubscribe(input: WatchSubscribeInput): Promise<void>;
+  watchUnsubscribe(input: WatchUnsubscribeInput): Promise<void>;
   reveal(path: string): Promise<void>;
-  onChanged(callback: (projectRoot: string) => void): Promise<UnlistenFn>;
+  onChanged(callback: (root: string) => void): Promise<UnlistenFn>;
   onDrop(callback: (payload: ExplorerDropPayload) => void): Promise<UnlistenFn>;
 }
 
@@ -46,12 +63,12 @@ export function createTauriExplorerApi(): ExplorerApi {
       invoke("explorer_duplicate", { input: { projectRoot, path } }),
     copyPaths: (projectRoot, targetDir, sourcePaths) =>
       invoke("explorer_copy_paths", { input: { projectRoot, targetDir, sourcePaths } }),
-    watch: (projectRoot, mode) => invoke("explorer_watch", { input: { projectRoot, mode } }),
-    unwatch: (projectRoot) => invoke("explorer_unwatch", { input: { projectRoot } }),
+    watchSubscribe: (input) => invoke("watch_subscribe", { input }),
+    watchUnsubscribe: (input) => invoke("watch_unsubscribe", { input }),
     reveal: (path) => invoke("explorer_reveal", { path }),
     onChanged: (callback) =>
-      listen<{ projectRoot: string }>("explorer://changed", (event) =>
-        callback(event.payload.projectRoot),
+      listen<WatchChangeEvent>("watch://changed", (event) =>
+        callback(event.payload.root),
       ),
     onDrop: (callback) =>
       listen<ExplorerDropPayload>("explorer://drop", (event) => callback(event.payload)),
