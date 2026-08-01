@@ -1,7 +1,7 @@
 use crate::source_control::contracts::PublicSourceControlError;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceControlScopeRecord {
@@ -15,9 +15,9 @@ pub struct SourceControlScopeRecord {
     pub managed_by_app: bool,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct SourceControlScopeRegistry {
-    scopes: RwLock<HashMap<String, SourceControlScopeRecord>>,
+    scopes: Arc<RwLock<HashMap<String, SourceControlScopeRecord>>>,
 }
 
 impl SourceControlScopeRegistry {
@@ -68,7 +68,6 @@ impl SourceControlScopeRegistry {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn invalidate(&self, scope_id: &str) {
         self.scopes
             .write()
@@ -76,7 +75,6 @@ impl SourceControlScopeRegistry {
             .remove(scope_id);
     }
 
-    #[allow(dead_code)]
     pub fn invalidate_trunk(&self, trunk_id: &str) {
         self.scopes
             .write()
