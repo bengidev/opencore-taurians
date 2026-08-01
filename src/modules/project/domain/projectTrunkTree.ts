@@ -29,7 +29,16 @@ export function projectCollectTrunkWithChildrenIds(
   trunks: readonly ProjectTrunk[],
   trunkId: string,
 ): string[] {
-  return trunks.some((trunk) => trunk.id === trunkId) ? [trunkId] : [];
+  const result: string[] = [];
+  const collect = (id: string) => {
+    if (!trunks.some((trunk) => trunk.id === id)) return;
+    result.push(id);
+    for (const child of trunks.filter((trunk) => trunk.parentTrunkId === id)) {
+      collect(child.id);
+    }
+  };
+  collect(trunkId);
+  return result;
 }
 
 export function projectReorderSiblingTrunks(

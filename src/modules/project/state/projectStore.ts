@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ProjectCheckoutRuntimeState } from "../domain/projectCheckout";
 import { persist } from "zustand/middleware";
 import { useChatStore } from "../../chat/state/chatStore";
 import { createSessionPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
@@ -9,7 +10,11 @@ import {
   projectListChildTrunks,
   projectReorderSiblingTrunks,
 } from "../domain/projectTrunkTree";
-import { DEFAULT_ROOT_TRUNK_TITLE } from "../domain/projectDefaults";
+import {
+  createDefaultRootTrunkRestore,
+  DEFAULT_ROOT_TRUNK_TITLE,
+} from "../domain/projectDefaults";
+import { projectNormalizeTrunkRestore } from "../domain/projectRestore";
 import { projectMigrateFromWorkspace } from "../domain/projectMigrate";
 import {
   projectFolderBasename,
@@ -19,9 +24,10 @@ import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { projectSelectExpired } from "../domain/projectRetention";
 import type {
   Project,
+  SourceControlCheckoutRestore,
   ProjectTrunk,
-  ProjectTrunkRestore,
   ProjectGroup,
+  RightPanelFeature,
 } from "../domain/projectTypes";
 
 function syncWorkspaceWhenNoProjects(projectCount: number): void {
@@ -38,6 +44,7 @@ const EMPTY = {
   activeTrunkId: null as string | null,
   expandedProjectIds: [] as string[],
   panelError: null as string | null,
+  checkoutRuntimeByTrunkId: {} as Record<string, ProjectCheckoutRuntimeState>,
 };
 
 export interface ProjectState {
@@ -48,8 +55,10 @@ export interface ProjectState {
   activeTrunkId: string | null;
   expandedProjectIds: string[];
   panelError: string | null;
+  checkoutRuntimeByTrunkId: Record<string, ProjectCheckoutRuntimeState>;
   resetProjectState: () => void;
   setPanelError: (message: string | null) => void;
+  setCheckoutRuntime: (trunkId: string, runtime: ProjectCheckoutRuntimeState) => void;
   createProjectWithRootTrunk: (input: {
     folderPath: string;
     nowIso: string;
@@ -57,9 +66,11 @@ export interface ProjectState {
     trunkId?: string;
   }) => { project: Project; trunk: ProjectTrunk };
   addChildTrunk: (input: {
+    trunkId: string;
     parentTrunkId: string;
     title: string;
     nowIso: string;
+    gitCheckout: SourceControlCheckoutRestore;
   }) => ProjectTrunk | null;
   addRootTrunk: (input: {
     projectId: string;
@@ -69,7 +80,12 @@ export interface ProjectState {
   setProjectPinned: (projectId: string, pinned: boolean) => void;
   setTrunkPinned: (trunkId: string, pinned: boolean) => void;
   renameTrunk: (trunkId: string, title: string) => void;
-  setTrunkRestore: (trunkId: string, restore: ProjectTrunkRestore) => void;
+  setTrunkActiveMainCard: (
+    trunkId: string,
+    card: import("../../shell/state/shellStore").ShellMainCard,
+  ) => void;
+  setTrunkRightPanelFeature: (trunkId: string, feature: RightPanelFeature) => void;
+  setTrunkGitCheckout: (trunkId: string, checkout: SourceControlCheckoutRestore) => void;
   touchTrunkActivity: (trunkId: string, nowIso: string) => void;
   setActiveIds: (projectId: string | null, trunkId: string | null) => void;
   toggleProjectExpanded: (projectId: string) => void;
@@ -94,6 +110,13 @@ export const useProjectStore = create<ProjectState>()(
       ...EMPTY,
       resetProjectState: () => set({ ...EMPTY }),
       setPanelError: (message) => set({ panelError: message }),
+      setCheckoutRuntime: (trunkId, runtime) =>
+        set((state) => ({
+          checkoutRuntimeByTrunkId: {
+            ...state.checkoutRuntimeByTrunkId,
+            [trunkId]: runtime,
+          },
+        })),
       createProjectWithRootTrunk: (input) => {
         const projectId = input.projectId ?? crypto.randomUUID();
         const trunkId = input.trunkId ?? crypto.randomUUID();
@@ -114,7 +137,7 @@ export const useProjectStore = create<ProjectState>()(
           pinned: false,
           createdAt: input.nowIso,
           lastOpenedAt: input.nowIso,
-          restore: { activeMainCard: "chat" },
+          restore: createDefaultRootTrunkRestore(),
           siblingOrder: 0,
         };
         set((state) => ({
@@ -128,7 +151,30 @@ export const useProjectStore = create<ProjectState>()(
         }));
         return { project, trunk };
       },
-      addChildTrunk: (_input) => null,
+      addChildTrunk: (input) => {
+        const parent = get().trunks.find((trunk) => trunk.id === input.parentTrunkId);
+        if (!parent || parent.parentTrunkId !== null) return null;
+        const siblings = get().trunks.filter(
+          (trunk) => trunk.parentTrunkId === input.parentTrunkId,
+        );
+        const trunk: ProjectTrunk = {
+          id: input.trunkId,
+          projectId: parent.projectId,
+          parentTrunkId: input.parentTrunkId,
+          title: input.title,
+          pinned: false,
+          createdAt: input.nowIso,
+          lastOpenedAt: input.nowIso,
+          restore: {
+            activeMainCard: "chat",
+            rightPanelFeature: "git",
+            gitCheckout: input.gitCheckout,
+          },
+          siblingOrder: siblings.length,
+        };
+        set((state) => ({ trunks: [...state.trunks, trunk] }));
+        return trunk;
+      },
       addRootTrunk: (input) => {
         if (!get().projects.some((p) => p.id === input.projectId)) return null;
         const siblings = projectListChildTrunks(get().trunks, null).filter(
@@ -142,7 +188,7 @@ export const useProjectStore = create<ProjectState>()(
           pinned: false,
           createdAt: input.nowIso,
           lastOpenedAt: input.nowIso,
-          restore: { activeMainCard: "chat" },
+          restore: createDefaultRootTrunkRestore(),
           siblingOrder: siblings.length,
         };
         set((state) => ({ trunks: [...state.trunks, trunk] }));
@@ -169,10 +215,28 @@ export const useProjectStore = create<ProjectState>()(
           ),
         }));
       },
-      setTrunkRestore: (trunkId, restore) =>
+      setTrunkActiveMainCard: (trunkId, activeMainCard) =>
         set((state) => ({
-          trunks: state.trunks.map((c) =>
-            c.id === trunkId ? { ...c, restore } : c,
+          trunks: state.trunks.map((trunk) =>
+            trunk.id === trunkId
+              ? { ...trunk, restore: { ...trunk.restore, activeMainCard } }
+              : trunk,
+          ),
+        })),
+      setTrunkRightPanelFeature: (trunkId, rightPanelFeature) =>
+        set((state) => ({
+          trunks: state.trunks.map((trunk) =>
+            trunk.id === trunkId
+              ? { ...trunk, restore: { ...trunk.restore, rightPanelFeature } }
+              : trunk,
+          ),
+        })),
+      setTrunkGitCheckout: (trunkId, gitCheckout) =>
+        set((state) => ({
+          trunks: state.trunks.map((trunk) =>
+            trunk.id === trunkId
+              ? { ...trunk, restore: { ...trunk.restore, gitCheckout } }
+              : trunk,
           ),
         })),
       touchTrunkActivity: (trunkId, nowIso) =>
@@ -356,15 +420,36 @@ export const useProjectStore = create<ProjectState>()(
         expandedProjectIds: state.expandedProjectIds,
       }),
       merge: (persisted, current) => {
-        const merged = { ...current, ...(persisted as Partial<ProjectState>) };
-        const trunks = projectFlattenTrunks(merged.trunks ?? []);
+        const saved = persisted as Partial<ProjectState>;
+        const projects = Array.isArray(saved.projects) ? saved.projects : [];
+        const normalized = (Array.isArray(saved.trunks) ? saved.trunks : []).map(
+          (trunk) => ({
+            ...trunk,
+            restore: projectNormalizeTrunkRestore(trunk.restore, {
+              isRootTrunk: trunk.parentTrunkId === null,
+            }),
+          }),
+        );
+        const trunks = projectFlattenTrunks(normalized);
         const trunkIds = new Set(trunks.map((trunk) => trunk.id));
+        const activeTrunkId =
+          saved.activeTrunkId && trunkIds.has(saved.activeTrunkId)
+            ? saved.activeTrunkId
+            : null;
+        const activeTrunk = trunks.find((trunk) => trunk.id === activeTrunkId);
         return {
-          ...merged,
+          ...current,
+          projects,
           trunks,
-          activeTrunkId:
-            merged.activeTrunkId && trunkIds.has(merged.activeTrunkId)
-              ? merged.activeTrunkId
+          groups: Array.isArray(saved.groups) ? saved.groups : [],
+          expandedProjectIds: Array.isArray(saved.expandedProjectIds)
+            ? saved.expandedProjectIds
+            : [],
+          activeTrunkId,
+          activeProjectId: activeTrunk
+            ? activeTrunk.projectId
+            : saved.activeProjectId && projects.some((project) => project.id === saved.activeProjectId)
+              ? saved.activeProjectId
               : null,
         };
       },

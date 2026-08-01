@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect } from "react";
 import { createTauriEditorApi } from "../api/editorApi";
 import { useEditorStore } from "../state/editorStore";
 import { useEditorSaveTriggers } from "./useEditorSaveTriggers";
+import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 
 const OPEN_BATCH_ERROR_DISMISS_MS = 3500;
 
@@ -14,6 +15,7 @@ export function EditorPanel() {
 
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const openBatchError = useEditorStore((s) => s.openBatchError);
+  const workspacePath = useWorkspaceStore((state) => state.workspacePath);
   const buffer = useEditorStore((s) =>
     s.activeTabId ? (s.buffers[s.activeTabId] ?? null) : null,
   );
@@ -24,6 +26,10 @@ export function EditorPanel() {
       bindApi(createTauriEditorApi());
     }
   }, []);
+
+  useEffect(() => {
+    useEditorStore.setState({ projectRoot: workspacePath });
+  }, [workspacePath]);
 
   useEffect(() => {
     if (!openBatchError) {

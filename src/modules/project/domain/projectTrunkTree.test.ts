@@ -15,7 +15,15 @@ function trunk(
     pinned: false,
     createdAt: "2026-01-01T00:00:00.000Z",
     lastOpenedAt: "2026-01-01T00:00:00.000Z",
-    restore: { activeMainCard: "chat" },
+    restore: {
+      activeMainCard: "chat",
+      rightPanelFeature: "files",
+      gitCheckout: {
+        kind: "project-root",
+        repositoryIdentity: null,
+        savedRefName: null,
+      },
+    },
     siblingOrder: 0,
     ...partial,
   };
@@ -33,9 +41,9 @@ describe("projectTrunkTree", () => {
     expect(projectListChildTrunks(trunks, null).map((c) => c.id)).toEqual(["r"]);
   });
 
-  it("collects only the trunk id (flat model)", () => {
-    expect(projectCollectTrunkWithChildrenIds(trunks, "r")).toEqual(["r"]);
-    expect(projectCollectTrunkWithChildrenIds(trunks, "a")).toEqual(["a"]);
+  it("collects the trunk id and descendant child trunks", () => {
+    expect(projectCollectTrunkWithChildrenIds(trunks, "r")).toEqual(["r", "a", "a1", "b"]);
+    expect(projectCollectTrunkWithChildrenIds(trunks, "a")).toEqual(["a", "a1"]);
   });
 
   it("reorders root trunks", () => {

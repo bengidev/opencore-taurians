@@ -25,10 +25,8 @@ pub fn editor_create_file(input: EditorCreateInput) -> Result<(), EditorError> {
         }
     }
 
-    if path.exists() {
-        if !path.is_file() {
-            return Err(EditorError::NotAFile(input.path));
-        }
+    if path.exists() && !path.is_file() {
+        return Err(EditorError::NotAFile(input.path));
     }
 
     fs::write(&path, input.content.as_bytes())?;
