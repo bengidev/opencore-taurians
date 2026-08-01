@@ -32,6 +32,8 @@ import type {
 } from "../api/sourceControlContracts";
 import { resolveSourceControlBadge } from "../domain/sourceControlIconBadge";
 import { useSourceControlStore } from "../state/sourceControlStore";
+import { sourceControlDiffKey, type DiffKind } from "../state/sourceControlDiffKey";
+import { parsePublicSourceControlError } from "../state/parsePublicSourceControlError";
 import { useSourceControlWatchLifecycle } from "../state/useSourceControlWatchLifecycle";
 import { SourceControlDiffPreview } from "./SourceControlDiffPreview";
 import { SourceControlIconBadge } from "./SourceControlIconBadge";
@@ -96,8 +98,8 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
   const [graphExpanded, setGraphExpanded] = useState(true);
 
   // Inline diff state
-  const [expandedDiffPath, setExpandedDiffPath] = useState<string | null>(null);
-  const [diffByPath, setDiffByPath] = useState<
+  const [expandedDiffKey, setExpandedDiffKey] = useState<string | null>(null);
+  const [diffByKey, setDiffByKey] = useState<
     Record<string, { patch: string; truncated: boolean; error: string | null; loading: boolean }>
   >({});
 
@@ -132,6 +134,11 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
 
   // Live watch refresh.
   useSourceControlWatchLifecycle(activeTrunkId, checkout);
+
+  useEffect(() => {
+    setExpandedDiffKey(null);
+    setDiffByKey({});
+  }, [checkout?.scopeId, snapshot?.revision]);
 
   const badge = useMemo(() => resolveSourceControlBadge(snapshot ?? null), [snapshot]);
 
@@ -229,43 +236,47 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
     );
   };
 
-  const toggleDiff = async (file: SourceControlFileStatus, staged: boolean) => {
+  const toggleDiff = async (file: SourceControlFileStatus, kind: DiffKind) => {
     if (!checkout || !activeTrunk) return;
 
-    if (expandedDiffPath === file.path) {
-      setExpandedDiffPath(null);
+    const diffKey = sourceControlDiffKey(kind, file.path);
+
+    if (expandedDiffKey === diffKey) {
+      setExpandedDiffKey(null);
       return;
     }
 
-    setExpandedDiffPath(file.path);
+    setExpandedDiffKey(diffKey);
 
-    if (diffByPath[file.path]) {
+    if (diffByKey[diffKey]) {
       return;
     }
 
-    setDiffByPath((prev) => ({
+    setDiffByKey((prev) => ({
       ...prev,
-      [file.path]: { patch: "", truncated: false, error: null, loading: true },
+      [diffKey]: { patch: "", truncated: false, error: null, loading: true },
     }));
 
     try {
       const result = await sourceControlApi.getDiff({
         scopeId: checkout.scopeId,
+        source: { kind },
         ignoreWhitespace: false,
         maxBytes: 524288,
         pathspec: file.path,
       });
-      setDiffByPath((prev) => ({
+      setDiffByKey((prev) => ({
         ...prev,
-        [file.path]: { patch: result.patch, truncated: result.truncated, error: null, loading: false },
+        [diffKey]: { patch: result.patch, truncated: result.truncated, error: null, loading: false },
       }));
     } catch (err) {
-      setDiffByPath((prev) => ({
+      const publicError = parsePublicSourceControlError(err);
+      setDiffByKey((prev) => ({
         ...prev,
-        [file.path]: {
+        [diffKey]: {
           patch: "",
           truncated: false,
-          error: err instanceof Error ? err.message : "Failed to load diff.",
+          error: publicError?.message ?? (err instanceof Error ? err.message : "Failed to load diff."),
           loading: false,
         },
       }));
@@ -521,10 +532,11 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
         ) : (
           <ul className="space-y-0.5">
             {changedFiles.map((file) => {
-              const expanded = expandedDiffPath === file.path;
+              const diffKey = sourceControlDiffKey("working-tree", file.path);
+              const expanded = expandedDiffKey === diffKey;
               return (
               <li
-                key={file.path}
+                key={diffKey}
                 className={cn(
                   "flex min-w-0 flex-col overflow-hidden rounded-[4px] transition-[background-color,box-shadow] duration-[var(--duration-ui-fast)] ease-[var(--ease-out)]",
                   expanded
@@ -553,11 +565,11 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
                     );
                   }}
                   onDiscard={() => setDiscardTarget(file)}
-                  onToggleDiff={() => void toggleDiff(file, false)}
+                  onToggleDiff={() => void toggleDiff(file, "working-tree")}
                 />
                 <DiffInline
                   expanded={expanded}
-                  diff={diffByPath[file.path]}
+                  diff={diffByKey[diffKey]}
                 />
               </li>
               );
@@ -578,10 +590,11 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
         ) : (
           <ul className="space-y-0.5">
             {stagedFiles.map((file) => {
-              const expanded = expandedDiffPath === file.path;
+              const diffKey = sourceControlDiffKey("staged", file.path);
+              const expanded = expandedDiffKey === diffKey;
               return (
               <li
-                key={file.path}
+                key={diffKey}
                 className={cn(
                   "flex min-w-0 flex-col overflow-hidden rounded-[4px] transition-[background-color,box-shadow] duration-[var(--duration-ui-fast)] ease-[var(--ease-out)]",
                   expanded
@@ -610,11 +623,11 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
                       ),
                     );
                   }}
-                  onToggleDiff={() => void toggleDiff(file, true)}
+                  onToggleDiff={() => void toggleDiff(file, "staged")}
                 />
                 <DiffInline
                   expanded={expanded}
-                  diff={diffByPath[file.path]}
+                  diff={diffByKey[diffKey]}
                 />
               </li>
               );

@@ -2,6 +2,8 @@ import { create } from "zustand";
 import type { SourceControlApi } from "../api/sourceControlApi";
 import { createTauriSourceControlApi } from "../api/sourceControlApi";
 import type {
+  PublicSourceControlError,
+  ResolvedSourceControlCheckout,
   SourceControlCommitInput,
   SourceControlDiscardInput,
   SourceControlFetchInput,
@@ -10,14 +12,14 @@ import type {
   SourceControlRepositorySnapshot,
   SourceControlStageInput,
   SourceControlStashInput,
-  PublicSourceControlError,
-  ResolvedSourceControlCheckout,
-} from "../api/sourceControlContracts";
-import type { UnlistenFn } from "@tauri-apps/api/event";
-import type {
   SourceControlLogEntry,
   SourceControlLogInput,
 } from "../api/sourceControlContracts";
+import { toPublicSourceControlError } from "./parsePublicSourceControlError";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+
+export type { DiffKind, DiffKey } from "./sourceControlDiffKey";
+export { sourceControlDiffKey } from "./sourceControlDiffKey";
 
 const defaultApi = createTauriSourceControlApi();
 
@@ -236,12 +238,7 @@ function setError(
   trunkId: string,
   error: unknown,
 ): void {
-  const publicError: PublicSourceControlError = {
-    code: "process-failed",
-    operation: "sourceControl-store",
-    message: error instanceof Error ? error.message : String(error),
-    retryable: true,
-  };
+  const publicError = toPublicSourceControlError(error, "sourceControl-store");
   set((state) => ({
     errorByTrunkId: { ...state.errorByTrunkId, [trunkId]: publicError },
   }));

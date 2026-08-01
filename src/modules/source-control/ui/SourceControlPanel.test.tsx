@@ -89,6 +89,19 @@ const stagedFile: SourceControlFileStatus = {
   lfsPointer: false,
 };
 
+const dualPathFile: SourceControlFileStatus = {
+  path: "src/shared.ts",
+  oldPath: null,
+  indexStatus: "modified",
+  worktreeStatus: "modified",
+  conflictStatus: null,
+  additions: 4,
+  deletions: 2,
+  binary: false,
+  submodule: false,
+  lfsPointer: false,
+};
+
 describe("SourceControlPanel", () => {
   afterEach(cleanup);
 
@@ -247,5 +260,108 @@ describe("SourceControlPanel", () => {
 
     expect(screen.getByText(/↑2/)).toBeInTheDocument();
     expect(screen.getByText(/↓1/)).toBeInTheDocument();
+  });
+
+  it("expands working-tree and staged diffs independently for the same path", async () => {
+    const snapshot = makeSnapshot({
+      files: [dualPathFile],
+      sectionCounts: {
+        ...makeSnapshot().sectionCounts,
+        changes: 1,
+        stagedChanges: 1,
+      },
+    });
+    const { sourceControlApi, trunk } = setupTrunk(snapshot);
+    const user = userEvent.setup();
+    render(<SourceControlPanel sourceControlApi={sourceControlApi} />);
+
+    const pathButtons = screen.getAllByRole("button", { name: "src/shared.ts" });
+    expect(pathButtons).toHaveLength(2);
+
+    await user.click(pathButtons[0]);
+    await waitFor(() => {
+      expect(sourceControlApi.calls.filter((c) => c.method === "getDiff")).toHaveLength(1);
+    });
+    expect(sourceControlApi.calls.find((c) => c.method === "getDiff")?.input).toMatchObject({
+      source: { kind: "working-tree" },
+      pathspec: "src/shared.ts",
+    });
+    expect(pathButtons[0]).toHaveAttribute("aria-expanded", "true");
+    expect(pathButtons[1]).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(pathButtons[1]);
+    await waitFor(() => {
+      expect(sourceControlApi.calls.filter((c) => c.method === "getDiff")).toHaveLength(2);
+    });
+    expect(sourceControlApi.calls.at(-1)?.input).toMatchObject({
+      source: { kind: "staged" },
+      pathspec: "src/shared.ts",
+    });
+    expect(pathButtons[0]).toHaveAttribute("aria-expanded", "false");
+    expect(pathButtons[1]).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("clears cached diffs when snapshot revision changes", async () => {
+    const snapshot = makeSnapshot({
+      files: [changedFile],
+      sectionCounts: { ...makeSnapshot().sectionCounts, changes: 1 },
+    });
+    const { sourceControlApi, trunk } = setupTrunk(snapshot);
+    const user = userEvent.setup();
+    render(<SourceControlPanel sourceControlApi={sourceControlApi} />);
+
+    const pathButton = screen.getByRole("button", { name: "src/a.ts" });
+    await user.click(pathButton);
+    await waitFor(() => {
+      expect(sourceControlApi.calls.filter((c) => c.method === "getDiff")).toHaveLength(1);
+    });
+
+    useSourceControlStore.setState((state) => ({
+      snapshotsByTrunkId: {
+        ...state.snapshotsByTrunkId,
+        [trunk.id]: { ...snapshot, revision: snapshot.revision + 1 },
+      },
+      lastRevisionByTrunkId: {
+        ...state.lastRevisionByTrunkId,
+        [trunk.id]: snapshot.revision + 1,
+      },
+    }));
+
+    await user.click(pathButton);
+    await user.click(pathButton);
+    await waitFor(() => {
+      expect(sourceControlApi.calls.filter((c) => c.method === "getDiff")).toHaveLength(2);
+    });
+  });
+
+  it("clears cached diffs when checkout scope changes", async () => {
+    const snapshot = makeSnapshot({
+      files: [changedFile],
+      sectionCounts: { ...makeSnapshot().sectionCounts, changes: 1 },
+    });
+    const { sourceControlApi, trunk } = setupTrunk(snapshot);
+    const user = userEvent.setup();
+    render(<SourceControlPanel sourceControlApi={sourceControlApi} />);
+
+    const pathButton = screen.getByRole("button", { name: "src/a.ts" });
+    await user.click(pathButton);
+    await waitFor(() => {
+      expect(sourceControlApi.calls.filter((c) => c.method === "getDiff")).toHaveLength(1);
+    });
+
+    useProjectStore.getState().setCheckoutRuntime(trunk.id, {
+      status: "ready",
+      checkout: { ...CHECKOUT, scopeId: "scope-2" },
+    });
+
+    await user.click(pathButton);
+    await user.click(pathButton);
+    await waitFor(() => {
+      expect(sourceControlApi.calls.filter((c) => c.method === "getDiff")).toHaveLength(2);
+    });
+    expect(sourceControlApi.calls.at(-1)?.input).toMatchObject({
+      scopeId: "scope-2",
+      source: { kind: "working-tree" },
+    });
   });
 });
