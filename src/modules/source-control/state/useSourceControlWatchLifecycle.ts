@@ -32,33 +32,37 @@ export function useSourceControlWatchLifecycle(
     };
 
     void (async () => {
-      await invoke("watch_subscribe", {
-        input: {
-          scopeId: checkout.scopeId,
-          mode: "live",
-          identity,
-        },
-      });
-
-      if (cancelled) {
-        await invoke("watch_unsubscribe", {
+      try {
+        await invoke("watch_subscribe", {
           input: {
             scopeId: checkout.scopeId,
+            mode: "live",
             identity,
           },
         });
-        return;
-      }
 
-      unlisten = await listen<WatchChangeEvent>("watch://changed", (event) => {
-        if (cancelled) return;
-        if (event.payload.root !== checkout.checkoutPath) return;
-        clearTimer();
-        timerRef.current = setTimeout(() => {
-          timerRef.current = null;
-          void useSourceControlStore.getState().refresh(trunkId, checkout);
-        }, 5000);
-      });
+        if (cancelled) {
+          await invoke("watch_unsubscribe", {
+            input: {
+              scopeId: checkout.scopeId,
+              identity,
+            },
+          });
+          return;
+        }
+
+        unlisten = await listen<WatchChangeEvent>("watch://changed", (event) => {
+          if (cancelled) return;
+          if (event.payload.root !== checkout.checkoutPath) return;
+          clearTimer();
+          timerRef.current = setTimeout(() => {
+            timerRef.current = null;
+            void useSourceControlStore.getState().refresh(trunkId, checkout);
+          }, 5000);
+        });
+      } catch {
+        // Watch subscribe failures are non-fatal; panel remains usable without live refresh.
+      }
     })();
 
     return () => {
@@ -73,7 +77,7 @@ export function useSourceControlWatchLifecycle(
           scopeId: checkout.scopeId,
           identity,
         },
-      });
+      }).catch(() => undefined);
     };
   }, [trunkId, checkout]);
 }
