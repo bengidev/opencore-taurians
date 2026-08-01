@@ -3,6 +3,7 @@ import {
   type SourceControlApi,
   type SourceControlResolveCheckoutResult,
 } from "../../source-control";
+import { parsePublicSourceControlError } from "../../source-control/state/parsePublicSourceControlError";
 import { useShellStore } from "../../shell/state/shellStore";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import type { ProjectActivationResult } from "../domain/projectCheckout";
@@ -43,11 +44,12 @@ export async function projectActivateTrunk(
     });
   } catch (error) {
     if (!activationIsCurrent(generation, trunkId)) return { status: "superseded" };
+    const publicError = parsePublicSourceControlError(error);
     useProjectStore.getState().setCheckoutRuntime(trunk.id, {
       status: "invalid",
       safeWorkspacePath: project.folderPath,
       reason: "unknown",
-      message: error instanceof Error ? error.message : String(error),
+      message: publicError?.message ?? (error instanceof Error ? error.message : String(error)),
       worktreePath:
         trunk.restore.gitCheckout.kind === "worktree"
           ? trunk.restore.gitCheckout.worktreePath
