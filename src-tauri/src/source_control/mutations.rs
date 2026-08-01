@@ -2,9 +2,7 @@ use crate::source_control::contracts::PublicSourceControlError;
 use crate::source_control::coordinator::{
     SourceControlOperationContext, SourceControlOperationCoordinatorState,
 };
-use crate::source_control::process::{
-    SourceControlCommandSpec, SourceControlProcess,
-};
+use crate::source_control::process::{SourceControlCommandSpec, SourceControlProcess};
 use crate::source_control::scope_registry::SourceControlScopeRecord;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
@@ -41,9 +39,8 @@ pub fn resolve_scoped_target(
     })?;
     let target = checkout.join(&relative);
     if target.exists() {
-        let canonical = std::fs::canonicalize(&target).map_err(|_| {
-            PublicSourceControlError::process_failed("mutation", false)
-        })?;
+        let canonical = std::fs::canonicalize(&target)
+            .map_err(|_| PublicSourceControlError::process_failed("mutation", false))?;
         if !canonical.starts_with(&checkout) {
             return Err(PublicSourceControlError::scope_violation("mutation"));
         }
@@ -55,7 +52,10 @@ pub fn resolve_scoped_target(
     Ok(target)
 }
 
-fn append_pathspec_args(args: &mut Vec<OsString>, paths: &[String]) -> Result<(), PublicSourceControlError> {
+fn append_pathspec_args(
+    args: &mut Vec<OsString>,
+    paths: &[String],
+) -> Result<(), PublicSourceControlError> {
     if paths.is_empty() {
         return Ok(());
     }
@@ -101,7 +101,9 @@ fn repository_has_commits(
     )
     .map(|_| true)
     .or_else(|error| {
-        if error.code == crate::source_control::contracts::PublicSourceControlErrorCode::ProcessFailed {
+        if error.code
+            == crate::source_control::contracts::PublicSourceControlErrorCode::ProcessFailed
+        {
             Ok(false)
         } else {
             Err(error)
@@ -114,9 +116,8 @@ fn remove_untracked_target(target: &Path, checkout: &Path) -> Result<(), PublicS
         PublicSourceControlError::checkout_invalid("discard", "Checkout path is invalid.")
     })?;
     let canonical_target = if target.exists() {
-        std::fs::canonicalize(target).map_err(|_| {
-            PublicSourceControlError::process_failed("discard", false)
-        })?
+        std::fs::canonicalize(target)
+            .map_err(|_| PublicSourceControlError::process_failed("discard", false))?
     } else {
         target.to_path_buf()
     };
@@ -202,7 +203,6 @@ pub enum SourceControlStashAction {
 pub struct SourceControlMutationResult {
     pub message: String,
 }
-
 
 pub fn stage_with(
     process: &impl SourceControlProcess,
@@ -639,8 +639,14 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(fs::read_to_string(dir.path().join("a.txt")).unwrap(), "base");
-        assert_eq!(fs::read_to_string(dir.path().join("b.txt")).unwrap(), "base");
+        assert_eq!(
+            fs::read_to_string(dir.path().join("a.txt")).unwrap(),
+            "base"
+        );
+        assert_eq!(
+            fs::read_to_string(dir.path().join("b.txt")).unwrap(),
+            "base"
+        );
     }
 
     #[test]
@@ -741,10 +747,7 @@ mod tests {
             ])
             .output()
             .unwrap();
-        assert_eq!(
-            String::from_utf8_lossy(&head.stdout).trim(),
-            "feature/new"
-        );
+        assert_eq!(String::from_utf8_lossy(&head.stdout).trim(), "feature/new");
     }
 
     #[test]
