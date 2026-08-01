@@ -41,12 +41,6 @@ export function createMemorySourceControlApi(seed: MemorySourceControlSeed = {})
     calls.push({ method, input: structuredClone(input) });
   };
 
-  const getSnapshot = (checkoutIdentity: string): SourceControlRepositorySnapshot => {
-    const value = snapshots.get(checkoutIdentity);
-    if (!value) return missingSnapshot(checkoutIdentity);
-    return structuredClone(value);
-  };
-
   return {
     calls,
     resolveCheckout: async (input) => {
