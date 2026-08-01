@@ -8,6 +8,7 @@ use crate::source_control::coordinator::{
 use crate::source_control::process::{
     SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
 };
+use crate::path_scope::normalize_path;
 use crate::source_control::scope::{detect_repository, RepositoryScope};
 use crate::source_control::scope_registry::{SourceControlScopeRecord, SourceControlScopeRegistry};
 use std::ffi::OsString;
@@ -22,6 +23,7 @@ use serde::{Deserialize, Serialize};
 pub struct SourceControlCreateWorktreeInput {
     pub project_id: String,
     pub parent_trunk_id: String,
+    pub parent_scope_id: String,
     pub trunk_id: String,
     pub project_folder_path: String,
     pub base_ref_name: String,
@@ -262,9 +264,40 @@ pub fn create_worktree_with(
         &SourceControlOperationCoordinatorState,
     )>,
 ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
-    let project_path = Path::new(&input.project_folder_path);
-    let scope = detect_repository(process, project_path)
+    let parent = registry.resolve(&input.parent_scope_id, "create-worktree")?;
+
+    if parent.project_id != input.project_id {
+        return Err(PublicSourceControlError::checkout_invalid(
+            "create-worktree",
+            "The parent scope belongs to a different project.",
+        ));
+    }
+
+    if parent.trunk_id != input.parent_trunk_id {
+        return Err(PublicSourceControlError::checkout_invalid(
+            "create-worktree",
+            "The parent scope does not match the parent trunk.",
+        ));
+    }
+
+    let project_path = normalize_path(Path::new(&input.project_folder_path));
+    if normalize_path(&parent.project_root) != project_path {
+        return Err(PublicSourceControlError::checkout_invalid(
+            "create-worktree",
+            "The project folder path does not match the parent scope.",
+        ));
+    }
+
+    let scope = detect_repository(process, &parent.checkout_path)
         .map_err(|_| PublicSourceControlError::not_repository("create-worktree"))?;
+
+    if let Some(expected) = parent.repository_identity.as_deref() {
+        validate_repository_identity_exact(
+            "create-worktree",
+            expected,
+            &scope.repository_identity,
+        )?;
+    }
 
     let worktree_root = app_data_worktree_root();
     std::fs::create_dir_all(&worktree_root)
@@ -312,7 +345,7 @@ pub fn create_worktree_with(
         registry,
         &input.project_id,
         &input.trunk_id,
-        project_path,
+        &project_path,
         &new_scope,
         Some(input.branch_name.clone()),
         true,
@@ -933,6 +966,73 @@ mod tests {
             .success());
     }
 
+    fn register_parent_scope(
+        registry: &SourceControlScopeRegistry,
+        repo_path: &Path,
+        project_id: &str,
+        parent_trunk_id: &str,
+    ) -> String {
+        let scope = detect_repository(&SystemGitProcess, repo_path).unwrap();
+        registry.register(SourceControlScopeRecord {
+            scope_id: String::new(),
+            project_id: project_id.into(),
+            trunk_id: parent_trunk_id.into(),
+            project_root: normalize_path(repo_path),
+            checkout_path: scope.checkout_path.clone(),
+            checkout_identity: scope.checkout_identity.clone(),
+            repository_identity: Some(scope.repository_identity.clone()),
+            managed_by_app: false,
+        })
+    }
+
+    fn create_input(
+        project_id: &str,
+        parent_trunk_id: &str,
+        parent_scope_id: &str,
+        trunk_id: &str,
+        project_folder_path: &str,
+        branch_name: &str,
+        history_mode: SourceControlWorktreeHistoryMode,
+    ) -> SourceControlCreateWorktreeInput {
+        SourceControlCreateWorktreeInput {
+            project_id: project_id.into(),
+            parent_trunk_id: parent_trunk_id.into(),
+            parent_scope_id: parent_scope_id.into(),
+            trunk_id: trunk_id.into(),
+            project_folder_path: project_folder_path.into(),
+            base_ref_name: "main".into(),
+            branch_name: branch_name.into(),
+            history_mode,
+        }
+    }
+
+    fn create_worktree_for_test(
+        registry: &SourceControlScopeRegistry,
+        repo_path: &Path,
+        project_id: &str,
+        parent_trunk_id: &str,
+        trunk_id: &str,
+        branch_name: &str,
+        history_mode: SourceControlWorktreeHistoryMode,
+    ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
+        let parent_scope_id =
+            register_parent_scope(registry, repo_path, project_id, parent_trunk_id);
+        create_worktree_with(
+            &SystemGitProcess,
+            create_input(
+                project_id,
+                parent_trunk_id,
+                &parent_scope_id,
+                trunk_id,
+                &repo_path.to_string_lossy(),
+                branch_name,
+                history_mode,
+            ),
+            registry,
+            None,
+        )
+    }
+
     #[test]
     fn creates_worktree_on_app_data_path() {
         let dir = tempdir().unwrap();
@@ -941,19 +1041,14 @@ mod tests {
 
         let trunk_id = uuid::Uuid::new_v4().to_string();
         let registry = SourceControlScopeRegistry::default();
-        let result = create_worktree_with(
-            &SystemGitProcess,
-            SourceControlCreateWorktreeInput {
-                project_id: "p".into(),
-                parent_trunk_id: "pt".into(),
-                trunk_id: trunk_id.clone(),
-                project_folder_path: dir.path().to_string_lossy().into_owned(),
-                base_ref_name: "main".into(),
-                branch_name: "feature/child".into(),
-                history_mode: SourceControlWorktreeHistoryMode::Normal,
-            },
+        let result = create_worktree_for_test(
             &registry,
-            None,
+            dir.path(),
+            "p",
+            "pt",
+            &trunk_id,
+            "feature/child",
+            SourceControlWorktreeHistoryMode::Normal,
         )
         .unwrap();
 
@@ -973,15 +1068,16 @@ mod tests {
         commit(dir.path(), "readme.md");
 
         let trunk_id = uuid::Uuid::new_v4().to_string();
-        let result = create_worktree(SourceControlCreateWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id,
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            base_ref_name: "main".into(),
-            branch_name: "orphan-branch".into(),
-            history_mode: SourceControlWorktreeHistoryMode::Orphan,
-        })
+        let registry = SourceControlScopeRegistry::default();
+        let result = create_worktree_for_test(
+            &registry,
+            dir.path(),
+            "p",
+            "pt",
+            &trunk_id,
+            "orphan-branch",
+            SourceControlWorktreeHistoryMode::Orphan,
+        )
         .unwrap();
 
         assert!(Path::new(&result.checkout.checkout_path).exists());
@@ -989,21 +1085,143 @@ mod tests {
     }
 
     #[test]
+    fn rejects_create_with_unknown_parent_scope() {
+        let dir = tempdir().unwrap();
+        init_repo(dir.path());
+        commit(dir.path(), "readme.md");
+
+        let registry = SourceControlScopeRegistry::default();
+        let err = create_worktree_with(
+            &SystemGitProcess,
+            create_input(
+                "p",
+                "pt",
+                "missing-scope",
+                "ct",
+                &dir.path().to_string_lossy(),
+                "feature/child",
+                SourceControlWorktreeHistoryMode::Normal,
+            ),
+            &registry,
+            None,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err.code,
+            crate::source_control::contracts::PublicSourceControlErrorCode::CheckoutInvalid
+        );
+    }
+
+    #[test]
+    fn rejects_create_with_stale_parent_scope() {
+        let dir = tempdir().unwrap();
+        init_repo(dir.path());
+        commit(dir.path(), "readme.md");
+
+        let registry = SourceControlScopeRegistry::default();
+        let parent_scope_id = register_parent_scope(&registry, dir.path(), "p", "pt");
+        registry.invalidate(&parent_scope_id);
+
+        let err = create_worktree_with(
+            &SystemGitProcess,
+            create_input(
+                "p",
+                "pt",
+                &parent_scope_id,
+                "ct",
+                &dir.path().to_string_lossy(),
+                "feature/child",
+                SourceControlWorktreeHistoryMode::Normal,
+            ),
+            &registry,
+            None,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err.code,
+            crate::source_control::contracts::PublicSourceControlErrorCode::CheckoutInvalid
+        );
+    }
+
+    #[test]
+    fn rejects_create_when_parent_trunk_mismatches_scope() {
+        let dir = tempdir().unwrap();
+        init_repo(dir.path());
+        commit(dir.path(), "readme.md");
+
+        let registry = SourceControlScopeRegistry::default();
+        let parent_scope_id = register_parent_scope(&registry, dir.path(), "p", "pt");
+
+        let err = create_worktree_with(
+            &SystemGitProcess,
+            create_input(
+                "p",
+                "other-trunk",
+                &parent_scope_id,
+                "ct",
+                &dir.path().to_string_lossy(),
+                "feature/child",
+                SourceControlWorktreeHistoryMode::Normal,
+            ),
+            &registry,
+            None,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err.code,
+            crate::source_control::contracts::PublicSourceControlErrorCode::CheckoutInvalid
+        );
+    }
+
+    #[test]
+    fn creates_worktree_from_registered_parent_scope() {
+        let dir = tempdir().unwrap();
+        init_repo(dir.path());
+        commit(dir.path(), "readme.md");
+
+        let registry = SourceControlScopeRegistry::default();
+        let result = create_worktree_for_test(
+            &registry,
+            dir.path(),
+            "p",
+            "pt",
+            "ct",
+            "feature/child",
+            SourceControlWorktreeHistoryMode::Normal,
+        )
+        .unwrap();
+
+        assert!(Path::new(&result.checkout.checkout_path).exists());
+        assert!(!result.checkout.scope_id.is_empty());
+
+        let _ = std::fs::remove_dir_all(&result.checkout.checkout_path);
+    }
+
+    #[test]
     fn rejects_create_on_non_repository() {
         let dir = tempdir().unwrap();
-        let err = create_worktree(SourceControlCreateWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: "ct".into(),
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            base_ref_name: "main".into(),
-            branch_name: "feature/child".into(),
-            history_mode: SourceControlWorktreeHistoryMode::Normal,
-        })
+        let registry = SourceControlScopeRegistry::default();
+        let err = create_worktree_with(
+            &SystemGitProcess,
+            create_input(
+                "p",
+                "pt",
+                "missing-scope",
+                "ct",
+                &dir.path().to_string_lossy(),
+                "feature/child",
+                SourceControlWorktreeHistoryMode::Normal,
+            ),
+            &registry,
+            None,
+        )
         .unwrap_err();
         assert_eq!(
             err.code,
-            crate::source_control::contracts::PublicSourceControlErrorCode::NotRepository
+            crate::source_control::contracts::PublicSourceControlErrorCode::CheckoutInvalid
         );
     }
 
@@ -1013,15 +1231,16 @@ mod tests {
         init_repo(dir.path());
         commit(dir.path(), "readme.md");
 
-        let created = create_worktree(SourceControlCreateWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: "ct".into(),
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            base_ref_name: "main".into(),
-            branch_name: "feature/attach".into(),
-            history_mode: SourceControlWorktreeHistoryMode::Normal,
-        })
+        let registry = SourceControlScopeRegistry::default();
+        let created = create_worktree_for_test(
+            &registry,
+            dir.path(),
+            "p",
+            "pt",
+            "ct",
+            "feature/attach",
+            SourceControlWorktreeHistoryMode::Normal,
+        )
         .unwrap();
 
         let attached = attach_worktree(SourceControlAttachWorktreeInput {
@@ -1052,15 +1271,16 @@ mod tests {
         init_repo(other.path());
         commit(other.path(), "other.md");
 
-        let created = create_worktree(SourceControlCreateWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: "ct".into(),
-            project_folder_path: other.path().to_string_lossy().into_owned(),
-            base_ref_name: "main".into(),
-            branch_name: "feature/other".into(),
-            history_mode: SourceControlWorktreeHistoryMode::Normal,
-        })
+        let other_registry = SourceControlScopeRegistry::default();
+        let created = create_worktree_for_test(
+            &other_registry,
+            other.path(),
+            "p",
+            "pt",
+            "ct",
+            "feature/other",
+            SourceControlWorktreeHistoryMode::Normal,
+        )
         .unwrap();
 
         let err = attach_worktree(SourceControlAttachWorktreeInput {
@@ -1087,19 +1307,14 @@ mod tests {
         commit(dir.path(), "readme.md");
 
         let registry = SourceControlScopeRegistry::default();
-        let created = create_worktree_with(
-            &SystemGitProcess,
-            SourceControlCreateWorktreeInput {
-                project_id: "p".into(),
-                parent_trunk_id: "pt".into(),
-                trunk_id: "ct".into(),
-                project_folder_path: dir.path().to_string_lossy().into_owned(),
-                base_ref_name: "main".into(),
-                branch_name: "feature/to-remove".into(),
-                history_mode: SourceControlWorktreeHistoryMode::Normal,
-            },
+        let created = create_worktree_for_test(
             &registry,
-            None,
+            dir.path(),
+            "p",
+            "pt",
+            "ct",
+            "feature/to-remove",
+            SourceControlWorktreeHistoryMode::Normal,
         )
         .unwrap();
 
@@ -1147,15 +1362,16 @@ mod tests {
         init_repo(dir.path());
         commit(dir.path(), "readme.md");
 
-        let created = create_worktree(SourceControlCreateWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: "ct".into(),
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            base_ref_name: "main".into(),
-            branch_name: "feature/dirty".into(),
-            history_mode: SourceControlWorktreeHistoryMode::Normal,
-        })
+        let registry = SourceControlScopeRegistry::default();
+        let created = create_worktree_for_test(
+            &registry,
+            dir.path(),
+            "p",
+            "pt",
+            "ct",
+            "feature/dirty",
+            SourceControlWorktreeHistoryMode::Normal,
+        )
         .unwrap();
 
         fs::write(
@@ -1214,26 +1430,33 @@ mod tests {
         init_repo(dir.path());
         commit(dir.path(), "readme.md");
 
-        let created = create_worktree(SourceControlCreateWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: "ct".into(),
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            base_ref_name: "main".into(),
-            branch_name: "feature/child".into(),
-            history_mode: SourceControlWorktreeHistoryMode::Normal,
-        })
+        let registry = SourceControlScopeRegistry::default();
+        let created = create_worktree_for_test(
+            &registry,
+            dir.path(),
+            "p",
+            "pt",
+            "ct",
+            "feature/child",
+            SourceControlWorktreeHistoryMode::Normal,
+        )
         .unwrap();
 
-        let result = create_worktree(SourceControlCreateWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: "ct2".into(),
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            base_ref_name: "main".into(),
-            branch_name: "feature/child".into(),
-            history_mode: SourceControlWorktreeHistoryMode::Normal,
-        });
+        let parent_scope_id = register_parent_scope(&registry, dir.path(), "p", "pt");
+        let result = create_worktree_with(
+            &SystemGitProcess,
+            create_input(
+                "p",
+                "pt",
+                &parent_scope_id,
+                "ct2",
+                &dir.path().to_string_lossy(),
+                "feature/child",
+                SourceControlWorktreeHistoryMode::Normal,
+            ),
+            &registry,
+            None,
+        );
 
         assert!(result.is_err());
 
@@ -1246,15 +1469,16 @@ mod tests {
         init_repo(dir.path());
         commit(dir.path(), "readme.md");
 
-        let created = create_worktree(SourceControlCreateWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: "ct".into(),
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            base_ref_name: "main".into(),
-            branch_name: "feature/prefix".into(),
-            history_mode: SourceControlWorktreeHistoryMode::Normal,
-        })
+        let registry = SourceControlScopeRegistry::default();
+        let created = create_worktree_for_test(
+            &registry,
+            dir.path(),
+            "p",
+            "pt",
+            "ct",
+            "feature/prefix",
+            SourceControlWorktreeHistoryMode::Normal,
+        )
         .unwrap();
 
         let actual = created
@@ -1285,15 +1509,16 @@ mod tests {
         init_repo(dir.path());
         commit(dir.path(), "readme.md");
 
-        let created = create_worktree(SourceControlCreateWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: "ct".into(),
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            base_ref_name: "main".into(),
-            branch_name: "feature/empty-id".into(),
-            history_mode: SourceControlWorktreeHistoryMode::Normal,
-        })
+        let registry = SourceControlScopeRegistry::default();
+        let created = create_worktree_for_test(
+            &registry,
+            dir.path(),
+            "p",
+            "pt",
+            "ct",
+            "feature/empty-id",
+            SourceControlWorktreeHistoryMode::Normal,
+        )
         .unwrap();
 
         let err = inspect_worktree_removal(InspectWorktreeRemovalInput {
@@ -1317,15 +1542,16 @@ mod tests {
         init_repo(dir.path());
         commit(dir.path(), "readme.md");
 
-        let created = create_worktree(SourceControlCreateWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: "ct".into(),
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            base_ref_name: "main".into(),
-            branch_name: "feature/head".into(),
-            history_mode: SourceControlWorktreeHistoryMode::Normal,
-        })
+        let registry = SourceControlScopeRegistry::default();
+        let created = create_worktree_for_test(
+            &registry,
+            dir.path(),
+            "p",
+            "pt",
+            "ct",
+            "feature/head",
+            SourceControlWorktreeHistoryMode::Normal,
+        )
         .unwrap();
 
         let repository_identity = created
@@ -1358,15 +1584,16 @@ mod tests {
         init_repo(dir.path());
         commit(dir.path(), "readme.md");
 
-        let created = create_worktree(SourceControlCreateWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: "ct".into(),
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            base_ref_name: "main".into(),
-            branch_name: "feature/managed".into(),
-            history_mode: SourceControlWorktreeHistoryMode::Normal,
-        })
+        let registry = SourceControlScopeRegistry::default();
+        let created = create_worktree_for_test(
+            &registry,
+            dir.path(),
+            "p",
+            "pt",
+            "ct",
+            "feature/managed",
+            SourceControlWorktreeHistoryMode::Normal,
+        )
         .unwrap();
 
         assert!(is_managed_worktree_path(Path::new(

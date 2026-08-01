@@ -51,6 +51,7 @@ describe("projectCreateChildTrunk", () => {
       expect(input.projectId).toBe(project.id);
       expect(input.projectFolderPath).toBe("/work/app");
       expect(input.parentTrunkId).toBe(root.id);
+      expect(input.parentScopeId).toBe("scope-root");
       expect(input.trunkId).toMatch(/^[0-9a-f-]{36}$/i);
       return { checkout: worktreeCheckout("/app-data/worktrees/child") };
     });
