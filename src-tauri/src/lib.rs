@@ -43,6 +43,7 @@ pub fn run() {
         .manage(ExplorerWatchState::default())
         .manage(source_control::repository::SourceControlRepositoryState::default())
         .manage(source_control::scope_registry::SourceControlScopeRegistry::default())
+        .manage(source_control::coordinator::SourceControlOperationCoordinatorState::default())
         .manage(watch::WatchBroker::default())
         .manage(quit::QuitGuard::default())
         .invoke_handler(tauri::generate_handler![
@@ -88,6 +89,7 @@ pub fn run() {
             source_control::git_lfs,
             source_control::git_clone,
             source_control::git_enumerate_hooks,
+            source_control::coordinator::git_operation_cancel,
             watch_subscribe,
             watch_unsubscribe,
             provider::keychain::keychain_save,

@@ -202,4 +202,63 @@ describe("sourceControlStore", () => {
 
     expect(useSourceControlStore.getState().activeOperations["repo-1"]).toEqual([]);
   });
+
+  it("removes active operations on failed and cancelled terminal events", async () => {
+    const api = createMemorySourceControlApi({
+      snapshotsByCheckoutIdentity: { "checkout-1": baseSnapshot },
+    });
+    useSourceControlStore.getState().bindApi(api);
+
+    for (const terminal of ["failed", "cancelled"] as const) {
+      api.emitOperationEvent({
+        kind: "started",
+        operationId: `op-${terminal}`,
+        repositoryId: "repo-1",
+        trunkId: "trunk-1",
+        phase: "stage",
+        cancellable: true,
+      });
+      expect(useSourceControlStore.getState().activeOperations["repo-1"]).toContain(
+        `op-${terminal}`,
+      );
+
+      if (terminal === "failed") {
+        api.emitOperationEvent({
+          kind: "failed",
+          operationId: `op-${terminal}`,
+          repositoryId: "repo-1",
+          trunkId: "trunk-1",
+          error: {
+            code: "process-failed",
+            operation: "stage",
+            message: "failed",
+            retryable: true,
+          },
+        });
+      } else {
+        api.emitOperationEvent({
+          kind: "cancelled",
+          operationId: `op-${terminal}`,
+          repositoryId: "repo-1",
+          trunkId: "trunk-1",
+        });
+      }
+
+      expect(useSourceControlStore.getState().activeOperations["repo-1"]).toEqual([]);
+    }
+  });
+
+  it("cancelOperation records the desktop cancel contract", async () => {
+    const api = createMemorySourceControlApi({
+      snapshotsByCheckoutIdentity: { "checkout-1": baseSnapshot },
+    });
+    useSourceControlStore.getState().bindApi(api);
+
+    await api.cancelOperation("op-42");
+
+    expect(api.calls).toContainEqual({
+      method: "cancelOperation",
+      input: { operationId: "op-42" },
+    });
+  });
 });

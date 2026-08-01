@@ -1,4 +1,7 @@
 use crate::source_control::contracts::PublicSourceControlError;
+use crate::source_control::coordinator::{
+    SourceControlOperationContext, SourceControlOperationCoordinatorState,
+};
 use crate::source_control::process::{
     SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
 };
@@ -63,7 +66,37 @@ fn run_ref_op(
         stdout_limit: REF_LIMIT,
         stderr_limit: REF_LIMIT,
         policy: SourceControlExecutionPolicy::ParsedRead,
+        cancellation: None,
+        child_slot: None,
     };
+    process.run(spec).map(|o| o.stdout)
+}
+
+fn run_ref_mutation(
+    process: &impl SourceControlProcess,
+    checkout: &Path,
+    args: &[&str],
+    operation: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
+) -> Result<Vec<u8>, PublicSourceControlError> {
+    let mut spec = SourceControlCommandSpec {
+        checkout: checkout.to_path_buf(),
+        operation: "refs",
+        args: args.iter().map(|s| OsString::from(*s)).collect(),
+        timeout: REF_TIMEOUT,
+        stdout_limit: REF_LIMIT,
+        stderr_limit: REF_LIMIT,
+        policy: SourceControlExecutionPolicy::TrustedMutation,
+        cancellation: None,
+        child_slot: None,
+    };
+    if let Some((ctx, coordinator)) = operation {
+        if let Some(slot) = coordinator.child_slot(&ctx.operation_id) {
+            spec = spec.attach_operation(ctx.cancellation.clone(), slot);
+        }
+    }
     process.run(spec).map(|o| o.stdout)
 }
 
@@ -116,18 +149,22 @@ pub fn mutate_ref(
     input: SourceControlRefMutationInput,
     scope: &SourceControlScopeRecord,
 ) -> Result<SourceControlRefMutationResult, PublicSourceControlError> {
-    mutate_ref_with(&SystemGitProcess, input, scope)
+    mutate_ref_with(&SystemGitProcess, input, scope, None)
 }
 
 pub fn mutate_ref_with(
     process: &impl SourceControlProcess,
     input: SourceControlRefMutationInput,
     scope: &SourceControlScopeRecord,
+    operation: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<SourceControlRefMutationResult, PublicSourceControlError> {
     let path = scope.checkout_path.as_path();
     match input.action.as_str() {
         "checkout" => {
-            run_ref_op(process, path, &["checkout", &input.name])?;
+            run_ref_mutation(process, path, &["checkout", &input.name], operation)?;
             Ok(SourceControlRefMutationResult {
                 message: format!("Checked out {}", input.name),
             })
@@ -137,7 +174,7 @@ pub fn mutate_ref_with(
             if let Some(target) = &input.target {
                 args.push(target);
             }
-            run_ref_op(process, path, &args)?;
+            run_ref_mutation(process, path, &args, operation)?;
             Ok(SourceControlRefMutationResult {
                 message: format!("Created branch {}", input.name),
             })
@@ -148,14 +185,14 @@ pub fn mutate_ref_with(
                 if input.force { "-D" } else { "-d" },
                 input.name.as_str(),
             ];
-            run_ref_op(process, path, &args)?;
+            run_ref_mutation(process, path, &args, operation)?;
             Ok(SourceControlRefMutationResult {
                 message: format!("Deleted branch {}", input.name),
             })
         }
         "rename-branch" => {
             if let Some(target) = &input.target {
-                run_ref_op(process, path, &["branch", "-m", &input.name, target])?;
+                run_ref_mutation(process, path, &["branch", "-m", &input.name, target], operation)?;
             }
             Ok(SourceControlRefMutationResult {
                 message: format!(

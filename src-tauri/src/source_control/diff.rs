@@ -143,6 +143,8 @@ pub fn get_diff_with(
         stdout_limit: numstat_limit,
         stderr_limit: numstat_limit,
         policy: SourceControlExecutionPolicy::ParsedRead,
+        cancellation: None,
+        child_slot: None,
     };
 
     let numstat_output = process.run(numstat_spec)?;
@@ -168,6 +170,8 @@ pub fn get_diff_with(
         stdout_limit: max_bytes,
         stderr_limit: max_bytes,
         policy: SourceControlExecutionPolicy::ParsedRead,
+        cancellation: None,
+        child_slot: None,
     };
 
     let patch_result = process.run(patch_spec);
