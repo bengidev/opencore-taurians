@@ -24,7 +24,9 @@ pub struct ExplorerCreateDirInput {
 }
 
 #[tauri::command]
-pub fn explorer_create_file(input: ExplorerCreateFileInput) -> Result<ExplorerEntry, ExplorerError> {
+pub fn explorer_create_file(
+    input: ExplorerCreateFileInput,
+) -> Result<ExplorerEntry, ExplorerError> {
     let parent = ensure_under_root(Path::new(&input.project_root), Path::new(&input.parent_dir))
         .map_err(|_| ExplorerError::OutsideProject(input.parent_dir.clone()))?;
     let target = ensure_under_root(Path::new(&input.project_root), &parent.join(&input.name))

@@ -207,7 +207,7 @@ function ProjectRow({
               title: DEFAULT_NEW_TRUNK_TITLE,
               nowIso: new Date().toISOString(),
             });
-            if (trunk) projectActivateTrunk(trunk.id);
+            if (trunk) void projectActivateTrunk(trunk.id);
           }}
         >
           <Plus className="size-3" aria-hidden />

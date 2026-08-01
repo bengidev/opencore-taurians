@@ -11,9 +11,15 @@ import { useEditorStore } from "../../editor/state/editorStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useShellStore } from "../../shell/state/shellStore";
 import { useProjectStore } from "../../project/state/projectStore";
+import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { createMemoryExplorerApi } from "../api/createMemoryExplorerApi";
 import { useExplorerStore } from "../state/explorerStore";
 import { ExplorerTree } from "./ExplorerTree";
+
+function createActiveProject(input: { folderPath: string; nowIso: string }): void {
+  useProjectStore.getState().createProjectWithRootTrunk(input);
+  useWorkspaceStore.getState().setWorkspace(input.folderPath);
+}
 
 describe("ExplorerTree", () => {
   afterEach(() => {
@@ -25,6 +31,7 @@ describe("ExplorerTree", () => {
     useMemoryPersistStorage();
     useProjectStore.getState().resetProjectState();
     useExplorerStore.getState().resetExplorerState();
+    useWorkspaceStore.setState({ workspacePath: null });
     useEditorStore.setState({
       api: null,
       projectRoot: null,
@@ -38,7 +45,7 @@ describe("ExplorerTree", () => {
 
   it("renders project files", async () => {
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -58,7 +65,7 @@ describe("ExplorerTree", () => {
 
   it("renders grayscale Material icons for files and folders", async () => {
     const folderPath = "/proj";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -102,7 +109,7 @@ describe("ExplorerTree", () => {
     const filePath = "/proj/a.ts";
     const fileContent = "export const a = 1;\n";
 
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -138,7 +145,7 @@ describe("ExplorerTree", () => {
     const folderPath = "/proj";
     const filePath = "/proj/a.ts";
 
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -178,7 +185,7 @@ describe("ExplorerTree", () => {
     const folderPath = "/proj";
     const subDir = "/proj/src";
 
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -213,7 +220,7 @@ describe("ExplorerTree", () => {
   it("shows dirty • on file and ancestor folder when editor buffer is dirty", async () => {
     const folderPath = "/proj";
     const subDir = "/proj/src";
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });
@@ -247,7 +254,7 @@ describe("ExplorerTree", () => {
     const folderPath = "/proj";
     const subDir = "/proj/src";
 
-    useProjectStore.getState().createProjectWithRootTrunk({
+    createActiveProject({
       folderPath,
       nowIso: "2026-07-10T00:00:00.000Z",
     });

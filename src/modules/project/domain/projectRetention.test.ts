@@ -27,7 +27,15 @@ function c(
     pinned: false,
     createdAt: OLD,
     lastOpenedAt: OLD,
-    restore: { activeMainCard: "chat" },
+    restore: {
+      activeMainCard: "chat",
+      rightPanelFeature: "files",
+      gitCheckout: {
+        kind: "project-root",
+        repositoryIdentity: null,
+        savedRefName: null,
+      },
+    },
     siblingOrder: 0,
     ...partial,
   };

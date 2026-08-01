@@ -23,21 +23,64 @@ describe("projectStore", () => {
     expect(useProjectStore.getState().activeTrunkId).toBe(trunk.id);
   });
 
+  it("adds child trunk under root parent with supplied id and checkout", () => {
+    const { trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    const child = useProjectStore.getState().addChildTrunk({
+      trunkId: "child-1",
+      parentTrunkId: root.id,
+      title: "Child",
+      nowIso: "2026-07-10T00:00:01.000Z",
+      gitCheckout: {
+        kind: "worktree",
+        worktreePath: "/app-data/worktrees/child-1",
+        repositoryIdentity: "repository:/tmp/repo.git",
+        savedRefName: "feature/child",
+        managedByApp: true,
+      },
+    });
+    expect(child?.id).toBe("child-1");
+    expect(child?.parentTrunkId).toBe(root.id);
+  });
+
   it("rejects nested child trunks", () => {
     const { trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
     });
+    const child = useProjectStore.getState().addChildTrunk({
+      trunkId: "child-1",
+      parentTrunkId: root.id,
+      title: "Child",
+      nowIso: "2026-07-10T00:00:01.000Z",
+      gitCheckout: {
+        kind: "worktree",
+        worktreePath: "/app-data/worktrees/child-1",
+        repositoryIdentity: "repository:/tmp/repo.git",
+        savedRefName: "feature/child",
+        managedByApp: true,
+      },
+    })!;
     expect(
       useProjectStore.getState().addChildTrunk({
-        parentTrunkId: root.id,
-        title: "Child",
-        nowIso: "2026-07-10T00:00:01.000Z",
+        trunkId: "nested-1",
+        parentTrunkId: child.id,
+        title: "Nested",
+        nowIso: "2026-07-10T00:00:02.000Z",
+        gitCheckout: {
+          kind: "worktree",
+          worktreePath: "/app-data/worktrees/nested-1",
+          repositoryIdentity: "repository:/tmp/repo.git",
+          savedRefName: "feature/nested",
+          managedByApp: true,
+        },
       }),
     ).toBeNull();
   });
 
-  it("rejects child trunk under any parent", () => {
+  it("adds child trunk under sibling root trunk", () => {
     const { trunk: root } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",
       nowIso: "2026-07-10T00:00:00.000Z",
@@ -49,11 +92,19 @@ describe("projectStore", () => {
     })!;
     expect(
       useProjectStore.getState().addChildTrunk({
+        trunkId: "child-under-sibling",
         parentTrunkId: sibling.id,
         title: "Nested",
         nowIso: "2026-07-10T00:00:02.000Z",
-      }),
-    ).toBeNull();
+        gitCheckout: {
+          kind: "worktree",
+          worktreePath: "/app-data/worktrees/sibling-child",
+          repositoryIdentity: "repository:/tmp/repo.git",
+          savedRefName: "feature/nested",
+          managedByApp: true,
+        },
+      })?.id,
+    ).toBe("child-under-sibling");
   });
 
   it("pins project and trunk", () => {
@@ -67,6 +118,29 @@ describe("projectStore", () => {
       true,
     );
     expect(useProjectStore.getState().trunks.find((c) => c.id === trunk.id)?.pinned).toBe(true);
+  });
+
+  it("updates restore fields independently", () => {
+    const { trunk } = useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    useProjectStore.getState().setTrunkRightPanelFeature(trunk.id, "git");
+    useProjectStore.getState().setTrunkActiveMainCard(trunk.id, "editor");
+    useProjectStore.getState().setTrunkGitCheckout(trunk.id, {
+      kind: "project-root",
+      repositoryIdentity: "repo-1",
+      savedRefName: "main",
+    });
+    expect(useProjectStore.getState().trunks.find((item) => item.id === trunk.id)?.restore).toEqual({
+      activeMainCard: "editor",
+      rightPanelFeature: "git",
+      gitCheckout: {
+        kind: "project-root",
+        repositoryIdentity: "repo-1",
+        savedRefName: "main",
+      },
+    });
   });
 
   it("renameTrunk updates title", () => {
