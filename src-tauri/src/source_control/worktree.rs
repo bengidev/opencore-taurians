@@ -1,4 +1,7 @@
-use crate::source_control::contracts::PublicSourceControlError;
+use crate::source_control::contracts::{
+    PublicSourceControlError, ResolvedSourceControlCheckout, ResolvedSourceControlCheckoutKind,
+    SourceControlCheckoutRestore,
+};
 use crate::source_control::coordinator::{
     SourceControlOperationContext, SourceControlOperationCoordinatorState,
 };
@@ -6,8 +9,10 @@ use crate::source_control::process::{
     SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
 };
 use crate::source_control::scope::{detect_repository, RepositoryScope};
+use crate::source_control::scope_registry::{SourceControlScopeRecord, SourceControlScopeRegistry};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -63,11 +68,7 @@ pub enum SourceControlRepairWorktreeInput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlWorktreeMutationResult {
-    pub checkout_path: String,
-    pub checkout_identity: String,
-    pub repository_identity: String,
-    pub saved_ref_name: Option<String>,
-    pub worktree_label: String,
+    pub checkout: ResolvedSourceControlCheckout,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -86,6 +87,7 @@ pub struct SourceControlWorktreeRemovalInspection {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlRemoveWorktreeInput {
+    pub scope_id: Option<String>,
     pub worktree_path: String,
     pub repository_identity: String,
     pub expected_head_oid: Option<String>,
@@ -163,15 +165,98 @@ fn app_data_worktree_root() -> PathBuf {
         .join("worktrees")
 }
 
+fn canonical_managed_worktree_root() -> PathBuf {
+    static ROOT: OnceLock<PathBuf> = OnceLock::new();
+    ROOT.get_or_init(|| {
+        let root = app_data_worktree_root();
+        let _ = std::fs::create_dir_all(&root);
+        std::fs::canonicalize(&root).unwrap_or(root)
+    })
+    .clone()
+}
+
+pub fn is_managed_worktree_path(path: &Path) -> bool {
+    let Ok(canonical) = std::fs::canonicalize(path) else {
+        return false;
+    };
+    let root = canonical_managed_worktree_root();
+    canonical.starts_with(&root)
+}
+
+fn validate_repository_identity_exact(
+    operation: &'static str,
+    expected: &str,
+    actual: &str,
+) -> Result<(), PublicSourceControlError> {
+    if expected.is_empty() {
+        return Err(PublicSourceControlError::checkout_invalid(
+            operation,
+            "The repository identity must not be empty.",
+        ));
+    }
+    if actual.is_empty() {
+        return Err(PublicSourceControlError::checkout_invalid(
+            operation,
+            "The checkout repository identity is missing.",
+        ));
+    }
+    if expected != actual {
+        return Err(PublicSourceControlError::checkout_invalid(
+            operation,
+            "The repository identity does not match.",
+        ));
+    }
+    Ok(())
+}
+
+fn register_worktree_checkout(
+    registry: &SourceControlScopeRegistry,
+    project_id: &str,
+    trunk_id: &str,
+    project_folder_path: &Path,
+    scope: &RepositoryScope,
+    saved_ref_name: Option<String>,
+    managed_by_app: bool,
+) -> ResolvedSourceControlCheckout {
+    let normalized_restore = SourceControlCheckoutRestore::Worktree {
+        worktree_path: scope.checkout_path.to_string_lossy().into_owned(),
+        repository_identity: scope.repository_identity.clone(),
+        saved_ref_name: saved_ref_name.clone(),
+        managed_by_app,
+    };
+    let scope_id = registry.register(SourceControlScopeRecord {
+        scope_id: String::new(),
+        project_id: project_id.to_string(),
+        trunk_id: trunk_id.to_string(),
+        project_root: project_folder_path.to_path_buf(),
+        checkout_path: scope.checkout_path.clone(),
+        checkout_identity: scope.checkout_identity.clone(),
+        repository_identity: Some(scope.repository_identity.clone()),
+        managed_by_app,
+    });
+    ResolvedSourceControlCheckout {
+        scope_id,
+        kind: ResolvedSourceControlCheckoutKind::Worktree,
+        checkout_path: scope.checkout_path.to_string_lossy().into_owned(),
+        checkout_identity: scope.checkout_identity.clone(),
+        repository_identity: Some(scope.repository_identity.clone()),
+        saved_ref_name,
+        managed_by_app,
+        normalized_restore,
+    }
+}
+
 pub fn create_worktree(
     input: SourceControlCreateWorktreeInput,
 ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
-    create_worktree_with(&SystemGitProcess, input, None)
+    let registry = SourceControlScopeRegistry::default();
+    create_worktree_with(&SystemGitProcess, input, &registry, None)
 }
 
 pub fn create_worktree_with(
     process: &impl SourceControlProcess,
     input: SourceControlCreateWorktreeInput,
+    registry: &SourceControlScopeRegistry,
     operation: Option<(
         &SourceControlOperationContext,
         &SourceControlOperationCoordinatorState,
@@ -223,24 +308,30 @@ pub fn create_worktree_with(
     let new_scope = detect_repository(process, &worktree_path)
         .map_err(|_| PublicSourceControlError::process_failed("create-worktree", false))?;
 
-    Ok(SourceControlWorktreeMutationResult {
-        checkout_path: worktree_path.to_string_lossy().into_owned(),
-        checkout_identity: format!("checkout:{}", worktree_path.to_string_lossy()),
-        repository_identity: new_scope.repository_identity,
-        saved_ref_name: Some(input.branch_name.clone()),
-        worktree_label: safe_name,
-    })
+    let checkout = register_worktree_checkout(
+        registry,
+        &input.project_id,
+        &input.trunk_id,
+        project_path,
+        &new_scope,
+        Some(input.branch_name.clone()),
+        true,
+    );
+
+    Ok(SourceControlWorktreeMutationResult { checkout })
 }
 
 pub fn attach_worktree(
     input: SourceControlAttachWorktreeInput,
 ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
-    attach_worktree_with(&SystemGitProcess, input)
+    let registry = SourceControlScopeRegistry::default();
+    attach_worktree_with(&SystemGitProcess, input, &registry)
 }
 
 pub fn attach_worktree_with(
     process: &impl SourceControlProcess,
     input: SourceControlAttachWorktreeInput,
+    registry: &SourceControlScopeRegistry,
 ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
     let project_path = Path::new(&input.project_folder_path);
     let project_scope = detect_repository(process, project_path)
@@ -268,27 +359,31 @@ pub fn attach_worktree_with(
         ));
     }
 
-    Ok(SourceControlWorktreeMutationResult {
-        checkout_path: worktree_path.to_string_lossy().into_owned(),
-        checkout_identity: format!("checkout:{}", worktree_path.to_string_lossy()),
-        repository_identity: attached_scope.repository_identity,
-        saved_ref_name: attached_scope.ref_name,
-        worktree_label: worktree_path
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| input.trunk_id.clone()),
-    })
+    let managed_by_app = is_managed_worktree_path(worktree_path);
+    let checkout = register_worktree_checkout(
+        registry,
+        &input.project_id,
+        &input.trunk_id,
+        project_path,
+        &attached_scope,
+        attached_scope.ref_name.clone(),
+        managed_by_app,
+    );
+
+    Ok(SourceControlWorktreeMutationResult { checkout })
 }
 
 pub fn repair_worktree(
     input: SourceControlRepairWorktreeInput,
 ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
-    repair_worktree_with(&SystemGitProcess, input, None)
+    let registry = SourceControlScopeRegistry::default();
+    repair_worktree_with(&SystemGitProcess, input, &registry, None)
 }
 
 pub fn repair_worktree_with(
     process: &impl SourceControlProcess,
     input: SourceControlRepairWorktreeInput,
+    registry: &SourceControlScopeRegistry,
     operation: Option<(
         &SourceControlOperationContext,
         &SourceControlOperationCoordinatorState,
@@ -296,8 +391,8 @@ pub fn repair_worktree_with(
 ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
     match &input {
         SourceControlRepairWorktreeInput::Reattach {
-            project_id: _,
-            trunk_id: _,
+            project_id,
+            trunk_id,
             project_folder_path,
             expected_repository_identity,
             worktree_path,
@@ -330,20 +425,22 @@ pub fn repair_worktree_with(
                 )
             })?;
 
-            Ok(SourceControlWorktreeMutationResult {
-                checkout_path: worktree_path.clone(),
-                checkout_identity: format!("checkout:{}", worktree_path),
-                repository_identity: repaired_scope.repository_identity,
-                saved_ref_name: repaired_scope.ref_name,
-                worktree_label: wt_path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| "worktree".into()),
-            })
+            let managed_by_app = is_managed_worktree_path(wt_path);
+            let checkout = register_worktree_checkout(
+                registry,
+                project_id,
+                trunk_id,
+                project_path,
+                &repaired_scope,
+                repaired_scope.ref_name.clone(),
+                managed_by_app,
+            );
+
+            Ok(SourceControlWorktreeMutationResult { checkout })
         }
         SourceControlRepairWorktreeInput::Recreate {
-            project_id: _,
-            trunk_id: _,
+            project_id,
+            trunk_id,
             project_folder_path,
             expected_repository_identity,
             ref_name,
@@ -378,13 +475,17 @@ pub fn repair_worktree_with(
             let new_scope = detect_repository(process, &worktree_path)
                 .map_err(|_| PublicSourceControlError::process_failed("repair-worktree", false))?;
 
-            Ok(SourceControlWorktreeMutationResult {
-                checkout_path: worktree_path.to_string_lossy().into_owned(),
-                checkout_identity: format!("checkout:{}", worktree_path.to_string_lossy()),
-                repository_identity: new_scope.repository_identity,
-                saved_ref_name: Some(ref_name.clone()),
-                worktree_label: safe_id,
-            })
+            let checkout = register_worktree_checkout(
+                registry,
+                project_id,
+                trunk_id,
+                project_path,
+                &new_scope,
+                Some(ref_name.clone()),
+                true,
+            );
+
+            Ok(SourceControlWorktreeMutationResult { checkout })
         }
     }
 }
@@ -416,15 +517,11 @@ pub fn inspect_worktree_removal_with(
         )
     })?;
 
-    if !scope
-        .repository_identity
-        .starts_with(&input.repository_identity)
-    {
-        return Err(PublicSourceControlError::checkout_invalid(
-            "inspect-removal",
-            "The repository identity does not match.",
-        ));
-    }
+    validate_repository_identity_exact(
+        "inspect-removal",
+        &input.repository_identity,
+        &scope.repository_identity,
+    )?;
 
     let head_oid = run_line(
         process,
@@ -448,8 +545,7 @@ pub fn inspect_worktree_removal_with(
     let has_unmerged_changes = check_unmerged(process, wt_path);
     let has_unmerged_commits = check_unmerged_commits(process, wt_path);
 
-    let managed_by_app = wt_path.to_string_lossy().contains("opencore-taurians")
-        && wt_path.to_string_lossy().contains("worktrees");
+    let managed_by_app = is_managed_worktree_path(wt_path);
 
     Ok(SourceControlWorktreeRemovalInspection {
         worktree_path: input.worktree_path,
@@ -466,12 +562,14 @@ pub fn inspect_worktree_removal_with(
 pub fn remove_worktree(
     input: SourceControlRemoveWorktreeInput,
 ) -> Result<(), PublicSourceControlError> {
-    remove_worktree_with(&SystemGitProcess, input, None)
+    let registry = SourceControlScopeRegistry::default();
+    remove_worktree_with(&SystemGitProcess, input, &registry, None)
 }
 
 pub fn remove_worktree_with(
     process: &impl SourceControlProcess,
     input: SourceControlRemoveWorktreeInput,
+    registry: &SourceControlScopeRegistry,
     operation: Option<(
         &SourceControlOperationContext,
         &SourceControlOperationCoordinatorState,
@@ -486,15 +584,11 @@ pub fn remove_worktree_with(
         )
     })?;
 
-    if !scope
-        .repository_identity
-        .starts_with(&input.repository_identity)
-    {
-        return Err(PublicSourceControlError::checkout_invalid(
-            "remove-worktree",
-            "The repository identity does not match.",
-        ));
-    }
+    validate_repository_identity_exact(
+        "remove-worktree",
+        &input.repository_identity,
+        &scope.repository_identity,
+    )?;
 
     if let Some(expected_oid) = &input.expected_head_oid {
         let current_oid = run_line(
@@ -558,10 +652,12 @@ pub fn remove_worktree_with(
         operation,
     )?;
 
-    if input.worktree_path.contains("opencore-taurians")
-        && input.worktree_path.contains("worktrees")
-    {
-        let _ = std::fs::remove_dir_all(&input.worktree_path);
+    if is_managed_worktree_path(wt_path) {
+        let _ = std::fs::remove_dir_all(wt_path);
+    }
+
+    if let Some(scope_id) = input.scope_id {
+        registry.invalidate(&scope_id);
     }
 
     Ok(())
@@ -844,23 +940,30 @@ mod tests {
         commit(dir.path(), "readme.md");
 
         let trunk_id = uuid::Uuid::new_v4().to_string();
-        let result = create_worktree(SourceControlCreateWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: trunk_id.clone(),
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            base_ref_name: "main".into(),
-            branch_name: "feature/child".into(),
-            history_mode: SourceControlWorktreeHistoryMode::Normal,
-        })
+        let registry = SourceControlScopeRegistry::default();
+        let result = create_worktree_with(
+            &SystemGitProcess,
+            SourceControlCreateWorktreeInput {
+                project_id: "p".into(),
+                parent_trunk_id: "pt".into(),
+                trunk_id: trunk_id.clone(),
+                project_folder_path: dir.path().to_string_lossy().into_owned(),
+                base_ref_name: "main".into(),
+                branch_name: "feature/child".into(),
+                history_mode: SourceControlWorktreeHistoryMode::Normal,
+            },
+            &registry,
+            None,
+        )
         .unwrap();
 
-        assert!(result.checkout_path.contains("opencore-taurians"));
-        assert!(result.checkout_path.contains("worktrees"));
-        assert!(result.saved_ref_name == Some("feature/child".into()));
-        assert!(Path::new(&result.checkout_path).exists());
+        assert!(result.checkout.checkout_path.contains("opencore-taurians"));
+        assert!(result.checkout.checkout_path.contains("worktrees"));
+        assert!(result.checkout.saved_ref_name == Some("feature/child".into()));
+        assert!(Path::new(&result.checkout.checkout_path).exists());
+        assert!(!result.checkout.scope_id.is_empty());
 
-        let _ = std::fs::remove_dir_all(&result.checkout_path);
+        let _ = std::fs::remove_dir_all(&result.checkout.checkout_path);
     }
 
     #[test]
@@ -881,8 +984,8 @@ mod tests {
         })
         .unwrap();
 
-        assert!(Path::new(&result.checkout_path).exists());
-        let _ = std::fs::remove_dir_all(&result.checkout_path);
+        assert!(Path::new(&result.checkout.checkout_path).exists());
+        let _ = std::fs::remove_dir_all(&result.checkout.checkout_path);
     }
 
     #[test]
@@ -926,14 +1029,17 @@ mod tests {
             parent_trunk_id: "pt".into(),
             trunk_id: "ct2".into(),
             project_folder_path: dir.path().to_string_lossy().into_owned(),
-            worktree_path: created.checkout_path.clone(),
+            worktree_path: created.checkout.checkout_path.clone(),
         })
         .unwrap();
 
-        assert_eq!(attached.checkout_path, created.checkout_path);
-        assert_eq!(attached.repository_identity, created.repository_identity);
+        assert_eq!(attached.checkout.checkout_path, created.checkout.checkout_path);
+        assert_eq!(
+            attached.checkout.repository_identity,
+            created.checkout.repository_identity
+        );
 
-        let _ = std::fs::remove_dir_all(&created.checkout_path);
+        let _ = std::fs::remove_dir_all(&created.checkout.checkout_path);
     }
 
     #[test]
@@ -962,7 +1068,7 @@ mod tests {
             parent_trunk_id: "pt".into(),
             trunk_id: "ct2".into(),
             project_folder_path: dir.path().to_string_lossy().into_owned(),
-            worktree_path: created.checkout_path.clone(),
+            worktree_path: created.checkout.checkout_path.clone(),
         })
         .unwrap_err();
 
@@ -971,7 +1077,7 @@ mod tests {
             crate::source_control::contracts::PublicSourceControlErrorCode::CheckoutInvalid
         );
 
-        let _ = std::fs::remove_dir_all(&created.checkout_path);
+        let _ = std::fs::remove_dir_all(&created.checkout.checkout_path);
     }
 
     #[test]
@@ -980,20 +1086,31 @@ mod tests {
         init_repo(dir.path());
         commit(dir.path(), "readme.md");
 
-        let created = create_worktree(SourceControlCreateWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: "ct".into(),
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            base_ref_name: "main".into(),
-            branch_name: "feature/to-remove".into(),
-            history_mode: SourceControlWorktreeHistoryMode::Normal,
-        })
+        let registry = SourceControlScopeRegistry::default();
+        let created = create_worktree_with(
+            &SystemGitProcess,
+            SourceControlCreateWorktreeInput {
+                project_id: "p".into(),
+                parent_trunk_id: "pt".into(),
+                trunk_id: "ct".into(),
+                project_folder_path: dir.path().to_string_lossy().into_owned(),
+                base_ref_name: "main".into(),
+                branch_name: "feature/to-remove".into(),
+                history_mode: SourceControlWorktreeHistoryMode::Normal,
+            },
+            &registry,
+            None,
+        )
         .unwrap();
 
+        let repository_identity = created
+            .checkout
+            .repository_identity
+            .clone()
+            .unwrap_or_default();
         let inspection = inspect_worktree_removal(InspectWorktreeRemovalInput {
-            worktree_path: created.checkout_path.clone(),
-            repository_identity: created.repository_identity.clone(),
+            worktree_path: created.checkout.checkout_path.clone(),
+            repository_identity: repository_identity.clone(),
             affected_trunk_ids: vec!["ct".into()],
         })
         .unwrap();
@@ -1001,18 +1118,27 @@ mod tests {
         assert!(!inspection.dirty);
         assert!(!inspection.has_unmerged_changes);
         assert!(inspection.head_oid.is_some());
+        assert!(inspection.managed_by_app);
 
-        remove_worktree(SourceControlRemoveWorktreeInput {
-            worktree_path: created.checkout_path.clone(),
-            repository_identity: created.repository_identity.clone(),
-            expected_head_oid: inspection.head_oid.clone(),
-            allow_dirty: false,
-            allow_unmerged_changes: false,
-            allow_unmerged_commits: false,
-        })
+        let scope_id = created.checkout.scope_id.clone();
+        remove_worktree_with(
+            &SystemGitProcess,
+            SourceControlRemoveWorktreeInput {
+                scope_id: Some(scope_id.clone()),
+                worktree_path: created.checkout.checkout_path.clone(),
+                repository_identity,
+                expected_head_oid: inspection.head_oid.clone(),
+                allow_dirty: false,
+                allow_unmerged_changes: false,
+                allow_unmerged_commits: false,
+            },
+            &registry,
+            None,
+        )
         .unwrap();
 
-        assert!(!Path::new(&created.checkout_path).exists());
+        assert!(!Path::new(&created.checkout.checkout_path).exists());
+        assert!(registry.resolve(&scope_id, "test").is_err());
     }
 
     #[test]
@@ -1033,14 +1159,19 @@ mod tests {
         .unwrap();
 
         fs::write(
-            Path::new(&created.checkout_path).join("dirty.txt"),
+            Path::new(&created.checkout.checkout_path).join("dirty.txt"),
             "unsaved",
         )
         .unwrap();
 
+        let repository_identity = created
+            .checkout
+            .repository_identity
+            .clone()
+            .unwrap_or_default();
         let inspection = inspect_worktree_removal(InspectWorktreeRemovalInput {
-            worktree_path: created.checkout_path.clone(),
-            repository_identity: created.repository_identity.clone(),
+            worktree_path: created.checkout.checkout_path.clone(),
+            repository_identity: repository_identity.clone(),
             affected_trunk_ids: vec!["ct".into()],
         })
         .unwrap();
@@ -1048,8 +1179,9 @@ mod tests {
         assert!(inspection.dirty);
 
         let err = remove_worktree(SourceControlRemoveWorktreeInput {
-            worktree_path: created.checkout_path.clone(),
-            repository_identity: created.repository_identity.clone(),
+            scope_id: None,
+            worktree_path: created.checkout.checkout_path.clone(),
+            repository_identity: repository_identity.clone(),
             expected_head_oid: inspection.head_oid,
             allow_dirty: false,
             allow_unmerged_changes: false,
@@ -1063,8 +1195,9 @@ mod tests {
         );
 
         remove_worktree(SourceControlRemoveWorktreeInput {
-            worktree_path: created.checkout_path.clone(),
-            repository_identity: created.repository_identity.clone(),
+            scope_id: None,
+            worktree_path: created.checkout.checkout_path.clone(),
+            repository_identity,
             expected_head_oid: None,
             allow_dirty: true,
             allow_unmerged_changes: false,
@@ -1072,7 +1205,7 @@ mod tests {
         })
         .unwrap();
 
-        assert!(!Path::new(&created.checkout_path).exists());
+        assert!(!Path::new(&created.checkout.checkout_path).exists());
     }
 
     #[test]
@@ -1104,7 +1237,202 @@ mod tests {
 
         assert!(result.is_err());
 
-        let _ = std::fs::remove_dir_all(&created.checkout_path);
+        let _ = std::fs::remove_dir_all(&created.checkout.checkout_path);
+    }
+
+    #[test]
+    fn rejects_prefix_repository_identity_on_inspect() {
+        let dir = tempdir().unwrap();
+        init_repo(dir.path());
+        commit(dir.path(), "readme.md");
+
+        let created = create_worktree(SourceControlCreateWorktreeInput {
+            project_id: "p".into(),
+            parent_trunk_id: "pt".into(),
+            trunk_id: "ct".into(),
+            project_folder_path: dir.path().to_string_lossy().into_owned(),
+            base_ref_name: "main".into(),
+            branch_name: "feature/prefix".into(),
+            history_mode: SourceControlWorktreeHistoryMode::Normal,
+        })
+        .unwrap();
+
+        let actual = created
+            .checkout
+            .repository_identity
+            .clone()
+            .unwrap_or_default();
+        let prefix = actual.trim_end_matches(".git").to_string();
+        assert_ne!(prefix, actual);
+        let err = inspect_worktree_removal(InspectWorktreeRemovalInput {
+            worktree_path: created.checkout.checkout_path.clone(),
+            repository_identity: prefix,
+            affected_trunk_ids: vec![],
+        })
+        .unwrap_err();
+
+        assert_eq!(
+            err.code,
+            crate::source_control::contracts::PublicSourceControlErrorCode::CheckoutInvalid
+        );
+
+        let _ = std::fs::remove_dir_all(&created.checkout.checkout_path);
+    }
+
+    #[test]
+    fn rejects_empty_repository_identity() {
+        let dir = tempdir().unwrap();
+        init_repo(dir.path());
+        commit(dir.path(), "readme.md");
+
+        let created = create_worktree(SourceControlCreateWorktreeInput {
+            project_id: "p".into(),
+            parent_trunk_id: "pt".into(),
+            trunk_id: "ct".into(),
+            project_folder_path: dir.path().to_string_lossy().into_owned(),
+            base_ref_name: "main".into(),
+            branch_name: "feature/empty-id".into(),
+            history_mode: SourceControlWorktreeHistoryMode::Normal,
+        })
+        .unwrap();
+
+        let err = inspect_worktree_removal(InspectWorktreeRemovalInput {
+            worktree_path: created.checkout.checkout_path.clone(),
+            repository_identity: String::new(),
+            affected_trunk_ids: vec![],
+        })
+        .unwrap_err();
+
+        assert_eq!(
+            err.code,
+            crate::source_control::contracts::PublicSourceControlErrorCode::CheckoutInvalid
+        );
+
+        let _ = std::fs::remove_dir_all(&created.checkout.checkout_path);
+    }
+
+    #[test]
+    fn rejects_expected_head_mismatch_on_remove() {
+        let dir = tempdir().unwrap();
+        init_repo(dir.path());
+        commit(dir.path(), "readme.md");
+
+        let created = create_worktree(SourceControlCreateWorktreeInput {
+            project_id: "p".into(),
+            parent_trunk_id: "pt".into(),
+            trunk_id: "ct".into(),
+            project_folder_path: dir.path().to_string_lossy().into_owned(),
+            base_ref_name: "main".into(),
+            branch_name: "feature/head".into(),
+            history_mode: SourceControlWorktreeHistoryMode::Normal,
+        })
+        .unwrap();
+
+        let repository_identity = created
+            .checkout
+            .repository_identity
+            .clone()
+            .unwrap_or_default();
+        let err = remove_worktree(SourceControlRemoveWorktreeInput {
+            scope_id: None,
+            worktree_path: created.checkout.checkout_path.clone(),
+            repository_identity,
+            expected_head_oid: Some("deadbeef".into()),
+            allow_dirty: false,
+            allow_unmerged_changes: false,
+            allow_unmerged_commits: false,
+        })
+        .unwrap_err();
+
+        assert_eq!(
+            err.code,
+            crate::source_control::contracts::PublicSourceControlErrorCode::PreconditionFailed
+        );
+
+        let _ = std::fs::remove_dir_all(&created.checkout.checkout_path);
+    }
+
+    #[test]
+    fn classifies_managed_root_membership_by_canonical_path() {
+        let dir = tempdir().unwrap();
+        init_repo(dir.path());
+        commit(dir.path(), "readme.md");
+
+        let created = create_worktree(SourceControlCreateWorktreeInput {
+            project_id: "p".into(),
+            parent_trunk_id: "pt".into(),
+            trunk_id: "ct".into(),
+            project_folder_path: dir.path().to_string_lossy().into_owned(),
+            base_ref_name: "main".into(),
+            branch_name: "feature/managed".into(),
+            history_mode: SourceControlWorktreeHistoryMode::Normal,
+        })
+        .unwrap();
+
+        assert!(is_managed_worktree_path(Path::new(
+            &created.checkout.checkout_path
+        )));
+        assert!(!is_managed_worktree_path(dir.path()));
+
+        let _ = std::fs::remove_dir_all(&created.checkout.checkout_path);
+    }
+
+    #[test]
+    fn attached_worktree_outside_managed_root_is_not_recursively_deleted() {
+        let dir = tempdir().unwrap();
+        init_repo(dir.path());
+        commit(dir.path(), "readme.md");
+
+        let external = dir.path().join("external-wt");
+        assert!(Command::new("git")
+            .args([
+                "-C",
+                dir.path().to_str().unwrap(),
+                "worktree",
+                "add",
+                "-b",
+                "feature/external",
+                external.to_str().unwrap(),
+                "main",
+            ])
+            .status()
+            .unwrap()
+            .success());
+
+        let marker = external.join("keep-me.txt");
+        fs::write(&marker, "stay").unwrap();
+        assert!(Command::new("git")
+            .args([
+                "-C",
+                external.to_str().unwrap(),
+                "add",
+                "keep-me.txt",
+            ])
+            .status()
+            .unwrap()
+            .success());
+        assert!(Command::new("git")
+            .args(["-C", external.to_str().unwrap(), "commit", "-m", "marker"])
+            .status()
+            .unwrap()
+            .success());
+        let scope = detect_repository(&SystemGitProcess, &external).unwrap();
+        assert!(!is_managed_worktree_path(&external));
+
+        remove_worktree(SourceControlRemoveWorktreeInput {
+            scope_id: None,
+            worktree_path: external.to_string_lossy().into_owned(),
+            repository_identity: scope.repository_identity.clone(),
+            expected_head_oid: None,
+            allow_dirty: false,
+            allow_unmerged_changes: false,
+            allow_unmerged_commits: false,
+        })
+        .unwrap();
+
+        assert!(!external.exists());
+        assert!(dir.path().exists());
+        assert!(!is_managed_worktree_path(&external));
     }
 
     #[test]
