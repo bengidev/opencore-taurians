@@ -327,8 +327,9 @@ pub fn git_worktree_create(
         Some(&app),
         &quit,
         "worktree-create",
-        move |_ctx, _coord| {
-            let result = worktree::create_worktree(input)?;
+        move |ctx, coord| {
+            let result =
+                worktree::create_worktree_with(&process::SystemGitProcess, input, Some((ctx, coord)))?;
             Ok((result.clone(), "Worktree created".into()))
         },
     )
@@ -379,8 +380,9 @@ pub fn git_worktree_repair(
         Some(&app),
         &quit,
         "worktree-repair",
-        move |_ctx, _coord| {
-            let result = worktree::repair_worktree(input)?;
+        move |ctx, coord| {
+            let result =
+                worktree::repair_worktree_with(&process::SystemGitProcess, input, Some((ctx, coord)))?;
             Ok((result.clone(), "Worktree repaired".into()))
         },
     )
@@ -409,8 +411,8 @@ pub fn git_worktree_remove(
         Some(&app),
         &quit,
         "worktree-remove",
-        move |_ctx, _coord| {
-            worktree::remove_worktree(input)?;
+        move |ctx, coord| {
+            worktree::remove_worktree_with(&process::SystemGitProcess, input, Some((ctx, coord)))?;
             Ok(((), "Worktree removed".into()))
         },
     )

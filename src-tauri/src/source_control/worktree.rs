@@ -1,4 +1,7 @@
 use crate::source_control::contracts::PublicSourceControlError;
+use crate::source_control::coordinator::{
+    SourceControlOperationContext, SourceControlOperationCoordinatorState,
+};
 use crate::source_control::process::{
     SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
 };
@@ -114,8 +117,12 @@ fn run_worktree_command(
     checkout: &Path,
     operation: &'static str,
     args: &[&str],
+    op_ctx: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<Vec<u8>, PublicSourceControlError> {
-    let spec = SourceControlCommandSpec {
+    let mut spec = SourceControlCommandSpec {
         checkout: checkout.to_path_buf(),
         operation,
         args: args.iter().map(OsString::from).collect(),
@@ -126,6 +133,11 @@ fn run_worktree_command(
         cancellation: None,
         child_slot: None,
     };
+    if let Some((ctx, coordinator)) = op_ctx {
+        if let Some(slot) = coordinator.child_slot(&ctx.operation_id) {
+            spec = spec.attach_operation(ctx.cancellation.clone(), slot);
+        }
+    }
     let output = process.run(spec)?;
     Ok(output.stdout)
 }
@@ -135,8 +147,12 @@ fn run_line(
     checkout: &Path,
     operation: &'static str,
     args: &[&str],
+    op_ctx: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<String, PublicSourceControlError> {
-    let stdout = run_worktree_command(process, checkout, operation, args)?;
+    let stdout = run_worktree_command(process, checkout, operation, args, op_ctx)?;
     Ok(String::from_utf8_lossy(&stdout).trim().to_string())
 }
 
@@ -150,12 +166,16 @@ fn app_data_worktree_root() -> PathBuf {
 pub fn create_worktree(
     input: SourceControlCreateWorktreeInput,
 ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
-    create_worktree_with(&SystemGitProcess, input)
+    create_worktree_with(&SystemGitProcess, input, None)
 }
 
 pub fn create_worktree_with(
     process: &impl SourceControlProcess,
     input: SourceControlCreateWorktreeInput,
+    operation: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
     let project_path = Path::new(&input.project_folder_path);
     let scope = detect_repository(process, project_path)
@@ -192,7 +212,13 @@ pub fn create_worktree_with(
         }
     }
     let str_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-    run_worktree_command(process, &scope.checkout_path, "create-worktree", &str_args)?;
+    run_worktree_command(
+        process,
+        &scope.checkout_path,
+        "create-worktree",
+        &str_args,
+        operation,
+    )?;
 
     let new_scope = detect_repository(process, &worktree_path)
         .map_err(|_| PublicSourceControlError::process_failed("create-worktree", false))?;
@@ -257,12 +283,16 @@ pub fn attach_worktree_with(
 pub fn repair_worktree(
     input: SourceControlRepairWorktreeInput,
 ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
-    repair_worktree_with(&SystemGitProcess, input)
+    repair_worktree_with(&SystemGitProcess, input, None)
 }
 
 pub fn repair_worktree_with(
     process: &impl SourceControlProcess,
     input: SourceControlRepairWorktreeInput,
+    operation: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
     match &input {
         SourceControlRepairWorktreeInput::Reattach {
@@ -290,6 +320,7 @@ pub fn repair_worktree_with(
                 &project_scope.checkout_path,
                 "repair-worktree",
                 &["worktree", "repair", worktree_path],
+                operation,
             )?;
 
             let repaired_scope = detect_repository(process, wt_path).map_err(|_| {
@@ -341,6 +372,7 @@ pub fn repair_worktree_with(
                 &project_scope.checkout_path,
                 "repair-worktree",
                 &["worktree", "add", "--checkout", &wt_str, ref_name],
+                operation,
             )?;
 
             let new_scope = detect_repository(process, &worktree_path)
@@ -394,13 +426,21 @@ pub fn inspect_worktree_removal_with(
         ));
     }
 
-    let head_oid = run_line(process, wt_path, "inspect-removal", &["rev-parse", "HEAD"]).ok();
+    let head_oid = run_line(
+        process,
+        wt_path,
+        "inspect-removal",
+        &["rev-parse", "HEAD"],
+        None,
+    )
+    .ok();
 
     let dirty = !run_line(
         process,
         wt_path,
         "inspect-removal",
         &["status", "--porcelain"],
+        None,
     )
     .map(|s| s.is_empty())
     .unwrap_or(false);
@@ -426,12 +466,16 @@ pub fn inspect_worktree_removal_with(
 pub fn remove_worktree(
     input: SourceControlRemoveWorktreeInput,
 ) -> Result<(), PublicSourceControlError> {
-    remove_worktree_with(&SystemGitProcess, input)
+    remove_worktree_with(&SystemGitProcess, input, None)
 }
 
 pub fn remove_worktree_with(
     process: &impl SourceControlProcess,
     input: SourceControlRemoveWorktreeInput,
+    operation: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<(), PublicSourceControlError> {
     let wt_path = Path::new(&input.worktree_path);
 
@@ -453,7 +497,13 @@ pub fn remove_worktree_with(
     }
 
     if let Some(expected_oid) = &input.expected_head_oid {
-        let current_oid = run_line(process, wt_path, "remove-worktree", &["rev-parse", "HEAD"])?;
+        let current_oid = run_line(
+            process,
+            wt_path,
+            "remove-worktree",
+            &["rev-parse", "HEAD"],
+            operation,
+        )?;
         if &current_oid != expected_oid {
             return Err(PublicSourceControlError::precondition_failed(
                 "remove-worktree",
@@ -468,6 +518,7 @@ pub fn remove_worktree_with(
             wt_path,
             "remove-worktree",
             &["status", "--porcelain"],
+            operation,
         );
         let is_clean = status_out.map(|o| o.is_empty()).unwrap_or(false);
         if !is_clean {
@@ -499,7 +550,13 @@ pub fn remove_worktree_with(
     let worktree_str = input.worktree_path.clone();
     args.push(&worktree_str);
 
-    run_worktree_command(process, &main_checkout, "remove-worktree", &args)?;
+    run_worktree_command(
+        process,
+        &main_checkout,
+        "remove-worktree",
+        &args,
+        operation,
+    )?;
 
     if input.worktree_path.contains("opencore-taurians")
         && input.worktree_path.contains("worktrees")
@@ -542,6 +599,7 @@ pub fn list_worktrees_with(
         &scope.checkout_path,
         "list-worktrees",
         &["worktree", "list", "--porcelain"],
+        None,
     )?;
 
     Ok(parse_worktree_list(&stdout))
@@ -694,6 +752,7 @@ fn check_unmerged_commits(process: &impl SourceControlProcess, checkout: &Path) 
         checkout,
         "check-unmerged-commits",
         &["rev-list", "--left-only", "--count", "HEAD...@{upstream}"],
+        None,
     )
     .map(|out| out.parse::<u64>().map(|count| count > 0).unwrap_or(false))
     .unwrap_or(false)
