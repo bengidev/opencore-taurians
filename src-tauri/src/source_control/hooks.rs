@@ -1,8 +1,13 @@
 use crate::source_control::contracts::PublicSourceControlError;
-use std::path::Path;
+use crate::source_control::scope_registry::SourceControlScopeRecord;
+use serde::{Deserialize, Serialize};
 use std::process::Command;
 
-use serde::{Deserialize, Serialize};
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceControlHooksInput {
+    pub scope_id: String,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -13,8 +18,16 @@ pub struct SourceControlHookInfo {
 
 /// Enumerate hooks present in a repository without executing any.
 /// Only returns existence metadata — never runs a hook.
-pub fn enumerate_hooks(checkout_path: &str) -> Result<Vec<SourceControlHookInfo>, PublicSourceControlError> {
-    let hooks_dir = Path::new(checkout_path).join(".git").join("hooks");
+pub fn enumerate_hooks(
+    scope: &SourceControlScopeRecord,
+) -> Result<Vec<SourceControlHookInfo>, PublicSourceControlError> {
+    enumerate_hooks_with(scope)
+}
+
+pub fn enumerate_hooks_with(
+    scope: &SourceControlScopeRecord,
+) -> Result<Vec<SourceControlHookInfo>, PublicSourceControlError> {
+    let hooks_dir = scope.checkout_path.join(".git").join("hooks");
     if !hooks_dir.exists() {
         return Ok(Vec::new());
     }
@@ -115,8 +128,17 @@ mod tests {
             .status()
             .unwrap();
 
-        // No hooks by default
-        let hooks = enumerate_hooks(dir.path().to_str().unwrap()).unwrap();
+        let scope = SourceControlScopeRecord {
+            scope_id: "scope-1".into(),
+            project_id: "p".into(),
+            trunk_id: "t".into(),
+            project_root: dir.path().to_path_buf(),
+            checkout_path: dir.path().to_path_buf(),
+            checkout_identity: "checkout-1".into(),
+            repository_identity: None,
+            managed_by_app: false,
+        };
+        let hooks = enumerate_hooks(&scope).unwrap();
         assert!(hooks.iter().all(|h| !h.present));
 
         // Create a pre-commit hook
@@ -127,7 +149,7 @@ mod tests {
         )
         .unwrap();
 
-        let hooks = enumerate_hooks(dir.path().to_str().unwrap()).unwrap();
+        let hooks = enumerate_hooks(&scope).unwrap();
         let pre_commit = hooks
             .iter()
             .find(|h| h.path.contains("pre-commit"))

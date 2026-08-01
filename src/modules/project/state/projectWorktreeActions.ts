@@ -22,7 +22,10 @@ export async function projectCreateChildTrunk(input: {
       baseRefName: string;
       branchName: string;
       historyMode: "normal" | "orphan";
-    }): Promise<{ checkoutPath: string; repositoryIdentity: string; savedRefName: string | null }>;
+    }): Promise<{ scopeId: string; checkoutPath: string; repositoryIdentity: string; savedRefName: string | null }>;
+        kind: "worktree",
+        scopeId: result.scopeId,
+        checkoutPath: result.checkoutPath,
   };
   store: {
     createChildTrunk(params: {
@@ -66,6 +69,7 @@ export async function projectCreateChildTrunk(input: {
       status: "ready",
       checkout: {
         kind: "worktree",
+        scopeId: result.scopeId,
         checkoutPath: result.checkoutPath,
         checkoutIdentity: result.checkoutPath,
         repositoryIdentity: result.repositoryIdentity,

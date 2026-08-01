@@ -14,6 +14,7 @@ import { SourceControlPanel } from "./SourceControlPanel";
 
 const CHECKOUT: ResolvedSourceControlCheckout = {
   kind: "project-root",
+  scopeId: "scope-1",
   checkoutPath: "/work/app",
   checkoutIdentity: "checkout:/work/app",
   repositoryIdentity: "repository:/work/app",
@@ -32,6 +33,7 @@ function makeSnapshot(
   return {
     projectId: "project-1",
     trunkId: "trunk-1",
+    scopeId: "scope-1",
     checkoutPath: "/work/app",
     checkoutIdentity: CHECKOUT.checkoutIdentity,
     repositoryIdentity: "repository:/work/app",
@@ -211,7 +213,7 @@ describe("SourceControlPanel", () => {
     });
     const stageCall = sourceControlApi.calls.find((c) => c.method === "stage");
     expect(stageCall?.input).toMatchObject({
-      checkoutPath: "/work/app",
+      scopeId: "scope-1",
       paths: ["src/a.ts"],
       mode: "stage",
     });

@@ -73,7 +73,7 @@ export function SourceControlCommitDialog({
     setSubmitting(true);
     try {
       await useSourceControlStore.getState().runCommit(trunkId, checkout, {
-        checkoutPath: checkout.checkoutPath,
+        scopeId: checkout.scopeId,
         subject: subject.trim(),
         body,
         amend,

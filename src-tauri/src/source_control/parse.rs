@@ -1,4 +1,6 @@
-use crate::source_control::contracts::{SourceControlFileCode, SourceControlFileStatus, SourceControlHeadSummary};
+use crate::source_control::contracts::{
+    SourceControlFileCode, SourceControlFileStatus, SourceControlHeadSummary,
+};
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct ParsedStatus {
@@ -65,10 +67,20 @@ pub fn parse_porcelain_v2(input: &[u8]) -> ParsedStatus {
 
 fn parse_file_record(line: &str) -> Option<SourceControlFileStatus> {
     if let Some(path) = line.strip_prefix("? ") {
-        return Some(file_status(path, None, None, Some(SourceControlFileCode::Untracked)));
+        return Some(file_status(
+            path,
+            None,
+            None,
+            Some(SourceControlFileCode::Untracked),
+        ));
     }
     if let Some(path) = line.strip_prefix("! ") {
-        return Some(file_status(path, None, None, Some(SourceControlFileCode::Ignored)));
+        return Some(file_status(
+            path,
+            None,
+            None,
+            Some(SourceControlFileCode::Ignored),
+        ));
     }
     let fields: Vec<&str> = line.splitn(10, ' ').collect();
     match fields.first().copied()? {
@@ -177,7 +189,10 @@ mod tests {
         assert_eq!(parsed.upstream.as_deref(), Some("origin/feature/x"));
         assert_eq!((parsed.ahead, parsed.behind), (2, 3));
         assert_eq!(parsed.files.len(), 2);
-        assert_eq!(parsed.files[0].index_status, Some(SourceControlFileCode::Modified));
+        assert_eq!(
+            parsed.files[0].index_status,
+            Some(SourceControlFileCode::Modified)
+        );
         assert_eq!(
             parsed.files[1].worktree_status,
             Some(SourceControlFileCode::Untracked)

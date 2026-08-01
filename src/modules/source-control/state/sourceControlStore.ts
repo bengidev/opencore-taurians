@@ -119,11 +119,7 @@ export const useSourceControlStore = create<SourceControlState>()((set, get) => 
       errorByTrunkId: { ...state.errorByTrunkId, [trunkId]: null },
     }));
     try {
-      const result = await api.getSnapshot({
-        projectId: "",
-        trunkId,
-        checkout,
-      });
+      const result = await api.getSnapshot({ scopeId: checkout.scopeId });
       applySnapshot(set, get, trunkId, result);
     } catch (error) {
       setError(set, trunkId, error);
@@ -140,11 +136,7 @@ export const useSourceControlStore = create<SourceControlState>()((set, get) => 
       errorByTrunkId: { ...state.errorByTrunkId, [trunkId]: null },
     }));
     try {
-      const result = await api.refreshLocal({
-        projectId: "",
-        trunkId,
-        checkout,
-      });
+      const result = await api.refreshLocal({ scopeId: checkout.scopeId });
       applySnapshot(set, get, trunkId, result);
     } catch (error) {
       setError(set, trunkId, error);
@@ -158,7 +150,7 @@ export const useSourceControlStore = create<SourceControlState>()((set, get) => 
     const api = get().api ?? defaultApi;
     try {
       const input: SourceControlLogInput = {
-        checkoutPath: checkout.checkoutPath,
+        scopeId: checkout.scopeId,
         maxCount: 50,
         branch,
         search: null,
