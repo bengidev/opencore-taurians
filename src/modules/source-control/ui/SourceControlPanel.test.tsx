@@ -171,6 +171,35 @@ describe("SourceControlPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("flips trunk runtime to invalid when loadSnapshot returns checkout-invalid", async () => {
+    const typedError = {
+      code: "checkout-invalid" as const,
+      operation: "git_get_snapshot",
+      message: "Scope is no longer valid",
+      retryable: false,
+    };
+    const { trunk } = setupTrunk(undefined, "ready");
+    const failingApi = {
+      ...createMemorySourceControlApi({}),
+      getSnapshot: async () => {
+        throw typedError;
+      },
+    };
+    useSourceControlStore.getState().bindApi(failingApi);
+
+    render(<SourceControlPanel sourceControlApi={failingApi} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("The saved checkout is no longer valid."),
+      ).toBeInTheDocument();
+    });
+    expect(useProjectStore.getState().checkoutRuntimeByTrunkId[trunk.id]).toMatchObject({
+      status: "invalid",
+      message: "Scope is no longer valid",
+    });
+  });
+
   it("shows the invalid-checkout message when runtime is invalid", () => {
     setupTrunk(undefined, "invalid");
     render(<SourceControlPanel />);

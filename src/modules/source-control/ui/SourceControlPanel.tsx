@@ -32,7 +32,8 @@ import type {
 } from "../api/sourceControlContracts";
 import { resolveSourceControlBadge } from "../domain/sourceControlIconBadge";
 import { useSourceControlStore } from "../state/sourceControlStore";
-import { sourceControlDiffKey, type DiffKind } from "../state/sourceControlDiffKey";
+import { sourceControlDiffKey, type DiffKey, type DiffKind } from "../state/sourceControlDiffKey";
+import { invalidateCheckoutRuntimeOnScopeError } from "../state/invalidateCheckoutRuntimeOnScopeError";
 import { parsePublicSourceControlError } from "../state/parsePublicSourceControlError";
 import { useSourceControlWatchLifecycle } from "../state/useSourceControlWatchLifecycle";
 import { SourceControlDiffPreview } from "./SourceControlDiffPreview";
@@ -98,7 +99,7 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
   const [graphExpanded, setGraphExpanded] = useState(true);
 
   // Inline diff state
-  const [expandedDiffKey, setExpandedDiffKey] = useState<string | null>(null);
+  const [expandedDiffKey, setExpandedDiffKey] = useState<DiffKey | null>(null);
   const [diffByKey, setDiffByKey] = useState<
     Record<string, { patch: string; truncated: boolean; error: string | null; loading: boolean }>
   >({});
@@ -270,6 +271,7 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
         [diffKey]: { patch: result.patch, truncated: result.truncated, error: null, loading: false },
       }));
     } catch (err) {
+      invalidateCheckoutRuntimeOnScopeError(activeTrunk.id, err);
       const publicError = parsePublicSourceControlError(err);
       setDiffByKey((prev) => ({
         ...prev,

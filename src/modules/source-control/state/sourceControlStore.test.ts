@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
+import { useProjectStore } from "../../project/state/projectStore";
+import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { createMemorySourceControlApi } from "../api/createMemorySourceControlApi";
 import type {
   PublicSourceControlError,
@@ -71,6 +74,9 @@ function resetStore(): void {
 
 describe("sourceControlStore", () => {
   beforeEach(() => {
+    useMemoryPersistStorage();
+    useProjectStore.getState().resetProjectState();
+    useWorkspaceStore.setState({ workspacePath: null });
     resetStore();
   });
 
@@ -248,6 +254,47 @@ describe("sourceControlStore", () => {
 
       expect(useSourceControlStore.getState().activeOperations["repo-1"]).toEqual([]);
     }
+  });
+
+  it("flips trunk checkout runtime to invalid on checkout-invalid errors", async () => {
+    const { trunk, project } = useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-29T00:00:00.000Z",
+      trunkId: "trunk-1",
+      projectId: "project-1",
+    });
+    useProjectStore.getState().setCheckoutRuntime(trunk.id, {
+      status: "ready",
+      checkout: resolvedCheckout,
+    });
+    useWorkspaceStore.getState().setWorkspace(resolvedCheckout.checkoutPath);
+
+    const typedError: PublicSourceControlError = {
+      code: "checkout-invalid",
+      operation: "git_get_snapshot",
+      message: "Scope is no longer valid",
+      retryable: false,
+    };
+    const api = createMemorySourceControlApi({
+      snapshotsByCheckoutIdentity: { "checkout-1": baseSnapshot },
+    });
+    const failingApi = {
+      ...api,
+      getSnapshot: async () => {
+        throw typedError;
+      },
+    };
+    useSourceControlStore.getState().bindApi(failingApi as typeof api);
+
+    await useSourceControlStore.getState().loadSnapshot("trunk-1", resolvedCheckout);
+
+    expect(useSourceControlStore.getState().errorByTrunkId["trunk-1"]).toEqual(typedError);
+    expect(useProjectStore.getState().checkoutRuntimeByTrunkId["trunk-1"]).toMatchObject({
+      status: "invalid",
+      safeWorkspacePath: project.folderPath,
+      message: "Scope is no longer valid",
+    });
+    expect(useWorkspaceStore.getState().workspacePath).toBe(project.folderPath);
   });
 
   it("preserves plain-object PublicSourceControlError values", async () => {
