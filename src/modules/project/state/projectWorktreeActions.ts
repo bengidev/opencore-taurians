@@ -1,94 +1,64 @@
+import type { ResolvedSourceControlCheckout } from "../../source-control/api/sourceControlContracts";
+import {
+  createTauriSourceControlApi,
+  type SourceControlApi,
+} from "../../source-control";
 import type { ProjectCheckoutRuntimeState } from "../domain/projectCheckout";
 import type { ProjectTrunk } from "../domain/projectTypes";
 import { projectEnumerateDeletion } from "../domain/projectDeletionActions";
+import { useProjectStore } from "./projectStore";
 
 /**
- * Create a worktree-backed child trunk: native succeeds → metadata committed.
- * Caller provides a gitApi.createWorktree that returns the checkout result;
- * on success the checkout runtime and trunk metadata are persisted.
+ * Create a worktree-backed child trunk: native succeeds, then metadata is committed.
  */
 export async function projectCreateChildTrunk(input: {
+  projectId: string;
+  projectFolderPath: string;
   parentTrunkId: string;
+  parentScopeId: string;
   baseRefName: string;
   branchName: string;
   historyMode: "normal" | "orphan";
   nowIso: string;
-  gitApi: {
-    createWorktree(params: {
-      projectId: string;
-      parentTrunkId: string;
-      trunkId: string;
-      projectFolderPath: string;
-      baseRefName: string;
-      branchName: string;
-      historyMode: "normal" | "orphan";
-    }): Promise<{ scopeId: string; checkoutPath: string; repositoryIdentity: string; savedRefName: string | null }>;
-        kind: "worktree",
-        scopeId: result.scopeId,
-        checkoutPath: result.checkoutPath,
-  };
-  store: {
-    createChildTrunk(params: {
-      parentTrunkId: string;
-      title: string;
-      nowIso: string;
-      gitCheckout: import("../domain/projectTypes").SourceControlCheckoutRestore;
-    }): ProjectTrunk | null;
-    setCheckoutRuntime(trunkId: string, runtime: ProjectCheckoutRuntimeState): void;
-  };
-}): Promise<{ trunkId: string; checkoutPath: string }> {
+  sourceControlApi?: Pick<SourceControlApi, "createWorktree">;
+}): Promise<{ trunk: ProjectTrunk; checkout: ResolvedSourceControlCheckout }> {
+  void input.parentScopeId;
   const trunkId = crypto.randomUUID();
-  const parentTrunk = input.store.createChildTrunk({
-    parentTrunkId: input.parentTrunkId,
-    title: input.branchName,
-    nowIso: input.nowIso,
-    gitCheckout: {
-      kind: "worktree",
-      worktreePath: "",
-      repositoryIdentity: "",
-      savedRefName: input.branchName,
-      managedByApp: true,
-    },
-  });
-  if (!parentTrunk) {
-    throw new Error("Parent trunk not found");
-  }
+  const sourceControlApi = input.sourceControlApi ?? createTauriSourceControlApi();
 
+  let result;
   try {
-    const result = await input.gitApi.createWorktree({
-      projectId: "resolved-at-runtime",
+    result = await sourceControlApi.createWorktree({
+      projectId: input.projectId,
       parentTrunkId: input.parentTrunkId,
       trunkId,
-      projectFolderPath: "",
+      projectFolderPath: input.projectFolderPath,
       baseRefName: input.baseRefName,
       branchName: input.branchName,
       historyMode: input.historyMode,
     });
-
-    input.store.setCheckoutRuntime(trunkId, {
-      status: "ready",
-      checkout: {
-        kind: "worktree",
-        scopeId: result.scopeId,
-        checkoutPath: result.checkoutPath,
-        checkoutIdentity: result.checkoutPath,
-        repositoryIdentity: result.repositoryIdentity,
-        savedRefName: result.savedRefName,
-        managedByApp: true,
-        normalizedRestore: {
-          kind: "worktree",
-          worktreePath: result.checkoutPath,
-          repositoryIdentity: result.repositoryIdentity,
-          savedRefName: result.savedRefName,
-          managedByApp: true,
-        },
-      },
-    });
-
-    return { trunkId, checkoutPath: result.checkoutPath };
-  } catch {
-    throw new Error("Failed to create child worktree");
+  } catch (error) {
+    throw error instanceof Error ? error : new Error(String(error));
   }
+
+  const trunk = useProjectStore.getState().addChildTrunk({
+    trunkId,
+    parentTrunkId: input.parentTrunkId,
+    title: input.branchName,
+    nowIso: input.nowIso,
+    gitCheckout: result.checkout.normalizedRestore,
+  });
+  if (!trunk) {
+    throw new Error("Parent trunk not found");
+  }
+
+  const runtime: ProjectCheckoutRuntimeState = {
+    status: "ready",
+    checkout: result.checkout,
+  };
+  useProjectStore.getState().setCheckoutRuntime(trunkId, runtime);
+
+  return { trunk, checkout: result.checkout };
 }
 
 /**
@@ -101,4 +71,50 @@ export function projectPrepareDeletion(input: {
   trunks: readonly ProjectTrunk[];
 }): ReturnType<typeof projectEnumerateDeletion> {
   return projectEnumerateDeletion(input);
+}
+
+/**
+ * Inspect and remove managed worktrees, then delete Project metadata.
+ * Attached worktrees only lose metadata.
+ */
+export async function projectExecuteDeletion(input: {
+  targetTrunkId: string;
+  sourceControlApi?: Pick<
+    SourceControlApi,
+    "inspectWorktreeRemoval" | "removeWorktree"
+  >;
+}): Promise<void> {
+  const state = useProjectStore.getState();
+  const enumeration = projectEnumerateDeletion({
+    targetTrunkId: input.targetTrunkId,
+    trunks: state.trunks,
+  });
+  const sourceControlApi =
+    input.sourceControlApi ?? createTauriSourceControlApi();
+
+  for (const trunkId of enumeration.appManagedWorktreeTrunkIds) {
+    const trunk = state.trunks.find((item) => item.id === trunkId);
+    if (!trunk || trunk.restore.gitCheckout.kind !== "worktree") continue;
+    const checkout = trunk.restore.gitCheckout;
+    const runtime = state.checkoutRuntimeByTrunkId[trunkId];
+    const scopeId =
+      runtime?.status === "ready" ? runtime.checkout.scopeId : null;
+
+    const inspection = await sourceControlApi.inspectWorktreeRemoval({
+      worktreePath: checkout.worktreePath,
+      repositoryIdentity: checkout.repositoryIdentity,
+    });
+
+    await sourceControlApi.removeWorktree({
+      scopeId,
+      worktreePath: checkout.worktreePath,
+      repositoryIdentity: checkout.repositoryIdentity,
+      expectedHeadOid: inspection.headOid,
+      allowDirty: false,
+      allowUnmergedChanges: false,
+      allowUnmergedCommits: false,
+    });
+  }
+
+  useProjectStore.getState().deleteTrunkCascade(input.targetTrunkId);
 }

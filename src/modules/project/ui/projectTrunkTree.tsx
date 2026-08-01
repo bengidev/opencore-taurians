@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { projectFlattenTrunks, projectListChildTrunks } from "../domain/projectTrunkTree";
 import type { ProjectTrunk } from "../domain/projectTypes";
 import { projectActivateTrunk } from "../state/projectActivation";
+import { projectExecuteDeletion } from "../state/projectWorktreeActions";
 import { useProjectStore } from "../state/projectStore";
 import { ProjectTrunkRenameInput } from "./projectTrunkRenameInput";
 
@@ -139,7 +140,9 @@ function TrunkRow({
             variant="destructive"
             onClick={() => {
               if (!window.confirm(DELETE_TRUNK_CONFIRM)) return;
-              useProjectStore.getState().deleteTrunkCascade(trunk.id);
+              void projectExecuteDeletion({ targetTrunkId: trunk.id }).catch(() => {
+                window.alert("Failed to delete trunk.");
+              });
             }}
           >
             <Trash2 className="size-3.5" aria-hidden />

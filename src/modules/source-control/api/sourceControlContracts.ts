@@ -364,6 +364,7 @@ export interface SourceControlWorktreeRemovalInspection {
 }
 
 export interface SourceControlRemoveWorktreeInput {
+  scopeId?: string | null;
   worktreePath: string;
   repositoryIdentity: string;
   expectedHeadOid: string | null;

@@ -314,12 +314,14 @@ pub fn git_enumerate_hooks(
 #[tauri::command]
 pub fn git_worktree_create(
     input: SourceControlCreateWorktreeInput,
+    registry: State<'_, SourceControlScopeRegistry>,
     coordinator: State<'_, SourceControlOperationCoordinatorState>,
     app: AppHandle,
     quit: State<'_, QuitGuard>,
 ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
     let repository_id = input.project_folder_path.clone();
     let trunk_id = input.trunk_id.clone();
+    let registry = registry.clone();
     run_coordinated_identity(
         &coordinator,
         &repository_id,
@@ -328,8 +330,12 @@ pub fn git_worktree_create(
         &quit,
         "worktree-create",
         move |ctx, coord| {
-            let result =
-                worktree::create_worktree_with(&process::SystemGitProcess, input, Some((ctx, coord)))?;
+            let result = worktree::create_worktree_with(
+                &process::SystemGitProcess,
+                input,
+                &registry,
+                Some((ctx, coord)),
+            )?;
             Ok((result.clone(), "Worktree created".into()))
         },
     )
@@ -338,12 +344,14 @@ pub fn git_worktree_create(
 #[tauri::command]
 pub fn git_worktree_attach(
     input: SourceControlAttachWorktreeInput,
+    registry: State<'_, SourceControlScopeRegistry>,
     coordinator: State<'_, SourceControlOperationCoordinatorState>,
     app: AppHandle,
     quit: State<'_, QuitGuard>,
 ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
     let repository_id = input.project_folder_path.clone();
     let trunk_id = input.trunk_id.clone();
+    let registry = registry.clone();
     run_coordinated_identity(
         &coordinator,
         &repository_id,
@@ -352,7 +360,11 @@ pub fn git_worktree_attach(
         &quit,
         "worktree-attach",
         move |_ctx, _coord| {
-            let result = worktree::attach_worktree(input)?;
+            let result = worktree::attach_worktree_with(
+                &process::SystemGitProcess,
+                input,
+                &registry,
+            )?;
             Ok((result.clone(), "Worktree attached".into()))
         },
     )
@@ -361,6 +373,7 @@ pub fn git_worktree_attach(
 #[tauri::command]
 pub fn git_worktree_repair(
     input: SourceControlRepairWorktreeInput,
+    registry: State<'_, SourceControlScopeRegistry>,
     coordinator: State<'_, SourceControlOperationCoordinatorState>,
     app: AppHandle,
     quit: State<'_, QuitGuard>,
@@ -373,6 +386,7 @@ pub fn git_worktree_repair(
             (expected_repository_identity.clone(), trunk_id.clone())
         }
     };
+    let registry = registry.clone();
     run_coordinated_identity(
         &coordinator,
         &repository_id,
@@ -381,8 +395,12 @@ pub fn git_worktree_repair(
         &quit,
         "worktree-repair",
         move |ctx, coord| {
-            let result =
-                worktree::repair_worktree_with(&process::SystemGitProcess, input, Some((ctx, coord)))?;
+            let result = worktree::repair_worktree_with(
+                &process::SystemGitProcess,
+                input,
+                &registry,
+                Some((ctx, coord)),
+            )?;
             Ok((result.clone(), "Worktree repaired".into()))
         },
     )
@@ -399,11 +417,13 @@ pub fn git_worktree_inspect_removal(
 #[tauri::command]
 pub fn git_worktree_remove(
     input: SourceControlRemoveWorktreeInput,
+    registry: State<'_, SourceControlScopeRegistry>,
     coordinator: State<'_, SourceControlOperationCoordinatorState>,
     app: AppHandle,
     quit: State<'_, QuitGuard>,
 ) -> Result<(), PublicSourceControlError> {
     let repository_id = input.repository_identity.clone();
+    let registry = registry.clone();
     run_coordinated_identity(
         &coordinator,
         &repository_id,
@@ -412,7 +432,12 @@ pub fn git_worktree_remove(
         &quit,
         "worktree-remove",
         move |ctx, coord| {
-            worktree::remove_worktree_with(&process::SystemGitProcess, input, Some((ctx, coord)))?;
+            worktree::remove_worktree_with(
+                &process::SystemGitProcess,
+                input,
+                &registry,
+                Some((ctx, coord)),
+            )?;
             Ok(((), "Worktree removed".into()))
         },
     )

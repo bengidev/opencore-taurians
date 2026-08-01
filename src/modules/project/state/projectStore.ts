@@ -66,9 +66,11 @@ export interface ProjectState {
     trunkId?: string;
   }) => { project: Project; trunk: ProjectTrunk };
   addChildTrunk: (input: {
+    trunkId: string;
     parentTrunkId: string;
     title: string;
     nowIso: string;
+    gitCheckout: SourceControlCheckoutRestore;
   }) => ProjectTrunk | null;
   addRootTrunk: (input: {
     projectId: string;
@@ -149,7 +151,30 @@ export const useProjectStore = create<ProjectState>()(
         }));
         return { project, trunk };
       },
-      addChildTrunk: (_input) => null,
+      addChildTrunk: (input) => {
+        const parent = get().trunks.find((trunk) => trunk.id === input.parentTrunkId);
+        if (!parent || parent.parentTrunkId !== null) return null;
+        const siblings = get().trunks.filter(
+          (trunk) => trunk.parentTrunkId === input.parentTrunkId,
+        );
+        const trunk: ProjectTrunk = {
+          id: input.trunkId,
+          projectId: parent.projectId,
+          parentTrunkId: input.parentTrunkId,
+          title: input.title,
+          pinned: false,
+          createdAt: input.nowIso,
+          lastOpenedAt: input.nowIso,
+          restore: {
+            activeMainCard: "chat",
+            rightPanelFeature: "git",
+            gitCheckout: input.gitCheckout,
+          },
+          siblingOrder: siblings.length,
+        };
+        set((state) => ({ trunks: [...state.trunks, trunk] }));
+        return trunk;
+      },
       addRootTrunk: (input) => {
         if (!get().projects.some((p) => p.id === input.projectId)) return null;
         const siblings = projectListChildTrunks(get().trunks, null).filter(
