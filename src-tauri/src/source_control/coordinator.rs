@@ -132,7 +132,7 @@ impl SourceControlOperationCoordinatorState {
             },
             app: app.cloned(),
             quit,
-            repo_permit,
+            _repo_permit: repo_permit,
             terminal_emitted: Cell::new(false),
         })
     }
@@ -167,6 +167,7 @@ impl SourceControlOperationCoordinatorState {
         }
     }
 
+    #[allow(dead_code)]
     pub fn pending_count(&self, repository_id: &str) -> usize {
         self.pending_counts
             .lock()
@@ -176,6 +177,7 @@ impl SourceControlOperationCoordinatorState {
             .unwrap_or(0)
     }
 
+    #[allow(dead_code)]
     pub fn active_operation_ids(&self) -> Vec<String> {
         self.operations.lock().unwrap().keys().cloned().collect()
     }
@@ -186,7 +188,7 @@ pub struct SourceControlOperationGuard<'a> {
     context: SourceControlOperationContext,
     app: Option<AppHandle>,
     quit: &'a QuitGuard,
-    repo_permit: RepositoryQueuePermit,
+    _repo_permit: RepositoryQueuePermit,
     terminal_emitted: Cell<bool>,
 }
 

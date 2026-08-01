@@ -145,13 +145,6 @@ pub fn list_refs_with(
     Ok(refs)
 }
 
-pub fn mutate_ref(
-    input: SourceControlRefMutationInput,
-    scope: &SourceControlScopeRecord,
-) -> Result<SourceControlRefMutationResult, PublicSourceControlError> {
-    mutate_ref_with(&SystemGitProcess, input, scope, None)
-}
-
 pub fn mutate_ref_with(
     process: &impl SourceControlProcess,
     input: SourceControlRefMutationInput,

@@ -75,6 +75,7 @@ impl SourceControlScopeRegistry {
             .remove(scope_id);
     }
 
+    #[allow(dead_code)]
     pub fn invalidate_trunk(&self, trunk_id: &str) {
         self.scopes
             .write()

@@ -248,13 +248,6 @@ fn register_worktree_checkout(
     }
 }
 
-pub fn create_worktree(
-    input: SourceControlCreateWorktreeInput,
-) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
-    let registry = SourceControlScopeRegistry::default();
-    create_worktree_with(&SystemGitProcess, input, &registry, None)
-}
-
 pub fn create_worktree_with(
     process: &impl SourceControlProcess,
     input: SourceControlCreateWorktreeInput,
@@ -354,13 +347,6 @@ pub fn create_worktree_with(
     Ok(SourceControlWorktreeMutationResult { checkout })
 }
 
-pub fn attach_worktree(
-    input: SourceControlAttachWorktreeInput,
-) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
-    let registry = SourceControlScopeRegistry::default();
-    attach_worktree_with(&SystemGitProcess, input, &registry)
-}
-
 pub fn attach_worktree_with(
     process: &impl SourceControlProcess,
     input: SourceControlAttachWorktreeInput,
@@ -404,13 +390,6 @@ pub fn attach_worktree_with(
     );
 
     Ok(SourceControlWorktreeMutationResult { checkout })
-}
-
-pub fn repair_worktree(
-    input: SourceControlRepairWorktreeInput,
-) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
-    let registry = SourceControlScopeRegistry::default();
-    repair_worktree_with(&SystemGitProcess, input, &registry, None)
 }
 
 pub fn repair_worktree_with(
@@ -590,13 +569,6 @@ pub fn inspect_worktree_removal_with(
         head_oid,
         affected_trunk_ids: input.affected_trunk_ids,
     })
-}
-
-pub fn remove_worktree(
-    input: SourceControlRemoveWorktreeInput,
-) -> Result<(), PublicSourceControlError> {
-    let registry = SourceControlScopeRegistry::default();
-    remove_worktree_with(&SystemGitProcess, input, &registry, None)
 }
 
 pub fn remove_worktree_with(
@@ -1243,13 +1215,17 @@ mod tests {
         )
         .unwrap();
 
-        let attached = attach_worktree(SourceControlAttachWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: "ct2".into(),
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            worktree_path: created.checkout.checkout_path.clone(),
-        })
+        let attached = attach_worktree_with(
+            &SystemGitProcess,
+            SourceControlAttachWorktreeInput {
+                project_id: "p".into(),
+                parent_trunk_id: "pt".into(),
+                trunk_id: "ct2".into(),
+                project_folder_path: dir.path().to_string_lossy().into_owned(),
+                worktree_path: created.checkout.checkout_path.clone(),
+            },
+            &registry,
+        )
         .unwrap();
 
         assert_eq!(attached.checkout.checkout_path, created.checkout.checkout_path);
@@ -1283,13 +1259,17 @@ mod tests {
         )
         .unwrap();
 
-        let err = attach_worktree(SourceControlAttachWorktreeInput {
-            project_id: "p".into(),
-            parent_trunk_id: "pt".into(),
-            trunk_id: "ct2".into(),
-            project_folder_path: dir.path().to_string_lossy().into_owned(),
-            worktree_path: created.checkout.checkout_path.clone(),
-        })
+        let err = attach_worktree_with(
+            &SystemGitProcess,
+            SourceControlAttachWorktreeInput {
+                project_id: "p".into(),
+                parent_trunk_id: "pt".into(),
+                trunk_id: "ct2".into(),
+                project_folder_path: dir.path().to_string_lossy().into_owned(),
+                worktree_path: created.checkout.checkout_path.clone(),
+            },
+            &SourceControlScopeRegistry::default(),
+        )
         .unwrap_err();
 
         assert_eq!(
@@ -1394,15 +1374,20 @@ mod tests {
 
         assert!(inspection.dirty);
 
-        let err = remove_worktree(SourceControlRemoveWorktreeInput {
-            scope_id: None,
-            worktree_path: created.checkout.checkout_path.clone(),
-            repository_identity: repository_identity.clone(),
-            expected_head_oid: inspection.head_oid,
-            allow_dirty: false,
-            allow_unmerged_changes: false,
-            allow_unmerged_commits: false,
-        })
+        let err = remove_worktree_with(
+            &SystemGitProcess,
+            SourceControlRemoveWorktreeInput {
+                scope_id: None,
+                worktree_path: created.checkout.checkout_path.clone(),
+                repository_identity: repository_identity.clone(),
+                expected_head_oid: inspection.head_oid,
+                allow_dirty: false,
+                allow_unmerged_changes: false,
+                allow_unmerged_commits: false,
+            },
+            &registry,
+            None,
+        )
         .unwrap_err();
 
         assert_eq!(
@@ -1410,15 +1395,20 @@ mod tests {
             crate::source_control::contracts::PublicSourceControlErrorCode::PreconditionFailed
         );
 
-        remove_worktree(SourceControlRemoveWorktreeInput {
-            scope_id: None,
-            worktree_path: created.checkout.checkout_path.clone(),
-            repository_identity,
-            expected_head_oid: None,
-            allow_dirty: true,
-            allow_unmerged_changes: false,
-            allow_unmerged_commits: false,
-        })
+        remove_worktree_with(
+            &SystemGitProcess,
+            SourceControlRemoveWorktreeInput {
+                scope_id: None,
+                worktree_path: created.checkout.checkout_path.clone(),
+                repository_identity,
+                expected_head_oid: None,
+                allow_dirty: true,
+                allow_unmerged_changes: false,
+                allow_unmerged_commits: false,
+            },
+            &registry,
+            None,
+        )
         .unwrap();
 
         assert!(!Path::new(&created.checkout.checkout_path).exists());
@@ -1559,15 +1549,20 @@ mod tests {
             .repository_identity
             .clone()
             .unwrap_or_default();
-        let err = remove_worktree(SourceControlRemoveWorktreeInput {
-            scope_id: None,
-            worktree_path: created.checkout.checkout_path.clone(),
-            repository_identity,
-            expected_head_oid: Some("deadbeef".into()),
-            allow_dirty: false,
-            allow_unmerged_changes: false,
-            allow_unmerged_commits: false,
-        })
+        let err = remove_worktree_with(
+            &SystemGitProcess,
+            SourceControlRemoveWorktreeInput {
+                scope_id: None,
+                worktree_path: created.checkout.checkout_path.clone(),
+                repository_identity,
+                expected_head_oid: Some("deadbeef".into()),
+                allow_dirty: false,
+                allow_unmerged_changes: false,
+                allow_unmerged_commits: false,
+            },
+            &registry,
+            None,
+        )
         .unwrap_err();
 
         assert_eq!(
@@ -1646,15 +1641,21 @@ mod tests {
         let scope = detect_repository(&SystemGitProcess, &external).unwrap();
         assert!(!is_managed_worktree_path(&external));
 
-        remove_worktree(SourceControlRemoveWorktreeInput {
-            scope_id: None,
-            worktree_path: external.to_string_lossy().into_owned(),
-            repository_identity: scope.repository_identity.clone(),
-            expected_head_oid: None,
-            allow_dirty: false,
-            allow_unmerged_changes: false,
-            allow_unmerged_commits: false,
-        })
+        let registry = SourceControlScopeRegistry::default();
+        remove_worktree_with(
+            &SystemGitProcess,
+            SourceControlRemoveWorktreeInput {
+                scope_id: None,
+                worktree_path: external.to_string_lossy().into_owned(),
+                repository_identity: scope.repository_identity.clone(),
+                expected_head_oid: None,
+                allow_dirty: false,
+                allow_unmerged_changes: false,
+                allow_unmerged_commits: false,
+            },
+            &registry,
+            None,
+        )
         .unwrap();
 
         assert!(!external.exists());
