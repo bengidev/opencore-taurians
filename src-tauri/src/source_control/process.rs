@@ -44,6 +44,21 @@ impl SourceControlCommandSpec {
             policy: SourceControlExecutionPolicy::ParsedRead,
         }
     }
+
+    pub fn trusted_mutation(
+        checkout: impl Into<PathBuf>,
+        args: impl IntoIterator<Item = impl Into<OsString>>,
+    ) -> Self {
+        Self {
+            checkout: checkout.into(),
+            operation: "mutation",
+            args: args.into_iter().map(Into::into).collect(),
+            timeout: Duration::from_secs(60),
+            stdout_limit: DEFAULT_OUTPUT_LIMIT,
+            stderr_limit: DEFAULT_OUTPUT_LIMIT,
+            policy: SourceControlExecutionPolicy::TrustedMutation,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
