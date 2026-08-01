@@ -617,4 +617,64 @@ describe("ExplorerPanel", () => {
 
     editorZone.remove();
   });
+
+  it("subscribes and unsubscribes the explorer watch identity", async () => {
+    const folderPath = "/proj";
+    const scopeId = "scope-explorer-test";
+    createActiveProject({
+      folderPath,
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    useProjectStore.getState().setCheckoutRuntime(
+      useProjectStore.getState().activeTrunkId!,
+      {
+        status: "ready",
+        checkout: {
+          kind: "project-root",
+          scopeId,
+          checkoutPath: folderPath,
+          checkoutIdentity: `checkout:${folderPath}`,
+          repositoryIdentity: "repo-1",
+          savedRefName: "main",
+          managedByApp: false,
+          normalizedRestore: {
+            kind: "project-root",
+            repositoryIdentity: "repo-1",
+            savedRefName: "main",
+          },
+        },
+      },
+    );
+
+    const watchSubscribe = vi.fn().mockResolvedValue(undefined);
+    const watchUnsubscribe = vi.fn().mockResolvedValue(undefined);
+    const baseApi = createMemoryExplorerApi({
+      projectRoot: folderPath,
+      dirs: { [folderPath]: [] },
+    });
+    const api: ExplorerApi = {
+      ...baseApi,
+      watchSubscribe,
+      watchUnsubscribe,
+    };
+
+    const { unmount } = render(<ExplorerPanel explorerApi={api} />);
+
+    await waitFor(() => {
+      expect(watchSubscribe).toHaveBeenCalledWith({
+        scopeId,
+        mode: expect.any(String),
+        identity: "explorer",
+      });
+    });
+
+    unmount();
+
+    await waitFor(() => {
+      expect(watchUnsubscribe).toHaveBeenCalledWith({
+        scopeId,
+        identity: "explorer",
+      });
+    });
+  });
 });

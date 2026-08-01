@@ -15,6 +15,7 @@ import { explorerPanelDismissClassName } from "./explorerStyles";
 import { ExplorerTree } from "./ExplorerTree";
 
 const defaultExplorerApi = createTauriExplorerApi();
+const EXPLORER_WATCH_IDENTITY = "explorer";
 
 function parentDir(path: string): string {
   const index = path.lastIndexOf("/");
@@ -70,6 +71,15 @@ async function handleExternalDrop(payload: ExplorerDropPayload): Promise<void> {
   }
 }
 
+function resolveActiveScopeId(): string | null {
+  const { activeTrunkId, checkoutRuntimeByTrunkId } = useProjectStore.getState();
+  if (!activeTrunkId) {
+    return null;
+  }
+  const runtime = checkoutRuntimeByTrunkId[activeTrunkId];
+  return runtime?.status === "ready" ? runtime.checkout.scopeId : null;
+}
+
 export interface ExplorerPanelProps {
   explorerApi?: ExplorerApi;
 }
@@ -93,22 +103,32 @@ export function ExplorerPanel({
 
     let unlistenChanged: UnlistenFn | undefined;
     let unlistenDrop: UnlistenFn | undefined;
-    let watchedRoot: string | null = null;
+    let watchedScopeId: string | null = null;
 
-    const applyWatch = async (projectRoot: string | null): Promise<void> => {
-      if (watchedRoot && watchedRoot !== projectRoot) {
-        await api.unwatch(watchedRoot);
-        watchedRoot = null;
+    const applyWatch = async (scopeId: string | null): Promise<void> => {
+      if (watchedScopeId && watchedScopeId !== scopeId) {
+        await api.watchUnsubscribe({
+          scopeId: watchedScopeId,
+          identity: EXPLORER_WATCH_IDENTITY,
+        });
+        watchedScopeId = null;
       }
 
-      if (!projectRoot) {
+      if (!scopeId) {
         return;
       }
 
       const mode = useShellStore.getState().explorerAutoRefresh;
-      await api.unwatch(projectRoot);
-      await api.watch(projectRoot, mode);
-      watchedRoot = projectRoot;
+      await api.watchUnsubscribe({
+        scopeId,
+        identity: EXPLORER_WATCH_IDENTITY,
+      });
+      await api.watchSubscribe({
+        scopeId,
+        mode,
+        identity: EXPLORER_WATCH_IDENTITY,
+      });
+      watchedScopeId = scopeId;
     };
 
     void api
@@ -130,17 +150,33 @@ export function ExplorerPanel({
         unlistenDrop = unlisten;
       });
 
-    void applyWatch(useExplorerStore.getState().projectRoot);
+    void applyWatch(resolveActiveScopeId());
 
     const unsubscribeShell = useShellStore.subscribe((state, prev) => {
       if (state.explorerAutoRefresh !== prev.explorerAutoRefresh) {
-        void applyWatch(useExplorerStore.getState().projectRoot);
+        void applyWatch(resolveActiveScopeId());
       }
     });
 
     const unsubscribeExplorer = useExplorerStore.subscribe((state, prev) => {
       if (state.projectRoot !== prev.projectRoot) {
-        void applyWatch(state.projectRoot);
+        void applyWatch(resolveActiveScopeId());
+      }
+    });
+
+    const unsubscribeProject = useProjectStore.subscribe((state, prev) => {
+      const prevScopeId =
+        prev.activeTrunkId &&
+        prev.checkoutRuntimeByTrunkId[prev.activeTrunkId]?.status === "ready"
+          ? prev.checkoutRuntimeByTrunkId[prev.activeTrunkId].checkout.scopeId
+          : null;
+      const nextScopeId =
+        state.activeTrunkId &&
+        state.checkoutRuntimeByTrunkId[state.activeTrunkId]?.status === "ready"
+          ? state.checkoutRuntimeByTrunkId[state.activeTrunkId].checkout.scopeId
+          : null;
+      if (nextScopeId !== prevScopeId) {
+        void applyWatch(nextScopeId);
       }
     });
 
@@ -149,8 +185,12 @@ export function ExplorerPanel({
       unlistenDrop?.();
       unsubscribeShell();
       unsubscribeExplorer();
-      if (watchedRoot) {
-        void api.unwatch(watchedRoot);
+      unsubscribeProject();
+      if (watchedScopeId) {
+        void api.watchUnsubscribe({
+          scopeId: watchedScopeId,
+          identity: EXPLORER_WATCH_IDENTITY,
+        });
       }
     };
   }, [explorerApi]);

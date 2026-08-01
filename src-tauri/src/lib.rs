@@ -6,7 +6,7 @@ mod quit;
 mod source_control;
 mod watch;
 
-use explorer::ExplorerWatchState;
+use source_control::scope_registry::SourceControlScopeRegistry;
 use tauri::{Emitter, State};
 
 use watch::{WatchBroker, WatchSubscribeInput, WatchUnsubscribeInput};
@@ -22,16 +22,18 @@ fn watch_subscribe(
     input: WatchSubscribeInput,
     app: tauri::AppHandle,
     broker: State<'_, WatchBroker>,
+    registry: State<'_, SourceControlScopeRegistry>,
 ) -> Result<(), String> {
-    broker.subscribe(input, &app)
+    broker.subscribe(input, &registry, Some(&app))
 }
 
 #[tauri::command]
 fn watch_unsubscribe(
     input: WatchUnsubscribeInput,
     broker: State<'_, WatchBroker>,
+    registry: State<'_, SourceControlScopeRegistry>,
 ) -> Result<(), String> {
-    broker.unsubscribe(input)
+    broker.unsubscribe(input, &registry)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -40,7 +42,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
-        .manage(ExplorerWatchState::default())
         .manage(source_control::repository::SourceControlRepositoryState::default())
         .manage(source_control::scope_registry::SourceControlScopeRegistry::default())
         .manage(source_control::coordinator::SourceControlOperationCoordinatorState::default())
@@ -61,8 +62,6 @@ pub fn run() {
             explorer::trash::explorer_trash,
             explorer::duplicate::explorer_duplicate,
             explorer::copy::explorer_copy_paths,
-            explorer::watch::explorer_watch,
-            explorer::watch::explorer_unwatch,
             explorer::reveal::explorer_reveal,
             source_control::git_resolve_checkout,
             source_control::git_get_snapshot,
