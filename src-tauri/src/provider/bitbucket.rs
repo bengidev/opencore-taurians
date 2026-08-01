@@ -1,6 +1,6 @@
 #![allow(dead_code)] // Provider client scaffolding: DTOs and HTTP flow behind GIT_SUITE_RELEASE_ENABLED; mapper fns are test-covered.
 use crate::provider::remote::*;
-use crate::provider::transport::ProviderTransport;
+use crate::provider::transport::{ProviderHttpClient, ProviderTransport};
 use serde::{Deserialize, Serialize};
 
 // ---------- Internal Bitbucket API deserialization structs ----------
@@ -149,7 +149,7 @@ struct BitbucketBranchRef {
 // ---------- Client ----------
 
 pub struct BitbucketClient {
-    transport: ProviderTransport,
+    transport: ProviderHttpClient,
 }
 
 impl BitbucketClient {
@@ -158,7 +158,13 @@ impl BitbucketClient {
             ProviderTransport::new("api.bitbucket.org", "https://api.bitbucket.org/2.0")
                 .map_err(|e| ProviderError::NetworkError { message: e })?
                 .with_token(token);
-        Ok(Self { transport })
+        Ok(Self {
+            transport: ProviderHttpClient::from_provider_transport(transport),
+        })
+    }
+
+    pub fn with_http_client(transport: ProviderHttpClient) -> Self {
+        Self { transport }
     }
 
     // --- Mapping helpers ---
@@ -243,11 +249,6 @@ impl BitbucketClient {
     }
 
     // --- Public API ---
-
-    pub fn with_token(mut self, token: &str) -> Self {
-        self.transport = self.transport.with_token(token);
-        self
-    }
 
     pub async fn list_repositories(
         &self,

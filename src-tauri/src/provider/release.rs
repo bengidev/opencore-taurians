@@ -1,15 +1,10 @@
-#![allow(dead_code)] // Provider release orchestration behind GIT_SUITE_RELEASE_ENABLED; provider mappings are test-covered.
 use serde::{Deserialize, Serialize};
 
-use crate::provider::contracts::ProviderKind;
+use crate::provider::contracts::{ProviderKind, ProviderReleaseCapability};
 use crate::provider::remote::{ProviderError, ProviderRelease};
-use crate::provider::transport::ProviderTransport;
+use crate::provider::transport::{ProviderHttpClient, ProviderTransport};
 
-// ---------- Tauri command input/output types ----------
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProviderReleaseInput {
+pub struct ProviderReleaseRequest {
     pub kind: ProviderKind,
     pub organization: Option<String>,
     pub owner: String,
@@ -20,13 +15,11 @@ pub struct ProviderReleaseInput {
     pub draft: bool,
     pub prerelease: bool,
     pub token: String,
+    pub http: Option<ProviderHttpClient>,
 }
 
-/// Create a release on the given provider using the provider's native API.
-///
-/// Tokens are passed per-operation and never stored.
 pub async fn create_provider_release(
-    input: ProviderReleaseInput,
+    input: ProviderReleaseRequest,
 ) -> Result<ProviderRelease, ProviderError> {
     match input.kind {
         ProviderKind::Github => create_github_release(&input).await,
@@ -36,14 +29,30 @@ pub async fn create_provider_release(
     }
 }
 
-// ---------- GitHub ----------
-
-async fn create_github_release(
-    input: &ProviderReleaseInput,
-) -> Result<ProviderRelease, ProviderError> {
+fn github_transport(input: &ProviderReleaseRequest) -> Result<ProviderHttpClient, ProviderError> {
+    if let Some(http) = &input.http {
+        return Ok(http.clone());
+    }
     let transport = ProviderTransport::new("api.github.com", "https://api.github.com")
         .map_err(|e| ProviderError::NetworkError { message: e })?
         .with_token(&input.token);
+    Ok(ProviderHttpClient::from_provider_transport(transport))
+}
+
+fn gitlab_transport(input: &ProviderReleaseRequest) -> Result<ProviderHttpClient, ProviderError> {
+    if let Some(http) = &input.http {
+        return Ok(http.clone());
+    }
+    let transport = ProviderTransport::new("gitlab.com", "https://gitlab.com/api/v4")
+        .map_err(|e| ProviderError::NetworkError { message: e })?
+        .with_token(&input.token);
+    Ok(ProviderHttpClient::from_provider_transport(transport))
+}
+
+async fn create_github_release(
+    input: &ProviderReleaseRequest,
+) -> Result<ProviderRelease, ProviderError> {
+    let transport = github_transport(input)?;
 
     #[derive(Debug, Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -70,7 +79,10 @@ async fn create_github_release(
 
     let body = serde_json::to_string(&GitHubReleaseRequest {
         tag_name: input.tag_name.clone(),
-        name: input.name.clone().unwrap_or_else(|| input.tag_name.clone()),
+        name: input
+            .name
+            .clone()
+            .unwrap_or_else(|| input.tag_name.clone()),
         body: input.description.clone().unwrap_or_default(),
         draft: input.draft,
         prerelease: input.prerelease,
@@ -94,14 +106,10 @@ async fn create_github_release(
     })
 }
 
-// ---------- GitLab ----------
-
 async fn create_gitlab_release(
-    input: &ProviderReleaseInput,
+    input: &ProviderReleaseRequest,
 ) -> Result<ProviderRelease, ProviderError> {
-    let transport = ProviderTransport::new("gitlab.com", "https://gitlab.com/api/v4")
-        .map_err(|e| ProviderError::NetworkError { message: e })?
-        .with_token(&input.token);
+    let transport = gitlab_transport(input)?;
 
     #[derive(Debug, Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -117,26 +125,25 @@ async fn create_gitlab_release(
         tag_name: String,
         name: Option<String>,
         description: Option<String>,
-        commit_path: Option<String>,
         created_at: Option<String>,
     }
 
     let body = serde_json::to_string(&GitLabReleaseRequest {
         tag_name: input.tag_name.clone(),
-        name: input.name.clone().unwrap_or_else(|| input.tag_name.clone()),
+        name: input
+            .name
+            .clone()
+            .unwrap_or_else(|| input.tag_name.clone()),
         description: input.description.clone().unwrap_or_default(),
     })
     .map_err(|e| ProviderError::ProviderError {
         message: e.to_string(),
     })?;
 
-    // URL-encode project path: owner/repo -> owner%2Frepo
     let project_path = format!("{}%2F{}", input.owner, input.repo);
     let path = format!("/projects/{}/releases", project_path);
     let response: GitLabReleaseResponse = transport.post_json(&path, &body).await?;
 
-    // GitLab releases don't have an id field in the same way — use tag_name
-    // and construct the URL
     let encoded_path = format!("{}/{}", input.owner, input.repo);
     let html_url = format!(
         "https://gitlab.com/{}/-/releases/{}",
@@ -155,18 +162,9 @@ async fn create_gitlab_release(
     })
 }
 
-// ---------- Bitbucket ----------
-
 async fn create_bitbucket_release(
-    input: &ProviderReleaseInput,
+    input: &ProviderReleaseRequest,
 ) -> Result<ProviderRelease, ProviderError> {
-    // Bitbucket Cloud doesn't have a first-class "releases" API endpoint.
-    // Releases are modeled as tags with Downloads attachments.
-    // For now, return a meaningful error recommending the tag-based workflow.
-    //
-    // In a future iteration, this can push lightweight/annotated tags via
-    // the Git Ref API and attach artifacts via the Downloads API.
-
     Err(ProviderError::ProviderError {
         message: format!(
             "Bitbucket Cloud does not have a native releases API. \
@@ -177,31 +175,17 @@ async fn create_bitbucket_release(
     })
 }
 
-// ---------- Azure DevOps ----------
-
 async fn create_azure_release(
-    input: &ProviderReleaseInput,
+    input: &ProviderReleaseRequest,
 ) -> Result<ProviderRelease, ProviderError> {
-    let organization =
-        input
-            .organization
-            .as_deref()
-            .ok_or_else(|| ProviderError::ProviderError {
-                message: "Azure DevOps releases require an organization name".into(),
-            })?;
-
-    let _organization = organization;
-    let _token = &input.token;
-    // Azure DevOps uses "Release" pipelines, not a REST releases endpoint.
-    // The git refs API can create tags, but actual release management requires
-    // the Azure Pipelines API which is workflow-dependent.
-    //
-    // For now, return a descriptive error with instructions.
+    let organization = input
+        .organization
+        .as_deref()
+        .ok_or_else(|| ProviderError::ProviderError {
+            message: "Azure DevOps releases require an organization name".into(),
+        })?;
 
     let project = &input.repo;
-    // A full release pipeline would use the Azure Pipelines Runs API.
-    // Since we can't easily get the target commit OID from this context,
-    // return a descriptive error with instructions.
 
     Err(ProviderError::ProviderError {
         message: format!(
@@ -216,17 +200,6 @@ async fn create_azure_release(
     })
 }
 
-// ---------- Release capability query ----------
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProviderReleaseCapability {
-    pub kind: ProviderKind,
-    pub supports_native_releases: bool,
-    pub description: String,
-}
-
-/// Return the release capabilities for each provider.
 pub fn release_capabilities() -> Vec<ProviderReleaseCapability> {
     vec![
         ProviderReleaseCapability {
@@ -258,12 +231,12 @@ pub fn release_capabilities() -> Vec<ProviderReleaseCapability> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::provider::transport::{FakeTransport, ProviderHttpMethod};
 
     #[test]
     fn test_release_capabilities_cover_all_providers() {
         let caps = release_capabilities();
         assert_eq!(caps.len(), 4);
-        // GitHub and GitLab support native releases
         let gh = caps
             .iter()
             .find(|c| c.kind == ProviderKind::Github)
@@ -274,7 +247,6 @@ mod tests {
             .find(|c| c.kind == ProviderKind::Gitlab)
             .unwrap();
         assert!(gl.supports_native_releases);
-        // Bitbucket and Azure do not
         let bb = caps
             .iter()
             .find(|c| c.kind == ProviderKind::Bitbucket)
@@ -290,7 +262,7 @@ mod tests {
     #[test]
     fn test_bitbucket_release_returns_provider_error() {
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let input = ProviderReleaseInput {
+        let input = ProviderReleaseRequest {
             kind: ProviderKind::Bitbucket,
             organization: None,
             owner: "owner".into(),
@@ -301,6 +273,7 @@ mod tests {
             draft: false,
             prerelease: false,
             token: "test-token".into(),
+            http: None,
         };
         let result = rt.block_on(create_bitbucket_release(&input));
         assert!(result.is_err());
@@ -314,7 +287,7 @@ mod tests {
     #[test]
     fn test_azure_release_requires_organization() {
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let input = ProviderReleaseInput {
+        let input = ProviderReleaseRequest {
             kind: ProviderKind::AzureDevops,
             organization: None,
             owner: "owner".into(),
@@ -325,8 +298,42 @@ mod tests {
             draft: false,
             prerelease: false,
             token: "test-token".into(),
+            http: None,
         };
         let result = rt.block_on(create_azure_release(&input));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_github_release_uses_fake_transport() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let fake = FakeTransport::new();
+        fake.stub_json(
+            ProviderHttpMethod::Post,
+            "/repos/acme/app/releases",
+            200,
+            r#"{"id":99,"tagName":"v1.0.0","name":"v1.0.0","body":"notes","draft":false,"prerelease":false,"htmlUrl":"https://github.com/acme/app/releases/tag/v1.0.0","createdAt":"2024-01-01T00:00:00Z"}"#,
+        );
+        let http = ProviderHttpClient::new(
+            std::sync::Arc::new(fake),
+            "https://api.github.com",
+            Some("Bearer test".into()),
+        );
+        let input = ProviderReleaseRequest {
+            kind: ProviderKind::Github,
+            organization: None,
+            owner: "acme".into(),
+            repo: "app".into(),
+            tag_name: "v1.0.0".into(),
+            name: Some("v1.0.0".into()),
+            description: Some("notes".into()),
+            draft: false,
+            prerelease: false,
+            token: "test-token".into(),
+            http: Some(http),
+        };
+        let result = rt.block_on(create_github_release(&input)).unwrap();
+        assert_eq!(result.id, "99");
+        assert_eq!(result.tag_name, "v1.0.0");
     }
 }
