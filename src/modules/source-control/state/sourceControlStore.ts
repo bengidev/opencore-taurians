@@ -16,6 +16,7 @@ import type {
   SourceControlLogInput,
 } from "../api/sourceControlContracts";
 import { toPublicSourceControlError } from "./parsePublicSourceControlError";
+import { invalidateCheckoutRuntimeOnScopeError } from "./invalidateCheckoutRuntimeOnScopeError";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
 export type { DiffKind, DiffKey } from "./sourceControlDiffKey";
@@ -239,6 +240,7 @@ function setError(
   error: unknown,
 ): void {
   const publicError = toPublicSourceControlError(error, "sourceControl-store");
+  invalidateCheckoutRuntimeOnScopeError(trunkId, publicError);
   set((state) => ({
     errorByTrunkId: { ...state.errorByTrunkId, [trunkId]: publicError },
   }));
