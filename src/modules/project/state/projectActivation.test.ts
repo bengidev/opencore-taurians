@@ -18,6 +18,7 @@ function readyCheckout(path: string, repositoryIdentity = "repo-1") {
       kind: "project-root" as const,
       scopeId: `scope:${path}`,
       checkoutPath: path,
+      checkoutIdentity: `checkout:${path}`,
       repositoryIdentity,
       savedRefName: "main",
       managedByApp: false,

@@ -165,16 +165,18 @@ export function ExplorerPanel({
     });
 
     const unsubscribeProject = useProjectStore.subscribe((state, prev) => {
+      const prevRuntime =
+        prev.activeTrunkId != null
+          ? prev.checkoutRuntimeByTrunkId[prev.activeTrunkId]
+          : undefined;
+      const nextRuntime =
+        state.activeTrunkId != null
+          ? state.checkoutRuntimeByTrunkId[state.activeTrunkId]
+          : undefined;
       const prevScopeId =
-        prev.activeTrunkId &&
-        prev.checkoutRuntimeByTrunkId[prev.activeTrunkId]?.status === "ready"
-          ? prev.checkoutRuntimeByTrunkId[prev.activeTrunkId].checkout.scopeId
-          : null;
+        prevRuntime?.status === "ready" ? prevRuntime.checkout.scopeId : null;
       const nextScopeId =
-        state.activeTrunkId &&
-        state.checkoutRuntimeByTrunkId[state.activeTrunkId]?.status === "ready"
-          ? state.checkoutRuntimeByTrunkId[state.activeTrunkId].checkout.scopeId
-          : null;
+        nextRuntime?.status === "ready" ? nextRuntime.checkout.scopeId : null;
       if (nextScopeId !== prevScopeId) {
         void applyWatch(nextScopeId);
       }

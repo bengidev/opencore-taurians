@@ -34,6 +34,7 @@ const resolvedCheckout = {
   kind: "project-root" as const,
   scopeId: "scope-1",
   checkoutPath: "/work/app",
+  checkoutIdentity: "checkout:/work/app",
   repositoryIdentity: "repo-1",
   savedRefName: "main",
   managedByApp: false,
