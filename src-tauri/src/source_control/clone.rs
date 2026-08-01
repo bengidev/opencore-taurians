@@ -3,7 +3,7 @@ use crate::source_control::coordinator::{
     SourceControlOperationContext, SourceControlOperationCoordinatorState,
 };
 use crate::source_control::process::{
-    SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
+    SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess,
 };
 use crate::source_control::scope_registry::SourceControlScopeRecord;
 use serde::{Deserialize, Serialize};
@@ -72,13 +72,6 @@ fn validate_destination_name(name: &str) -> Result<(), PublicSourceControlError>
         ));
     }
     Ok(())
-}
-
-pub fn clone_repository(
-    input: SourceControlCloneInput,
-    parent: &SourceControlScopeRecord,
-) -> Result<SourceControlCloneResult, PublicSourceControlError> {
-    clone_repository_with(&SystemGitProcess, input, parent, None)
 }
 
 pub fn clone_repository_with(

@@ -3,7 +3,7 @@ use crate::source_control::coordinator::{
     SourceControlOperationContext, SourceControlOperationCoordinatorState,
 };
 use crate::source_control::process::{
-    SourceControlCommandSpec, SourceControlProcess, SystemGitProcess,
+    SourceControlCommandSpec, SourceControlProcess,
 };
 use crate::source_control::scope_registry::SourceControlScopeRecord;
 use serde::{Deserialize, Serialize};
@@ -204,13 +204,6 @@ pub struct SourceControlMutationResult {
 }
 
 
-pub fn stage(
-    input: SourceControlStageInput,
-    scope: &SourceControlScopeRecord,
-) -> Result<SourceControlMutationResult, PublicSourceControlError> {
-    stage_with(&SystemGitProcess, input, scope, None)
-}
-
 pub fn stage_with(
     process: &impl SourceControlProcess,
     input: SourceControlStageInput,
@@ -251,13 +244,6 @@ pub fn stage_with(
     })
 }
 
-pub fn discard(
-    input: SourceControlDiscardInput,
-    scope: &SourceControlScopeRecord,
-) -> Result<SourceControlMutationResult, PublicSourceControlError> {
-    discard_with(&SystemGitProcess, input, scope, None)
-}
-
 pub fn discard_with(
     process: &impl SourceControlProcess,
     input: SourceControlDiscardInput,
@@ -289,13 +275,6 @@ pub fn discard_with(
     Ok(SourceControlMutationResult {
         message: format!("Discarded {} file(s)", input.paths.len()),
     })
-}
-
-pub fn commit(
-    input: SourceControlCommitInput,
-    scope: &SourceControlScopeRecord,
-) -> Result<SourceControlMutationResult, PublicSourceControlError> {
-    commit_with(&SystemGitProcess, input, scope, None)
 }
 
 pub fn commit_with(
@@ -344,13 +323,6 @@ pub fn commit_with(
     Ok(SourceControlMutationResult {
         message: "Committed".into(),
     })
-}
-
-pub fn stash(
-    input: SourceControlStashInput,
-    scope: &SourceControlScopeRecord,
-) -> Result<SourceControlMutationResult, PublicSourceControlError> {
-    stash_with(&SystemGitProcess, input, scope, None)
 }
 
 pub fn stash_with(
@@ -449,6 +421,7 @@ pub fn stash_with(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::source_control::process::SystemGitProcess;
     use std::fs;
     use std::process::Command;
     use tempfile::tempdir;
@@ -516,13 +489,15 @@ mod tests {
             .unwrap();
         fs::write(dir.path().join("f.txt"), "y").unwrap();
 
-        stage(
+        stage_with(
+            &SystemGitProcess,
             SourceControlStageInput {
                 scope_id: "scope-1".into(),
                 paths: vec!["f.txt".into()],
                 mode: SourceControlStageMode::Stage,
             },
             &scope(dir.path()),
+            None,
         )
         .unwrap();
         // Verify index matches working tree
@@ -538,13 +513,15 @@ mod tests {
             .unwrap();
         assert!(String::from_utf8_lossy(&out.stdout).contains("f.txt"));
 
-        stage(
+        stage_with(
+            &SystemGitProcess,
             SourceControlStageInput {
                 scope_id: "scope-1".into(),
                 paths: vec!["f.txt".into()],
                 mode: SourceControlStageMode::Unstage,
             },
             &scope(dir.path()),
+            None,
         )
         .unwrap();
         let out = Command::new("git")
@@ -570,7 +547,8 @@ mod tests {
             .status()
             .unwrap();
 
-        commit(
+        commit_with(
+            &SystemGitProcess,
             SourceControlCommitInput {
                 scope_id: "scope-1".into(),
                 subject: "feat: hello".into(),
@@ -581,6 +559,7 @@ mod tests {
                 selected_paths: None,
             },
             &scope(dir.path()),
+            None,
         )
         .unwrap();
 
@@ -606,7 +585,8 @@ mod tests {
             .unwrap();
         fs::write(dir.path().join("h.txt"), "stashed").unwrap();
 
-        stash(
+        stash_with(
+            &SystemGitProcess,
             SourceControlStashInput {
                 scope_id: "scope-1".into(),
                 message: Some("wip".into()),
@@ -614,12 +594,14 @@ mod tests {
                 action: SourceControlStashAction::Create,
             },
             &scope(dir.path()),
+            None,
         )
         .unwrap();
         let content = fs::read_to_string(dir.path().join("h.txt")).unwrap();
         assert_eq!(content.trim(), "initial"); // reverted after stash
 
-        stash(
+        stash_with(
+            &SystemGitProcess,
             SourceControlStashInput {
                 scope_id: "scope-1".into(),
                 message: None,
@@ -627,6 +609,7 @@ mod tests {
                 action: SourceControlStashAction::Pop { index: 0 },
             },
             &scope(dir.path()),
+            None,
         )
         .unwrap();
         let content = fs::read_to_string(dir.path().join("h.txt")).unwrap();
