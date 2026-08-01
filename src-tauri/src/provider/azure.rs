@@ -1,6 +1,6 @@
 #![allow(dead_code)] // Provider client scaffolding: DTOs and HTTP flow behind GIT_SUITE_RELEASE_ENABLED; mapper fns are test-covered.
 use crate::provider::remote::*;
-use crate::provider::transport::ProviderTransport;
+use crate::provider::transport::{ProviderHttpClient, ProviderTransport};
 use serde::{Deserialize, Serialize};
 
 // ---------- Internal deserialization structs ----------
@@ -70,7 +70,7 @@ struct AzureCreateRepoRequest {
 // ---------- Client ----------
 
 pub struct AzureDevOpsClient {
-    transport: ProviderTransport,
+    transport: ProviderHttpClient,
     organization: String,
 }
 
@@ -83,9 +83,16 @@ impl AzureDevOpsClient {
         .map_err(|e| ProviderError::NetworkError { message: e })?
         .with_basic_auth("", token);
         Ok(Self {
-            transport,
+            transport: ProviderHttpClient::from_provider_transport(transport),
             organization: organization.to_string(),
         })
+    }
+
+    pub fn with_http_client(transport: ProviderHttpClient, organization: &str) -> Self {
+        Self {
+            transport,
+            organization: organization.to_string(),
+        }
     }
 
     // ---------- Mappers ----------

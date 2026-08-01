@@ -1,6 +1,6 @@
 #![allow(dead_code)] // Provider client scaffolding: DTOs and HTTP flow behind GIT_SUITE_RELEASE_ENABLED; mapper fns are test-covered.
 use crate::provider::remote::*;
-use crate::provider::transport::ProviderTransport;
+use crate::provider::transport::{ProviderHttpClient, ProviderTransport};
 use serde::{Deserialize, Serialize};
 
 // Internal deserialization structs
@@ -67,7 +67,7 @@ struct GitHubCreatePRRequest {
 }
 
 pub struct GitHubClient {
-    transport: ProviderTransport,
+    transport: ProviderHttpClient,
 }
 
 impl GitHubClient {
@@ -75,7 +75,13 @@ impl GitHubClient {
         let transport = ProviderTransport::new("api.github.com", "https://api.github.com")
             .map_err(|e| ProviderError::NetworkError { message: e })?
             .with_token(token);
-        Ok(Self { transport })
+        Ok(Self {
+            transport: ProviderHttpClient::from_provider_transport(transport),
+        })
+    }
+
+    pub fn with_http_client(transport: ProviderHttpClient) -> Self {
+        Self { transport }
     }
 
     fn map_repo(&self, r: GitHubRepo) -> ProviderRepository {
@@ -111,11 +117,6 @@ impl GitHubClient {
             created_at: pr.created_at,
             updated_at: pr.updated_at,
         }
-    }
-
-    pub fn with_token(mut self, token: &str) -> Self {
-        self.transport = self.transport.with_token(token);
-        self
     }
 
     pub async fn list_repositories(
