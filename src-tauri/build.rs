@@ -1,13 +1,15 @@
 fn main() {
-    let mut attributes = tauri_build::Attributes::new();
     #[cfg(windows)]
     {
-        attributes = attributes.windows_attributes(
-            tauri_build::WindowsAttributes::new_without_app_manifest(),
-        );
+        let attributes = tauri_build::Attributes::new()
+            .windows_attributes(tauri_build::WindowsAttributes::new_without_app_manifest());
         embed_windows_manifest();
+        tauri_build::try_build(attributes).expect("failed to run tauri-build");
     }
-    tauri_build::try_build(attributes).expect("failed to run tauri-build");
+    #[cfg(not(windows))]
+    {
+        tauri_build::build();
+    }
 }
 
 /// Embed Common Controls v6 for bins *and* test binaries.
