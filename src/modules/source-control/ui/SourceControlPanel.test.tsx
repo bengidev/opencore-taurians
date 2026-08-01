@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useProjectStore } from "../../project/state/projectStore";
 import { useSourceControlStore } from "../state/sourceControlStore";
@@ -11,6 +11,10 @@ import type {
   ResolvedSourceControlCheckout,
 } from "../api/sourceControlContracts";
 import { SourceControlPanel } from "./SourceControlPanel";
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(async () => undefined),
+}));
 
 const CHECKOUT: ResolvedSourceControlCheckout = {
   kind: "project-root",
