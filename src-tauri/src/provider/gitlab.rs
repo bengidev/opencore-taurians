@@ -4,7 +4,7 @@ use serde::Deserialize;
 use crate::provider::remote::{
     PaginatedResult, ProviderError, ProviderPrState, ProviderPullRequest, ProviderRepository,
 };
-use crate::provider::transport::ProviderTransport;
+use crate::provider::transport::{ProviderHttpClient, ProviderTransport};
 
 // ---------- GitLab API v4 internal deserialization structs ----------
 
@@ -66,7 +66,7 @@ struct GitLabCreateMRRequest {
 // ---------- GitLab Client ----------
 
 pub struct GitLabClient {
-    transport: ProviderTransport,
+    transport: ProviderHttpClient,
 }
 
 impl GitLabClient {
@@ -74,7 +74,13 @@ impl GitLabClient {
         let transport = ProviderTransport::new("gitlab.com", "https://gitlab.com/api/v4")
             .map_err(|msg| ProviderError::ProviderError { message: msg })?
             .with_token(token);
-        Ok(Self { transport })
+        Ok(Self {
+            transport: ProviderHttpClient::from_provider_transport(transport),
+        })
+    }
+
+    pub fn with_http_client(transport: ProviderHttpClient) -> Self {
+        Self { transport }
     }
 
     // ---- Repositories ----

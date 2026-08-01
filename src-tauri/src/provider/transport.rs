@@ -1,7 +1,11 @@
 #![allow(dead_code)] // Provider transport scaffolding behind GIT_SUITE_RELEASE_ENABLED; SSRF/redirect helpers are test-covered.
 use reqwest::redirect::Policy;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::future::Future;
 use std::net::{IpAddr, ToSocketAddrs};
+use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
@@ -98,6 +102,264 @@ impl ProviderTransportError {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderHttpMethod {
+    Get,
+    Post,
+    Put,
+    Patch,
+    Delete,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProviderHttpRequest {
+    pub method: ProviderHttpMethod,
+    pub url: String,
+    pub body: Option<String>,
+    pub content_type: Option<String>,
+    pub auth_header: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProviderHttpResponse {
+    pub status: u16,
+    pub body: Vec<u8>,
+}
+
+pub type ProviderHttpFuture = Pin<
+    Box<dyn Future<Output = Result<ProviderHttpResponse, ProviderTransportError>> + Send>,
+>;
+
+pub trait ProviderHttpTransport: Send + Sync {
+    fn execute(&self, request: ProviderHttpRequest) -> ProviderHttpFuture;
+}
+
+#[derive(Clone)]
+pub struct ProviderHttpClient {
+    transport: Arc<dyn ProviderHttpTransport>,
+    base_url: String,
+    auth_header: Option<String>,
+}
+
+impl ProviderHttpClient {
+    pub fn new(
+        transport: Arc<dyn ProviderHttpTransport>,
+        base_url: &str,
+        auth_header: Option<String>,
+    ) -> Self {
+        Self {
+            transport,
+            base_url: base_url.trim_end_matches('/').to_string(),
+            auth_header,
+        }
+    }
+
+    pub fn from_provider_transport(transport: ProviderTransport) -> Self {
+        Self {
+            transport: Arc::new(transport.clone()),
+            base_url: transport.base_url().to_string(),
+            auth_header: None,
+        }
+    }
+
+    pub fn inner(&self) -> Arc<dyn ProviderHttpTransport> {
+        self.transport.clone()
+    }
+
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    fn url(&self, path: &str) -> String {
+        if self.base_url.is_empty() {
+            path.to_string()
+        } else {
+            format!("{}{}", self.base_url, path)
+        }
+    }
+
+    fn auth_header(&self) -> Option<String> {
+        self.auth_header.clone()
+    }
+
+    pub async fn get(&self, path: &str) -> Result<String, ProviderTransportError> {
+        self.request(ProviderHttpMethod::Get, path, None, None)
+            .await
+    }
+
+    pub async fn get_json<T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+    ) -> Result<T, ProviderTransportError> {
+        let body = self.get(path).await?;
+        serde_json::from_str(&body).map_err(|e| ProviderTransportError {
+            kind: ProviderTransportErrorKind::Unknown,
+            message: format!("JSON parse error: {}", e),
+            retryable: false,
+            status_code: None,
+        })
+    }
+
+    pub async fn post(
+        &self,
+        path: &str,
+        body: &str,
+        content_type: &str,
+    ) -> Result<String, ProviderTransportError> {
+        self.request(
+            ProviderHttpMethod::Post,
+            path,
+            Some(body.to_string()),
+            Some(content_type.to_string()),
+        )
+        .await
+    }
+
+    pub async fn post_json<T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &str,
+    ) -> Result<T, ProviderTransportError> {
+        let raw = self.post(path, body, "application/json").await?;
+        serde_json::from_str(&raw).map_err(|e| ProviderTransportError {
+            kind: ProviderTransportErrorKind::Unknown,
+            message: format!("JSON parse error: {}", e),
+            retryable: false,
+            status_code: None,
+        })
+    }
+
+    pub async fn put(
+        &self,
+        path: &str,
+        body: &str,
+        content_type: &str,
+    ) -> Result<String, ProviderTransportError> {
+        self.request(
+            ProviderHttpMethod::Put,
+            path,
+            Some(body.to_string()),
+            Some(content_type.to_string()),
+        )
+        .await
+    }
+
+    pub async fn delete(&self, path: &str) -> Result<String, ProviderTransportError> {
+        self.request(ProviderHttpMethod::Delete, path, None, None)
+            .await
+    }
+
+    pub async fn patch(
+        &self,
+        path: &str,
+        body: &str,
+        content_type: &str,
+    ) -> Result<String, ProviderTransportError> {
+        self.request(
+            ProviderHttpMethod::Patch,
+            path,
+            Some(body.to_string()),
+            Some(content_type.to_string()),
+        )
+        .await
+    }
+
+    async fn request(
+        &self,
+        method: ProviderHttpMethod,
+        path: &str,
+        body: Option<String>,
+        content_type: Option<String>,
+    ) -> Result<String, ProviderTransportError> {
+        let response = self
+            .transport
+            .execute(ProviderHttpRequest {
+                method,
+                url: self.url(path),
+                body,
+                content_type,
+                auth_header: self.auth_header(),
+            })
+            .await?;
+
+        if !(200..300).contains(&response.status) {
+            return Err(ProviderTransportError::from_status_and_body(
+                response.status,
+                &String::from_utf8_lossy(&response.body),
+            ));
+        }
+
+        String::from_utf8(response.body).map_err(|e| ProviderTransportError {
+            kind: ProviderTransportErrorKind::Unknown,
+            message: format!("Response was not valid UTF-8: {}", e),
+            retryable: false,
+            status_code: None,
+        })
+    }
+}
+
+#[derive(Default)]
+pub struct FakeTransport {
+    responses: Mutex<HashMap<String, ProviderHttpResponse>>,
+}
+
+impl FakeTransport {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn stub(&self, method: ProviderHttpMethod, url_contains: &str, response: ProviderHttpResponse) {
+        let key = format!("{:?}:{}", method, url_contains);
+        self.responses
+            .lock()
+            .expect("fake transport lock")
+            .insert(key, response);
+    }
+
+    pub fn stub_json(
+        &self,
+        method: ProviderHttpMethod,
+        url_contains: &str,
+        status: u16,
+        body: &str,
+    ) {
+        self.stub(
+            method,
+            url_contains,
+            ProviderHttpResponse {
+                status,
+                body: body.as_bytes().to_vec(),
+            },
+        );
+    }
+}
+
+impl ProviderHttpTransport for FakeTransport {
+    fn execute(&self, request: ProviderHttpRequest) -> ProviderHttpFuture {
+        let key = format!("{:?}:{}", request.method, request.url);
+        let responses = self
+            .responses
+            .lock()
+            .expect("fake transport lock")
+            .clone();
+        Box::pin(async move {
+            for (pattern, response) in responses {
+                let prefix = pattern.split(':').next().unwrap_or("");
+                let suffix = pattern.split_once(':').map(|(_, s)| s).unwrap_or("");
+                if format!("{:?}", request.method) == prefix && request.url.contains(suffix) {
+                    return Ok(response);
+                }
+            }
+            Err(ProviderTransportError {
+                kind: ProviderTransportErrorKind::NotFound,
+                message: format!("No fake response for {}", key),
+                retryable: false,
+                status_code: Some(404),
+            })
+        })
+    }
+}
+
 /// Allowed provider hosts. Only domains in this set may be contacted.
 const ALLOWED_HOSTS: &[&str] = &[
     "api.github.com",
@@ -171,6 +433,10 @@ impl ProviderTransport {
 
     pub fn url(&self, path: &str) -> String {
         format!("{}{}", self.base_url, path)
+    }
+
+    pub fn base_url(&self) -> &str {
+        &self.base_url
     }
 
     fn validate_url(&self, url: &str) -> Result<(), ProviderTransportError> {
@@ -477,6 +743,40 @@ impl ProviderTransport {
             message: format!("Response was not valid UTF-8: {}", e),
             retryable: false,
             status_code: None,
+        })
+    }
+}
+
+impl ProviderHttpTransport for ProviderTransport {
+    fn execute(&self, request: ProviderHttpRequest) -> ProviderHttpFuture {
+        let this = self.clone();
+        Box::pin(async move {
+            let method = match request.method {
+                ProviderHttpMethod::Get => "GET",
+                ProviderHttpMethod::Post => "POST",
+                ProviderHttpMethod::Put => "PUT",
+                ProviderHttpMethod::Patch => "PATCH",
+                ProviderHttpMethod::Delete => "DELETE",
+            };
+            let body = match (&request.body, &request.content_type) {
+                (Some(body), Some(content_type)) => Some((body.as_str(), content_type.as_str())),
+                _ => None,
+            };
+            let auth = request.auth_header.or(this.auth_header_value.clone());
+            let transport = if auth.is_some() && this.auth_header_value.is_none() {
+                let mut cloned = this.clone();
+                cloned.auth_header_value = auth;
+                cloned
+            } else {
+                this
+            };
+            let text = transport
+                .execute_with_retry(method, &request.url, body)
+                .await?;
+            Ok(ProviderHttpResponse {
+                status: 200,
+                body: text.into_bytes(),
+            })
         })
     }
 }

@@ -94,6 +94,17 @@ pub fn run() {
             provider::keychain::keychain_save,
             provider::keychain::keychain_read,
             provider::keychain::keychain_delete,
+            provider::keychain::provider_credential_save,
+            provider::keychain::provider_credential_status,
+            provider::keychain::provider_credential_delete,
+            provider::service::provider_list_repositories,
+            provider::service::provider_get_repository,
+            provider::service::provider_create_repository,
+            provider::service::provider_list_pull_requests,
+            provider::service::provider_get_pull_request,
+            provider::service::provider_create_pull_request,
+            provider::service::provider_create_release,
+            provider::service::provider_release_capabilities,
         ])
         .on_window_event(|window, event| {
             use tauri::{DragDropEvent, WindowEvent};
