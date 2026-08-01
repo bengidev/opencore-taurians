@@ -59,6 +59,34 @@ describe("projectActivation", () => {
     });
   });
 
+  it("preserves typed checkout-invalid errors from Tauri invoke", async () => {
+    const { project, trunk } = useProjectStore.getState().createProjectWithRootTrunk({
+      folderPath: "/work/app",
+      nowIso: "2026-07-10T00:00:00.000Z",
+    });
+    const api = {
+      resolveCheckout: vi.fn(async () => {
+        throw {
+          code: "checkout-invalid",
+          operation: "git_resolve_checkout",
+          message: "Stale scope token",
+          retryable: false,
+        };
+      }),
+    };
+
+    await expect(projectActivateTrunk(trunk.id, { sourceControlApi: api })).resolves.toEqual({
+      status: "checkout-invalid",
+      reason: "unknown",
+    });
+    expect(useWorkspaceStore.getState().workspacePath).toBe(project.folderPath);
+    expect(useProjectStore.getState().checkoutRuntimeByTrunkId[trunk.id]).toMatchObject({
+      status: "invalid",
+      safeWorkspacePath: project.folderPath,
+      message: "Stale scope token",
+    });
+  });
+
   it("keeps Files on the project root when checkout validation fails", async () => {
     const { project, trunk } = useProjectStore.getState().createProjectWithRootTrunk({
       folderPath: "/work/app",

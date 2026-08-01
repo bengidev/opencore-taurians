@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createMemorySourceControlApi } from "../api/createMemorySourceControlApi";
 import type {
+  PublicSourceControlError,
   SourceControlRepositorySnapshot,
   ResolvedSourceControlCheckout,
 } from "../api/sourceControlContracts";
+import { sourceControlDiffKey } from "./sourceControlDiffKey";
 import { useSourceControlStore } from "./sourceControlStore";
 
 const resolvedCheckout: ResolvedSourceControlCheckout = {
@@ -246,6 +248,34 @@ describe("sourceControlStore", () => {
 
       expect(useSourceControlStore.getState().activeOperations["repo-1"]).toEqual([]);
     }
+  });
+
+  it("preserves plain-object PublicSourceControlError values", async () => {
+    const api = createMemorySourceControlApi({
+      snapshotsByCheckoutIdentity: { "checkout-1": baseSnapshot },
+    });
+    const typedError: PublicSourceControlError = {
+      code: "checkout-invalid",
+      operation: "git_get_snapshot",
+      message: "Scope is no longer valid",
+      retryable: false,
+    };
+    const failingApi = {
+      ...api,
+      getSnapshot: async () => {
+        throw typedError;
+      },
+    };
+    useSourceControlStore.getState().bindApi(failingApi as typeof api);
+
+    await useSourceControlStore.getState().loadSnapshot("trunk-1", resolvedCheckout);
+
+    expect(useSourceControlStore.getState().errorByTrunkId["trunk-1"]).toEqual(typedError);
+  });
+
+  it("builds source-qualified diff keys", () => {
+    expect(sourceControlDiffKey("working-tree", "src/a.ts")).toBe("working-tree:src/a.ts");
+    expect(sourceControlDiffKey("staged", "src/a.ts")).toBe("staged:src/a.ts");
   });
 
   it("cancelOperation records the desktop cancel contract", async () => {
