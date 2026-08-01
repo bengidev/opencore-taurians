@@ -315,6 +315,7 @@ export interface SourceControlDiffResult {
 export interface SourceControlCreateWorktreeInput {
   projectId: string;
   parentTrunkId: string;
+  parentScopeId: string;
   trunkId: string;
   projectFolderPath: string;
   baseRefName: string;

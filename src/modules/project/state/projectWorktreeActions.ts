@@ -22,7 +22,6 @@ export async function projectCreateChildTrunk(input: {
   nowIso: string;
   sourceControlApi?: Pick<SourceControlApi, "createWorktree">;
 }): Promise<{ trunk: ProjectTrunk; checkout: ResolvedSourceControlCheckout }> {
-  void input.parentScopeId;
   const trunkId = crypto.randomUUID();
   const sourceControlApi = input.sourceControlApi ?? createTauriSourceControlApi();
 
@@ -31,6 +30,7 @@ export async function projectCreateChildTrunk(input: {
     result = await sourceControlApi.createWorktree({
       projectId: input.projectId,
       parentTrunkId: input.parentTrunkId,
+      parentScopeId: input.parentScopeId,
       trunkId,
       projectFolderPath: input.projectFolderPath,
       baseRefName: input.baseRefName,
