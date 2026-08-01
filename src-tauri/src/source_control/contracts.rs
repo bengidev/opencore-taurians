@@ -364,3 +364,50 @@ pub struct SourceControlOperationSummary {
     pub kind: SourceControlOperationKind,
     pub phase: String,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceControlOperationCancelInput {
+    pub operation_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum SourceControlOperationEvent {
+    Started {
+        operation_id: String,
+        repository_id: String,
+        trunk_id: String,
+        phase: String,
+        cancellable: bool,
+    },
+    Progress {
+        operation_id: String,
+        repository_id: String,
+        trunk_id: String,
+        phase: String,
+        message: String,
+        cancellable: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        completed: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        total: Option<u64>,
+    },
+    Completed {
+        operation_id: String,
+        repository_id: String,
+        trunk_id: String,
+        result_summary: String,
+    },
+    Failed {
+        operation_id: String,
+        repository_id: String,
+        trunk_id: String,
+        error: PublicSourceControlError,
+    },
+    Cancelled {
+        operation_id: String,
+        repository_id: String,
+        trunk_id: String,
+    },
+}

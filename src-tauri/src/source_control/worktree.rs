@@ -123,6 +123,8 @@ fn run_worktree_command(
         stdout_limit: OUTPUT_LIMIT,
         stderr_limit: OUTPUT_LIMIT,
         policy: SourceControlExecutionPolicy::TrustedMutation,
+        cancellation: None,
+        child_slot: None,
     };
     let output = process.run(spec)?;
     Ok(output.stdout)
@@ -648,6 +650,8 @@ fn find_main_checkout(
         stdout_limit: OUTPUT_LIMIT,
         stderr_limit: OUTPUT_LIMIT,
         policy: SourceControlExecutionPolicy::ParsedRead,
+        cancellation: None,
+        child_slot: None,
     };
     let stdout = process.run(spec).ok().map(|o| o.stdout)?;
     let text = String::from_utf8_lossy(&stdout);
@@ -675,6 +679,8 @@ fn check_unmerged(process: &impl SourceControlProcess, checkout: &Path) -> bool 
         stdout_limit: OUTPUT_LIMIT,
         stderr_limit: OUTPUT_LIMIT,
         policy: SourceControlExecutionPolicy::ParsedRead,
+        cancellation: None,
+        child_slot: None,
     };
     process
         .run(spec)

@@ -1,4 +1,7 @@
 use crate::source_control::contracts::PublicSourceControlError;
+use crate::source_control::coordinator::{
+    SourceControlOperationContext, SourceControlOperationCoordinatorState,
+};
 use crate::source_control::process::{
     SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
 };
@@ -33,8 +36,12 @@ fn run_sm(
     process: &impl SourceControlProcess,
     checkout: &Path,
     args: &[&str],
+    operation: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<Vec<u8>, PublicSourceControlError> {
-    let spec = SourceControlCommandSpec {
+    let mut spec = SourceControlCommandSpec {
         checkout: checkout.to_path_buf(),
         operation: "submodule",
         args: args.iter().map(|s| OsString::from(*s)).collect(),
@@ -42,7 +49,14 @@ fn run_sm(
         stdout_limit: LIMIT,
         stderr_limit: LIMIT,
         policy: SourceControlExecutionPolicy::TrustedMutation,
+        cancellation: None,
+        child_slot: None,
     };
+    if let Some((ctx, coordinator)) = operation {
+        if let Some(slot) = coordinator.child_slot(&ctx.operation_id) {
+            spec = spec.attach_operation(ctx.cancellation.clone(), slot);
+        }
+    }
     process.run(spec).map(|o| o.stdout)
 }
 
@@ -50,13 +64,17 @@ pub fn submodule_action(
     input: SourceControlSubmoduleInput,
     scope: &SourceControlScopeRecord,
 ) -> Result<String, PublicSourceControlError> {
-    submodule_action_with(&SystemGitProcess, input, scope)
+    submodule_action_with(&SystemGitProcess, input, scope, None)
 }
 
 pub fn submodule_action_with(
     process: &impl SourceControlProcess,
     input: SourceControlSubmoduleInput,
     scope: &SourceControlScopeRecord,
+    operation: Option<(
+        &SourceControlOperationContext,
+        &SourceControlOperationCoordinatorState,
+    )>,
 ) -> Result<String, PublicSourceControlError> {
     let path = scope.checkout_path.as_path();
     let action = match input.action {
@@ -70,6 +88,6 @@ pub fn submodule_action_with(
     if input.recursive {
         args.push("--recursive");
     }
-    let stdout = run_sm(process, path, &args)?;
+    let stdout = run_sm(process, path, &args, operation)?;
     Ok(String::from_utf8_lossy(&stdout).to_string())
 }
