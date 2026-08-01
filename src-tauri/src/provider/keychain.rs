@@ -80,12 +80,13 @@ impl ProviderCredentialStore for KeychainCredentialStore {
     }
 
     fn read(&self, credential_id: &str) -> Result<StoredProviderCredential, PublicKeychainError> {
-        let payload = os_keychain_read(PROVIDER_CREDENTIAL_SERVICE, credential_id)?.ok_or_else(|| {
-            PublicKeychainError {
-                kind: KeychainErrorKind::NotFound,
-                message: "Credential not found.".into(),
-            }
-        })?;
+        let payload =
+            os_keychain_read(PROVIDER_CREDENTIAL_SERVICE, credential_id)?.ok_or_else(|| {
+                PublicKeychainError {
+                    kind: KeychainErrorKind::NotFound,
+                    message: "Credential not found.".into(),
+                }
+            })?;
         serde_json::from_str(&payload).map_err(|e| PublicKeychainError {
             kind: KeychainErrorKind::Unknown,
             message: e.to_string(),

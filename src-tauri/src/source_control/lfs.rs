@@ -103,8 +103,10 @@ pub fn lfs_action_with(
             run_lfs(process, path, &["lfs", "pull"], operation)?;
             Ok("Pulled LFS objects".into())
         }
-        SourceControlLfsAction::Availability => Ok(run_lfs(process, path, &["lfs", "version"], None)
-            .map(|_| "available".to_string())
-            .unwrap_or_else(|_| "unavailable".into())),
+        SourceControlLfsAction::Availability => {
+            Ok(run_lfs(process, path, &["lfs", "version"], None)
+                .map(|_| "available".to_string())
+                .unwrap_or_else(|_| "unavailable".into()))
+        }
     }
 }

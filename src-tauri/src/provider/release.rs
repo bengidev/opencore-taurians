@@ -79,10 +79,7 @@ async fn create_github_release(
 
     let body = serde_json::to_string(&GitHubReleaseRequest {
         tag_name: input.tag_name.clone(),
-        name: input
-            .name
-            .clone()
-            .unwrap_or_else(|| input.tag_name.clone()),
+        name: input.name.clone().unwrap_or_else(|| input.tag_name.clone()),
         body: input.description.clone().unwrap_or_default(),
         draft: input.draft,
         prerelease: input.prerelease,
@@ -130,10 +127,7 @@ async fn create_gitlab_release(
 
     let body = serde_json::to_string(&GitLabReleaseRequest {
         tag_name: input.tag_name.clone(),
-        name: input
-            .name
-            .clone()
-            .unwrap_or_else(|| input.tag_name.clone()),
+        name: input.name.clone().unwrap_or_else(|| input.tag_name.clone()),
         description: input.description.clone().unwrap_or_default(),
     })
     .map_err(|e| ProviderError::ProviderError {
@@ -178,12 +172,13 @@ async fn create_bitbucket_release(
 async fn create_azure_release(
     input: &ProviderReleaseRequest,
 ) -> Result<ProviderRelease, ProviderError> {
-    let organization = input
-        .organization
-        .as_deref()
-        .ok_or_else(|| ProviderError::ProviderError {
-            message: "Azure DevOps releases require an organization name".into(),
-        })?;
+    let organization =
+        input
+            .organization
+            .as_deref()
+            .ok_or_else(|| ProviderError::ProviderError {
+                message: "Azure DevOps releases require an organization name".into(),
+            })?;
 
     let project = &input.repo;
 

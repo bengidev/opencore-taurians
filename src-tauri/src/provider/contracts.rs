@@ -2,7 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::provider::remote::{PaginatedResult, ProviderPullRequest, ProviderRelease, ProviderRepository};
+use crate::provider::remote::{
+    PaginatedResult, ProviderPullRequest, ProviderRelease, ProviderRepository,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]

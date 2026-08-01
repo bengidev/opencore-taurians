@@ -66,10 +66,12 @@ impl SourceControlOperationCoordinatorState {
         let mut queues = self.repo_queues.lock().unwrap();
         queues
             .entry(repository_id.to_string())
-            .or_insert_with(|| Arc::new(RepositoryQueue {
-                running: Mutex::new(false),
-                available: Condvar::new(),
-            }))
+            .or_insert_with(|| {
+                Arc::new(RepositoryQueue {
+                    running: Mutex::new(false),
+                    available: Condvar::new(),
+                })
+            })
             .clone()
     }
 
@@ -252,7 +254,10 @@ impl Drop for SourceControlOperationGuard<'_> {
             self.emit_terminal(event);
         }
         self.quit.end_operation();
-        if let Some(repository_id) = self.coordinator.finish_operation(&self.context.operation_id) {
+        if let Some(repository_id) = self
+            .coordinator
+            .finish_operation(&self.context.operation_id)
+        {
             self.coordinator.decrement_pending(&repository_id);
         }
     }
@@ -265,7 +270,9 @@ thread_local! {
 }
 
 #[cfg(test)]
-pub(crate) fn capture_operation_events<R>(run: impl FnOnce() -> R) -> (R, Vec<SourceControlOperationEvent>) {
+pub(crate) fn capture_operation_events<R>(
+    run: impl FnOnce() -> R,
+) -> (R, Vec<SourceControlOperationEvent>) {
     EVENT_CAPTURE.with(|capture| {
         *capture.borrow_mut() = Some(Vec::new());
         let result = run();
@@ -467,7 +474,9 @@ mod tests {
             .map(|handle| handle.join().expect("join"))
             .collect();
         assert!(
-            elapsed.iter().all(|duration| *duration < Duration::from_millis(50)),
+            elapsed
+                .iter()
+                .all(|duration| *duration < Duration::from_millis(50)),
             "operations on different repositories blocked each other: {:?}",
             elapsed
         );

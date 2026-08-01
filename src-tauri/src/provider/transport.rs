@@ -126,9 +126,8 @@ pub struct ProviderHttpResponse {
     pub body: Vec<u8>,
 }
 
-pub type ProviderHttpFuture = Pin<
-    Box<dyn Future<Output = Result<ProviderHttpResponse, ProviderTransportError>> + Send>,
->;
+pub type ProviderHttpFuture =
+    Pin<Box<dyn Future<Output = Result<ProviderHttpResponse, ProviderTransportError>> + Send>>;
 
 pub trait ProviderHttpTransport: Send + Sync {
     fn execute(&self, request: ProviderHttpRequest) -> ProviderHttpFuture;
@@ -308,7 +307,12 @@ impl FakeTransport {
         Self::default()
     }
 
-    pub fn stub(&self, method: ProviderHttpMethod, url_contains: &str, response: ProviderHttpResponse) {
+    pub fn stub(
+        &self,
+        method: ProviderHttpMethod,
+        url_contains: &str,
+        response: ProviderHttpResponse,
+    ) {
         let key = format!("{:?}:{}", method, url_contains);
         self.responses
             .lock()
@@ -337,11 +341,7 @@ impl FakeTransport {
 impl ProviderHttpTransport for FakeTransport {
     fn execute(&self, request: ProviderHttpRequest) -> ProviderHttpFuture {
         let key = format!("{:?}:{}", request.method, request.url);
-        let responses = self
-            .responses
-            .lock()
-            .expect("fake transport lock")
-            .clone();
+        let responses = self.responses.lock().expect("fake transport lock").clone();
         Box::pin(async move {
             for (pattern, response) in responses {
                 let prefix = pattern.split(':').next().unwrap_or("");
