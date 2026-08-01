@@ -1,3 +1,4 @@
+use crate::path_scope::normalize_path;
 use crate::source_control::contracts::{
     PublicSourceControlError, ResolvedSourceControlCheckout, ResolvedSourceControlCheckoutKind,
     SourceControlCheckoutRestore,
@@ -8,7 +9,6 @@ use crate::source_control::coordinator::{
 use crate::source_control::process::{
     SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
 };
-use crate::path_scope::normalize_path;
 use crate::source_control::scope::{detect_repository, RepositoryScope};
 use crate::source_control::scope_registry::{SourceControlScopeRecord, SourceControlScopeRegistry};
 use std::ffi::OsString;
@@ -649,13 +649,7 @@ pub fn remove_worktree_with(
     let worktree_str = input.worktree_path.clone();
     args.push(&worktree_str);
 
-    run_worktree_command(
-        process,
-        &main_checkout,
-        "remove-worktree",
-        &args,
-        operation,
-    )?;
+    run_worktree_command(process, &main_checkout, "remove-worktree", &args, operation)?;
 
     if is_managed_worktree_path(wt_path) {
         let _ = std::fs::remove_dir_all(wt_path);
@@ -1228,7 +1222,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(attached.checkout.checkout_path, created.checkout.checkout_path);
+        assert_eq!(
+            attached.checkout.checkout_path,
+            created.checkout.checkout_path
+        );
         assert_eq!(
             attached.checkout.repository_identity,
             created.checkout.repository_identity
@@ -1624,12 +1621,7 @@ mod tests {
         let marker = external.join("keep-me.txt");
         fs::write(&marker, "stay").unwrap();
         assert!(Command::new("git")
-            .args([
-                "-C",
-                external.to_str().unwrap(),
-                "add",
-                "keep-me.txt",
-            ])
+            .args(["-C", external.to_str().unwrap(), "add", "keep-me.txt",])
             .status()
             .unwrap()
             .success());

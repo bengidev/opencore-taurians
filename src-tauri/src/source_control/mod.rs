@@ -15,6 +15,7 @@ pub mod scope;
 pub mod scope_registry;
 pub mod submodule;
 pub mod worktree;
+use crate::quit::QuitGuard;
 use contracts::{
     PublicSourceControlError, SourceControlCheckoutRequest, SourceControlInitializeInput,
     SourceControlRepositorySnapshot, SourceControlResolveCheckoutInput,
@@ -23,7 +24,6 @@ use contracts::{
 use coordinator::{
     run_coordinated, run_coordinated_identity, SourceControlOperationCoordinatorState,
 };
-use crate::quit::QuitGuard;
 use repository::SourceControlRepositoryState;
 use scope_registry::SourceControlScopeRegistry;
 use tauri::{AppHandle, State};
@@ -92,11 +92,23 @@ pub fn git_stage(
     quit: State<'_, QuitGuard>,
 ) -> Result<mutations::SourceControlMutationResult, PublicSourceControlError> {
     let scope = registry.resolve(&input.scope_id, "stage")?;
-    run_coordinated(&coordinator, &scope, Some(&app), &quit, "stage", |ctx, coord| {
-        let result = mutations::stage_with(&process::SystemGitProcess, input, &scope, Some((ctx, coord)))?;
-        let summary = result.message.clone();
-        Ok((result, summary))
-    })
+    run_coordinated(
+        &coordinator,
+        &scope,
+        Some(&app),
+        &quit,
+        "stage",
+        |ctx, coord| {
+            let result = mutations::stage_with(
+                &process::SystemGitProcess,
+                input,
+                &scope,
+                Some((ctx, coord)),
+            )?;
+            let summary = result.message.clone();
+            Ok((result, summary))
+        },
+    )
 }
 
 #[tauri::command]
@@ -108,11 +120,23 @@ pub fn git_discard(
     quit: State<'_, QuitGuard>,
 ) -> Result<mutations::SourceControlMutationResult, PublicSourceControlError> {
     let scope = registry.resolve(&input.scope_id, "discard")?;
-    run_coordinated(&coordinator, &scope, Some(&app), &quit, "discard", |ctx, coord| {
-        let result = mutations::discard_with(&process::SystemGitProcess, input, &scope, Some((ctx, coord)))?;
-        let summary = result.message.clone();
-        Ok((result, summary))
-    })
+    run_coordinated(
+        &coordinator,
+        &scope,
+        Some(&app),
+        &quit,
+        "discard",
+        |ctx, coord| {
+            let result = mutations::discard_with(
+                &process::SystemGitProcess,
+                input,
+                &scope,
+                Some((ctx, coord)),
+            )?;
+            let summary = result.message.clone();
+            Ok((result, summary))
+        },
+    )
 }
 
 #[tauri::command]
@@ -124,11 +148,23 @@ pub fn git_commit(
     quit: State<'_, QuitGuard>,
 ) -> Result<mutations::SourceControlMutationResult, PublicSourceControlError> {
     let scope = registry.resolve(&input.scope_id, "commit")?;
-    run_coordinated(&coordinator, &scope, Some(&app), &quit, "commit", |ctx, coord| {
-        let result = mutations::commit_with(&process::SystemGitProcess, input, &scope, Some((ctx, coord)))?;
-        let summary = result.message.clone();
-        Ok((result, summary))
-    })
+    run_coordinated(
+        &coordinator,
+        &scope,
+        Some(&app),
+        &quit,
+        "commit",
+        |ctx, coord| {
+            let result = mutations::commit_with(
+                &process::SystemGitProcess,
+                input,
+                &scope,
+                Some((ctx, coord)),
+            )?;
+            let summary = result.message.clone();
+            Ok((result, summary))
+        },
+    )
 }
 
 #[tauri::command]
@@ -140,11 +176,23 @@ pub fn git_stash(
     quit: State<'_, QuitGuard>,
 ) -> Result<mutations::SourceControlMutationResult, PublicSourceControlError> {
     let scope = registry.resolve(&input.scope_id, "stash")?;
-    run_coordinated(&coordinator, &scope, Some(&app), &quit, "stash", |ctx, coord| {
-        let result = mutations::stash_with(&process::SystemGitProcess, input, &scope, Some((ctx, coord)))?;
-        let summary = result.message.clone();
-        Ok((result, summary))
-    })
+    run_coordinated(
+        &coordinator,
+        &scope,
+        Some(&app),
+        &quit,
+        "stash",
+        |ctx, coord| {
+            let result = mutations::stash_with(
+                &process::SystemGitProcess,
+                input,
+                &scope,
+                Some((ctx, coord)),
+            )?;
+            let summary = result.message.clone();
+            Ok((result, summary))
+        },
+    )
 }
 
 #[tauri::command]
@@ -156,11 +204,23 @@ pub fn git_fetch(
     quit: State<'_, QuitGuard>,
 ) -> Result<remote::SourceControlRemoteResult, PublicSourceControlError> {
     let scope = registry.resolve(&input.scope_id, "fetch")?;
-    run_coordinated(&coordinator, &scope, Some(&app), &quit, "fetch", |ctx, coord| {
-        let result = remote::git_fetch_with(&process::SystemGitProcess, input, &scope, Some((ctx, coord)))?;
-        let summary = result.message.clone();
-        Ok((result, summary))
-    })
+    run_coordinated(
+        &coordinator,
+        &scope,
+        Some(&app),
+        &quit,
+        "fetch",
+        |ctx, coord| {
+            let result = remote::git_fetch_with(
+                &process::SystemGitProcess,
+                input,
+                &scope,
+                Some((ctx, coord)),
+            )?;
+            let summary = result.message.clone();
+            Ok((result, summary))
+        },
+    )
 }
 
 #[tauri::command]
@@ -172,11 +232,23 @@ pub fn git_pull(
     quit: State<'_, QuitGuard>,
 ) -> Result<remote::SourceControlRemoteResult, PublicSourceControlError> {
     let scope = registry.resolve(&input.scope_id, "pull")?;
-    run_coordinated(&coordinator, &scope, Some(&app), &quit, "pull", |ctx, coord| {
-        let result = remote::git_pull_with(&process::SystemGitProcess, input, &scope, Some((ctx, coord)))?;
-        let summary = result.message.clone();
-        Ok((result, summary))
-    })
+    run_coordinated(
+        &coordinator,
+        &scope,
+        Some(&app),
+        &quit,
+        "pull",
+        |ctx, coord| {
+            let result = remote::git_pull_with(
+                &process::SystemGitProcess,
+                input,
+                &scope,
+                Some((ctx, coord)),
+            )?;
+            let summary = result.message.clone();
+            Ok((result, summary))
+        },
+    )
 }
 
 #[tauri::command]
@@ -188,11 +260,23 @@ pub fn git_push(
     quit: State<'_, QuitGuard>,
 ) -> Result<remote::SourceControlRemoteResult, PublicSourceControlError> {
     let scope = registry.resolve(&input.scope_id, "push")?;
-    run_coordinated(&coordinator, &scope, Some(&app), &quit, "push", |ctx, coord| {
-        let result = remote::git_push_with(&process::SystemGitProcess, input, &scope, Some((ctx, coord)))?;
-        let summary = result.message.clone();
-        Ok((result, summary))
-    })
+    run_coordinated(
+        &coordinator,
+        &scope,
+        Some(&app),
+        &quit,
+        "push",
+        |ctx, coord| {
+            let result = remote::git_push_with(
+                &process::SystemGitProcess,
+                input,
+                &scope,
+                Some((ctx, coord)),
+            )?;
+            let summary = result.message.clone();
+            Ok((result, summary))
+        },
+    )
 }
 
 #[tauri::command]
@@ -213,11 +297,23 @@ pub fn git_mutate_ref(
     quit: State<'_, QuitGuard>,
 ) -> Result<refs::SourceControlRefMutationResult, PublicSourceControlError> {
     let scope = registry.resolve(&input.scope_id, "mutate-ref")?;
-    run_coordinated(&coordinator, &scope, Some(&app), &quit, "mutate-ref", |ctx, coord| {
-        let result = refs::mutate_ref_with(&process::SystemGitProcess, input, &scope, Some((ctx, coord)))?;
-        let summary = result.message.clone();
-        Ok((result, summary))
-    })
+    run_coordinated(
+        &coordinator,
+        &scope,
+        Some(&app),
+        &quit,
+        "mutate-ref",
+        |ctx, coord| {
+            let result = refs::mutate_ref_with(
+                &process::SystemGitProcess,
+                input,
+                &scope,
+                Some((ctx, coord)),
+            )?;
+            let summary = result.message.clone();
+            Ok((result, summary))
+        },
+    )
 }
 
 #[tauri::command]
@@ -247,18 +343,28 @@ pub fn git_submodule(
     quit: State<'_, QuitGuard>,
 ) -> Result<String, PublicSourceControlError> {
     let scope = registry.resolve(&input.scope_id, "submodule")?;
-    if matches!(input.action, submodule::SourceControlSubmoduleAction::Status) {
+    if matches!(
+        input.action,
+        submodule::SourceControlSubmoduleAction::Status
+    ) {
         return submodule::submodule_action(input, &scope);
     }
-    run_coordinated(&coordinator, &scope, Some(&app), &quit, "submodule", |ctx, coord| {
-        let result = submodule::submodule_action_with(
-            &process::SystemGitProcess,
-            input,
-            &scope,
-            Some((ctx, coord)),
-        )?;
-        Ok((result.clone(), result))
-    })
+    run_coordinated(
+        &coordinator,
+        &scope,
+        Some(&app),
+        &quit,
+        "submodule",
+        |ctx, coord| {
+            let result = submodule::submodule_action_with(
+                &process::SystemGitProcess,
+                input,
+                &scope,
+                Some((ctx, coord)),
+            )?;
+            Ok((result.clone(), result))
+        },
+    )
 }
 
 #[tauri::command]
@@ -276,10 +382,22 @@ pub fn git_lfs(
     ) {
         return lfs::lfs_action(input, &scope);
     }
-    run_coordinated(&coordinator, &scope, Some(&app), &quit, "lfs", |ctx, coord| {
-        let result = lfs::lfs_action_with(&process::SystemGitProcess, input, &scope, Some((ctx, coord)))?;
-        Ok((result.clone(), result))
-    })
+    run_coordinated(
+        &coordinator,
+        &scope,
+        Some(&app),
+        &quit,
+        "lfs",
+        |ctx, coord| {
+            let result = lfs::lfs_action_with(
+                &process::SystemGitProcess,
+                input,
+                &scope,
+                Some((ctx, coord)),
+            )?;
+            Ok((result.clone(), result))
+        },
+    )
 }
 
 #[tauri::command]
@@ -291,15 +409,22 @@ pub fn git_clone(
     quit: State<'_, QuitGuard>,
 ) -> Result<clone::SourceControlCloneResult, PublicSourceControlError> {
     let scope = registry.resolve(&input.scope_id, "clone")?;
-    run_coordinated(&coordinator, &scope, Some(&app), &quit, "clone", |ctx, coord| {
-        let result = clone::clone_repository_with(
-            &process::SystemGitProcess,
-            input,
-            &scope,
-            Some((ctx, coord)),
-        )?;
-        Ok((result.clone(), result.message.clone()))
-    })
+    run_coordinated(
+        &coordinator,
+        &scope,
+        Some(&app),
+        &quit,
+        "clone",
+        |ctx, coord| {
+            let result = clone::clone_repository_with(
+                &process::SystemGitProcess,
+                input,
+                &scope,
+                Some((ctx, coord)),
+            )?;
+            Ok((result.clone(), result.message.clone()))
+        },
+    )
 }
 
 #[tauri::command]
@@ -360,11 +485,8 @@ pub fn git_worktree_attach(
         &quit,
         "worktree-attach",
         move |_ctx, _coord| {
-            let result = worktree::attach_worktree_with(
-                &process::SystemGitProcess,
-                input,
-                &registry,
-            )?;
+            let result =
+                worktree::attach_worktree_with(&process::SystemGitProcess, input, &registry)?;
             Ok((result.clone(), "Worktree attached".into()))
         },
     )
@@ -379,12 +501,16 @@ pub fn git_worktree_repair(
     quit: State<'_, QuitGuard>,
 ) -> Result<SourceControlWorktreeMutationResult, PublicSourceControlError> {
     let (repository_id, trunk_id) = match &input {
-        SourceControlRepairWorktreeInput::Reattach { expected_repository_identity, trunk_id, .. } => {
-            (expected_repository_identity.clone(), trunk_id.clone())
-        }
-        SourceControlRepairWorktreeInput::Recreate { expected_repository_identity, trunk_id, .. } => {
-            (expected_repository_identity.clone(), trunk_id.clone())
-        }
+        SourceControlRepairWorktreeInput::Reattach {
+            expected_repository_identity,
+            trunk_id,
+            ..
+        } => (expected_repository_identity.clone(), trunk_id.clone()),
+        SourceControlRepairWorktreeInput::Recreate {
+            expected_repository_identity,
+            trunk_id,
+            ..
+        } => (expected_repository_identity.clone(), trunk_id.clone()),
     };
     let registry = registry.clone();
     run_coordinated_identity(

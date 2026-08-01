@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::provider::azure::AzureDevOpsClient;
 use crate::provider::bitbucket::BitbucketClient;
+use crate::provider::contracts::ProviderReleaseCapability;
 use crate::provider::contracts::{
     ProviderCreatePullRequestInput, ProviderCreateReleaseInput, ProviderCreateRepositoryInput,
     ProviderGetPullRequestInput, ProviderGetRepositoryInput, ProviderKind,
@@ -12,11 +13,12 @@ use crate::provider::gitlab::GitLabClient;
 use crate::provider::keychain::{
     KeychainCredentialStore, KeychainErrorKind, ProviderCredentialStore,
 };
+use crate::provider::release::{
+    create_provider_release, release_capabilities, ProviderReleaseRequest,
+};
 use crate::provider::remote::{
     PaginatedResult, ProviderError, ProviderPullRequest, ProviderRelease, ProviderRepository,
 };
-use crate::provider::release::{create_provider_release, release_capabilities, ProviderReleaseRequest};
-use crate::provider::contracts::ProviderReleaseCapability;
 use crate::provider::transport::{ProviderHttpClient, ProviderHttpTransport};
 
 pub struct ProviderService {
@@ -53,9 +55,11 @@ impl ProviderService {
     }
 
     fn require_azure_org(organization: &Option<String>) -> Result<&str, ProviderError> {
-        organization.as_deref().ok_or_else(|| ProviderError::ProviderError {
-            message: "Azure DevOps operations require an organization name".into(),
-        })
+        organization
+            .as_deref()
+            .ok_or_else(|| ProviderError::ProviderError {
+                message: "Azure DevOps operations require an organization name".into(),
+            })
     }
 
     fn github_client(&self, token: &str) -> Result<GitHubClient, ProviderError> {
@@ -223,21 +227,12 @@ impl ProviderService {
             }
             ProviderKind::Gitlab => {
                 self.gitlab_client(&credential.secret)?
-                    .create_repository(
-                        &input.name,
-                        Some(description.as_str()),
-                        input.private,
-                    )
+                    .create_repository(&input.name, Some(description.as_str()), input.private)
                     .await
             }
             ProviderKind::Bitbucket => {
                 self.bitbucket_client(&credential.secret)?
-                    .create_repository(
-                        &input.owner,
-                        &input.name,
-                        &description,
-                        input.private,
-                    )
+                    .create_repository(&input.owner, &input.name, &description, input.private)
                     .await
             }
             ProviderKind::AzureDevops => {
@@ -630,10 +625,7 @@ mod tests {
             repo: "repo".into(),
         }));
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .message()
-            .contains("organization"));
+        assert!(result.unwrap_err().message().contains("organization"));
     }
 
     #[test]

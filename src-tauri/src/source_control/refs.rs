@@ -185,7 +185,12 @@ pub fn mutate_ref_with(
         }
         "rename-branch" => {
             if let Some(target) = &input.target {
-                run_ref_mutation(process, path, &["branch", "-m", &input.name, target], operation)?;
+                run_ref_mutation(
+                    process,
+                    path,
+                    &["branch", "-m", &input.name, target],
+                    operation,
+                )?;
             }
             Ok(SourceControlRefMutationResult {
                 message: format!(
