@@ -32,8 +32,8 @@ const resolveInput: SourceControlResolveCheckoutInput = {
 
 const resolvedCheckout = {
   kind: "project-root" as const,
+  scopeId: "scope-1",
   checkoutPath: "/work/app",
-  checkoutIdentity: "checkout-1",
   repositoryIdentity: "repo-1",
   savedRefName: "main",
   managedByApp: false,
@@ -47,6 +47,7 @@ const resolvedCheckout = {
 const snapshot: SourceControlRepositorySnapshot = {
   projectId: "project-1",
   trunkId: "trunk-1",
+  scopeId: "scope-1",
   checkoutPath: "/work/app",
   checkoutIdentity: "checkout-1",
   repositoryIdentity: "repo-1",
@@ -98,7 +99,7 @@ describe("createTauriSourceControlApi", () => {
     });
   });
 
-  it("serializes snapshot, local refresh, initialize, and diff commands", async () => {
+  it("serializes snapshot, local refresh, initialize, and diff commands with scope IDs only", async () => {
     invokeMock
       .mockResolvedValueOnce(snapshot)
       .mockResolvedValueOnce(snapshot)
@@ -114,13 +115,11 @@ describe("createTauriSourceControlApi", () => {
       });
 
     const api = createTauriSourceControlApi();
-    await api.getSnapshot({ projectId: "project-1", trunkId: "trunk-1", checkout: resolvedCheckout });
-    await api.refreshLocal({ projectId: "project-1", trunkId: "trunk-1", checkout: resolvedCheckout });
-    await api.initialize({ projectId: "project-1", trunkId: "trunk-1", checkoutPath: "/work/app" });
+    await api.getSnapshot({ scopeId: "scope-1" });
+    await api.refreshLocal({ scopeId: "scope-1" });
+    await api.initialize({ scopeId: "scope-1" });
     await api.getDiff({
-      projectId: "project-1",
-      trunkId: "trunk-1",
-      checkoutPath: "/work/app",
+      scopeId: "scope-1",
       source: { kind: "working-tree" },
       ignoreWhitespace: false,
       maxBytes: 1_048_576,
@@ -133,6 +132,64 @@ describe("createTauriSourceControlApi", () => {
       "git_initialize",
       "git_get_diff",
     ]);
+    for (const [, payload] of invokeMock.mock.calls) {
+      expect(JSON.stringify(payload)).not.toContain("checkoutPath");
+      expect(JSON.stringify(payload)).toContain("scopeId");
+    }
+  });
+  it("serializes operation inputs with scope IDs and no checkout path authority", async () => {
+    const api = createTauriSourceControlApi();
+    const inputs = [
+      ["stage", { scopeId: "scope-1", paths: ["a.ts"], mode: "stage" }],
+      ["discard", { scopeId: "scope-1", paths: ["a.ts"], mode: "tracked" }],
+      [
+        "commit",
+        {
+          scopeId: "scope-1",
+          subject: "subject",
+          body: "",
+          amend: false,
+          signoff: false,
+          newBranch: null,
+          selectedPaths: null,
+        },
+      ],
+      ["stash", { scopeId: "scope-1", message: null, includeUntracked: false, action: { kind: "create" } }],
+      ["fetch", { scopeId: "scope-1", prune: false, remote: null }],
+      ["pull", { scopeId: "scope-1", strategy: "ff-only", rebase: false }],
+      [
+        "push",
+        { scopeId: "scope-1", remote: null, refspec: null, setUpstream: false, forceWithLease: null },
+      ],
+      ["mutateRef", { scopeId: "scope-1", action: "checkout", name: "main", target: null, force: false }],
+      ["log", { scopeId: "scope-1", maxCount: 10, branch: null, search: null }],
+      ["compare", { scopeId: "scope-1", base: "main", head: "HEAD" }],
+    ] as const;
+    for (const [method, input] of inputs) {
+      await api[method as keyof typeof api](input as never);
+      const payload = invokeMock.mock.calls.at(-1)?.[1];
+      expect(JSON.stringify(payload)).not.toContain("checkoutPath");
+      expect(JSON.stringify(payload)).toContain("scopeId");
+    }
+  });
+
+  it("serializes scoped clone, submodule, LFS, refs, and hooks operations", async () => {
+    const api = createTauriSourceControlApi();
+    await api.clone({
+      scopeId: "scope-1",
+      url: "https://example.com/repo.git",
+      destinationName: "repo",
+      branch: null,
+      recurseSubmodules: false,
+    });
+    await api.submodule({ scopeId: "scope-1", action: "status", recursive: false });
+    await api.lfs({ scopeId: "scope-1", action: "status", patterns: [] });
+    await api.listRefs({ scopeId: "scope-1" });
+    await api.enumerateHooks({ scopeId: "scope-1" });
+    for (const [, payload] of invokeMock.mock.calls) {
+      expect(JSON.stringify(payload)).not.toContain("checkoutPath");
+      expect(JSON.stringify(payload)).toContain("scopeId");
+    }
   });
 
   it("subscribes to sanitized operation events", async () => {
@@ -173,13 +230,7 @@ describe("createMemorySourceControlApi", () => {
       status: "ready",
       checkout: resolvedCheckout,
     });
-    await expect(
-      api.refreshLocal({
-        projectId: "project-1",
-        trunkId: "trunk-1",
-        checkout: resolvedCheckout,
-      }),
-    ).resolves.toMatchObject({ revision: 2 });
+    await expect(api.refreshLocal({ scopeId: "scope-1" })).resolves.toMatchObject({ revision: 2 });
     expect(api.calls.map((call) => call.method)).toEqual([
       "resolveCheckout",
       "refreshLocal",

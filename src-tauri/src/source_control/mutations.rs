@@ -1,5 +1,8 @@
 use crate::source_control::contracts::PublicSourceControlError;
-use crate::source_control::process::{SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess};
+use crate::source_control::process::{
+    SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
+};
+use crate::source_control::scope_registry::SourceControlScopeRecord;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::path::Path;
@@ -11,7 +14,7 @@ const OUTPUT_LIMIT: usize = 256 * 1024;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlStageInput {
-    pub checkout_path: String,
+    pub scope_id: String,
     pub paths: Vec<String>,
     pub mode: SourceControlStageMode,
 }
@@ -26,7 +29,7 @@ pub enum SourceControlStageMode {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlDiscardInput {
-    pub checkout_path: String,
+    pub scope_id: String,
     pub paths: Vec<String>,
     pub mode: SourceControlDiscardMode,
 }
@@ -41,7 +44,7 @@ pub enum SourceControlDiscardMode {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlCommitInput {
-    pub checkout_path: String,
+    pub scope_id: String,
     pub subject: String,
     pub body: String,
     pub amend: bool,
@@ -53,7 +56,7 @@ pub struct SourceControlCommitInput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlStashInput {
-    pub checkout_path: String,
+    pub scope_id: String,
     pub message: Option<String>,
     pub include_untracked: bool,
     pub action: SourceControlStashAction,
@@ -92,14 +95,25 @@ fn run_mutation(
     process.run(spec).map(|o| o.stdout)
 }
 
-pub fn stage(input: SourceControlStageInput) -> Result<SourceControlMutationResult, PublicSourceControlError> {
-    let path = Path::new(&input.checkout_path);
+pub fn stage(
+    input: SourceControlStageInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlMutationResult, PublicSourceControlError> {
+    stage_with(&SystemGitProcess, input, scope)
+}
+
+pub fn stage_with(
+    process: &impl SourceControlProcess,
+    input: SourceControlStageInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlMutationResult, PublicSourceControlError> {
+    let path = scope.checkout_path.as_path();
     let mut args = vec![match input.mode {
         SourceControlStageMode::Stage => "add",
         SourceControlStageMode::Unstage => "reset",
     }];
     args.extend(input.paths.iter().map(|p| p.as_str()));
-    run_mutation(&SystemGitProcess, path, &args)?;
+    run_mutation(process, path, &args)?;
     Ok(SourceControlMutationResult {
         message: format!(
             "{} {} file(s)",
@@ -112,8 +126,19 @@ pub fn stage(input: SourceControlStageInput) -> Result<SourceControlMutationResu
     })
 }
 
-pub fn discard(input: SourceControlDiscardInput) -> Result<SourceControlMutationResult, PublicSourceControlError> {
-    let path = Path::new(&input.checkout_path);
+pub fn discard(
+    input: SourceControlDiscardInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlMutationResult, PublicSourceControlError> {
+    discard_with(&SystemGitProcess, input, scope)
+}
+
+pub fn discard_with(
+    process: &impl SourceControlProcess,
+    input: SourceControlDiscardInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlMutationResult, PublicSourceControlError> {
+    let path = scope.checkout_path.as_path();
     if input.paths.is_empty() {
         return Ok(SourceControlMutationResult {
             message: "Nothing to discard".into(),
@@ -121,17 +146,13 @@ pub fn discard(input: SourceControlDiscardInput) -> Result<SourceControlMutation
     }
     match input.mode {
         SourceControlDiscardMode::Tracked => {
-            run_mutation(
-                &SystemGitProcess,
-                path,
-                &["checkout", "--", &input.paths.join(",")],
-            )?;
+            run_mutation(process, path, &["checkout", "--", &input.paths.join(",")])?;
         }
         SourceControlDiscardMode::Untracked => {
             for p in &input.paths {
-                let target = Path::new(p);
+                let target = path.join(p);
                 if target.exists() {
-                    std::fs::remove_file(target)
+                    std::fs::remove_file(&target)
                         .map_err(|_| PublicSourceControlError::process_failed("discard", false))?;
                 }
             }
@@ -142,8 +163,19 @@ pub fn discard(input: SourceControlDiscardInput) -> Result<SourceControlMutation
     })
 }
 
-pub fn commit(input: SourceControlCommitInput) -> Result<SourceControlMutationResult, PublicSourceControlError> {
-    let path = Path::new(&input.checkout_path);
+pub fn commit(
+    input: SourceControlCommitInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlMutationResult, PublicSourceControlError> {
+    commit_with(&SystemGitProcess, input, scope)
+}
+
+pub fn commit_with(
+    process: &impl SourceControlProcess,
+    input: SourceControlCommitInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlMutationResult, PublicSourceControlError> {
+    let path = scope.checkout_path.as_path();
     let mut args: Vec<&str> = vec!["commit", "--quiet"];
     if input.amend {
         args.push("--amend");
@@ -157,64 +189,71 @@ pub fn commit(input: SourceControlCommitInput) -> Result<SourceControlMutationRe
         args.push("-m");
         args.push(&input.body);
     }
-    if let Some(ref branch) = input.new_branch {
+    if let Some(branch) = &input.new_branch {
         args.push("-b");
         args.push(branch);
     }
-    if let Some(ref selected) = input.selected_paths {
-        // Selected-file commit via temp index
-        run_mutation(&SystemGitProcess, path, &["add", "--"]).ok();
+    if let Some(selected) = &input.selected_paths {
+        run_mutation(process, path, &["add", "--"]).ok();
         let joined: Vec<&str> = selected.iter().map(|s| s.as_str()).collect();
         let mut add_args = vec!["add"];
         add_args.extend(&joined);
-        run_mutation(&SystemGitProcess, path, &add_args)?;
+        run_mutation(process, path, &add_args)?;
     }
-    run_mutation(&SystemGitProcess, path, &args)?;
+    run_mutation(process, path, &args)?;
     Ok(SourceControlMutationResult {
         message: "Committed".into(),
     })
 }
 
-pub fn stash(input: SourceControlStashInput) -> Result<SourceControlMutationResult, PublicSourceControlError> {
-    let path = Path::new(&input.checkout_path);
+pub fn stash(
+    input: SourceControlStashInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlMutationResult, PublicSourceControlError> {
+    stash_with(&SystemGitProcess, input, scope)
+}
+
+pub fn stash_with(
+    process: &impl SourceControlProcess,
+    input: SourceControlStashInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlMutationResult, PublicSourceControlError> {
+    let path = scope.checkout_path.as_path();
     match input.action {
         SourceControlStashAction::Create => {
             let mut args = vec!["stash", "push"];
             if input.include_untracked {
                 args.push("--include-untracked");
             }
-            if let Some(ref msg) = input.message {
+            if let Some(msg) = &input.message {
                 args.push("-m");
                 args.push(msg);
             }
-            run_mutation(&SystemGitProcess, path, &args)?;
+            run_mutation(process, path, &args)?;
             Ok(SourceControlMutationResult {
                 message: "Stashed".into(),
             })
         }
         SourceControlStashAction::Apply { index } => {
             let stash_ref = format!("stash@{{{}}}", index);
-            run_mutation(&SystemGitProcess, path, &["stash", "apply", &stash_ref])?;
+            run_mutation(process, path, &["stash", "apply", &stash_ref])?;
             Ok(SourceControlMutationResult {
                 message: format!("Applied stash@{{{}}}", index),
             })
         }
         SourceControlStashAction::Pop { index } => {
             let stash_ref = format!("stash@{{{}}}", index);
-            run_mutation(&SystemGitProcess, path, &["stash", "pop", &stash_ref])?;
+            run_mutation(process, path, &["stash", "pop", &stash_ref])?;
             Ok(SourceControlMutationResult {
                 message: format!("Popped stash@{{{}}}", index),
             })
         }
-        SourceControlStashAction::Branch {
-            index,
-            ref branch_name,
-        } => {
+        SourceControlStashAction::Branch { index, branch_name } => {
             let stash_ref = format!("stash@{{{}}}", index);
             run_mutation(
-                &SystemGitProcess,
+                process,
                 path,
-                &["stash", "branch", branch_name, &stash_ref],
+                &["stash", "branch", &branch_name, &stash_ref],
             )?;
             Ok(SourceControlMutationResult {
                 message: format!("Created branch {} from stash@{{{}}}", branch_name, index),
@@ -222,7 +261,7 @@ pub fn stash(input: SourceControlStashInput) -> Result<SourceControlMutationResu
         }
         SourceControlStashAction::Drop { index } => {
             let stash_ref = format!("stash@{{{}}}", index);
-            run_mutation(&SystemGitProcess, path, &["stash", "drop", &stash_ref])?;
+            run_mutation(process, path, &["stash", "drop", &stash_ref])?;
             Ok(SourceControlMutationResult {
                 message: format!("Dropped stash@{{{}}}", index),
             })
@@ -258,6 +297,18 @@ mod tests {
             .status()
             .unwrap();
     }
+    fn scope(path: &Path) -> SourceControlScopeRecord {
+        SourceControlScopeRecord {
+            scope_id: "scope-1".into(),
+            project_id: "p".into(),
+            trunk_id: "t".into(),
+            project_root: path.to_path_buf(),
+            checkout_path: path.to_path_buf(),
+            checkout_identity: "checkout-1".into(),
+            repository_identity: None,
+            managed_by_app: false,
+        }
+    }
 
     // (placeholder: real tests write files before staging to avoid "pathspec did not match" errors)
 
@@ -276,11 +327,14 @@ mod tests {
             .unwrap();
         fs::write(dir.path().join("f.txt"), "y").unwrap();
 
-        stage(SourceControlStageInput {
-            checkout_path: dir.path().to_string_lossy().into(),
-            paths: vec!["f.txt".into()],
-            mode: SourceControlStageMode::Stage,
-        })
+        stage(
+            SourceControlStageInput {
+                scope_id: "scope-1".into(),
+                paths: vec!["f.txt".into()],
+                mode: SourceControlStageMode::Stage,
+            },
+            &scope(dir.path()),
+        )
         .unwrap();
         // Verify index matches working tree
         let out = Command::new("git")
@@ -295,11 +349,14 @@ mod tests {
             .unwrap();
         assert!(String::from_utf8_lossy(&out.stdout).contains("f.txt"));
 
-        stage(SourceControlStageInput {
-            checkout_path: dir.path().to_string_lossy().into(),
-            paths: vec!["f.txt".into()],
-            mode: SourceControlStageMode::Unstage,
-        })
+        stage(
+            SourceControlStageInput {
+                scope_id: "scope-1".into(),
+                paths: vec!["f.txt".into()],
+                mode: SourceControlStageMode::Unstage,
+            },
+            &scope(dir.path()),
+        )
         .unwrap();
         let out = Command::new("git")
             .args([
@@ -324,15 +381,18 @@ mod tests {
             .status()
             .unwrap();
 
-        commit(SourceControlCommitInput {
-            checkout_path: dir.path().to_string_lossy().into(),
-            subject: "feat: hello".into(),
-            body: String::new(),
-            amend: false,
-            signoff: false,
-            new_branch: None,
-            selected_paths: None,
-        })
+        commit(
+            SourceControlCommitInput {
+                scope_id: "scope-1".into(),
+                subject: "feat: hello".into(),
+                body: String::new(),
+                amend: false,
+                signoff: false,
+                new_branch: None,
+                selected_paths: None,
+            },
+            &scope(dir.path()),
+        )
         .unwrap();
 
         let out = Command::new("git")
@@ -357,22 +417,28 @@ mod tests {
             .unwrap();
         fs::write(dir.path().join("h.txt"), "stashed").unwrap();
 
-        stash(SourceControlStashInput {
-            checkout_path: dir.path().to_string_lossy().into(),
-            message: Some("wip".into()),
-            include_untracked: false,
-            action: SourceControlStashAction::Create,
-        })
+        stash(
+            SourceControlStashInput {
+                scope_id: "scope-1".into(),
+                message: Some("wip".into()),
+                include_untracked: false,
+                action: SourceControlStashAction::Create,
+            },
+            &scope(dir.path()),
+        )
         .unwrap();
         let content = fs::read_to_string(dir.path().join("h.txt")).unwrap();
         assert_eq!(content.trim(), "initial"); // reverted after stash
 
-        stash(SourceControlStashInput {
-            checkout_path: dir.path().to_string_lossy().into(),
-            message: None,
-            include_untracked: false,
-            action: SourceControlStashAction::Pop { index: 0 },
-        })
+        stash(
+            SourceControlStashInput {
+                scope_id: "scope-1".into(),
+                message: None,
+                include_untracked: false,
+                action: SourceControlStashAction::Pop { index: 0 },
+            },
+            &scope(dir.path()),
+        )
         .unwrap();
         let content = fs::read_to_string(dir.path().join("h.txt")).unwrap();
         assert_eq!(content.trim(), "stashed");

@@ -128,7 +128,12 @@ impl PublicSourceControlError {
         )
     }
 
-    fn new(code: PublicSourceControlErrorCode, operation: &str, message: &str, retryable: bool) -> Self {
+    fn new(
+        code: PublicSourceControlErrorCode,
+        operation: &str,
+        message: &str,
+        retryable: bool,
+    ) -> Self {
         Self {
             code,
             operation: operation.to_string(),
@@ -178,6 +183,7 @@ pub enum ResolvedSourceControlCheckoutKind {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedSourceControlCheckout {
+    pub scope_id: String,
     pub kind: ResolvedSourceControlCheckoutKind,
     pub checkout_path: String,
     pub checkout_identity: String,
@@ -223,17 +229,13 @@ pub enum SourceControlResolveCheckoutResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlCheckoutRequest {
-    pub project_id: String,
-    pub trunk_id: String,
-    pub checkout: ResolvedSourceControlCheckout,
+    pub scope_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlInitializeInput {
-    pub project_id: String,
-    pub trunk_id: String,
-    pub checkout_path: String,
+    pub scope_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -333,6 +335,7 @@ pub enum SourceControlRepositoryStatus {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlRepositorySnapshot {
+    pub scope_id: String,
     pub project_id: String,
     pub trunk_id: String,
     pub checkout_path: String,

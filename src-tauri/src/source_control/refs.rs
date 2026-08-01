@@ -1,5 +1,8 @@
 use crate::source_control::contracts::PublicSourceControlError;
-use crate::source_control::process::{SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess};
+use crate::source_control::process::{
+    SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
+};
+use crate::source_control::scope_registry::SourceControlScopeRecord;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::path::Path;
@@ -29,11 +32,16 @@ pub enum SourceControlRefKind {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlRefMutationInput {
-    pub checkout_path: String,
+    pub scope_id: String,
     pub action: String,
     pub name: String,
     pub target: Option<String>,
     pub force: bool,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceControlRefsInput {
+    pub scope_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,22 +67,26 @@ fn run_ref_op(
     process.run(spec).map(|o| o.stdout)
 }
 
-pub fn list_refs(checkout_path: String) -> Result<Vec<SourceControlRefSummary>, PublicSourceControlError> {
-    let path = Path::new(&checkout_path);
-    let stdout = run_ref_op(&SystemGitProcess, path, &["for-each-ref", "--format=%(refname:short)%00%(objectname:short)%00%(upstream:short)%00%(refname:lstrip=2)",
-        "refs/heads", "refs/remotes"])?;
+pub fn list_refs(
+    scope: &SourceControlScopeRecord,
+) -> Result<Vec<SourceControlRefSummary>, PublicSourceControlError> {
+    list_refs_with(&SystemGitProcess, scope)
+}
+
+pub fn list_refs_with(
+    process: &impl SourceControlProcess,
+    scope: &SourceControlScopeRecord,
+) -> Result<Vec<SourceControlRefSummary>, PublicSourceControlError> {
+    let path = scope.checkout_path.as_path();
+    let stdout = run_ref_op(process, path, &["for-each-ref", "--format=%(refname:short)%00%(objectname:short)%00%(upstream:short)%00%(refname:lstrip=2)", "refs/heads", "refs/remotes"])?;
     let text = String::from_utf8_lossy(&stdout);
-    let mut refs: Vec<SourceControlRefSummary> = Vec::new();
+    let mut refs = Vec::new();
     for line in text.lines() {
         let parts: Vec<&str> = line.split('\0').collect();
         if parts.len() >= 3 {
             let name = parts[0].to_string();
             let oid = parts[1].to_string();
-            let upstream = if parts.len() > 2 {
-                Some(parts[2].to_string())
-            } else {
-                None
-            };
+            let upstream = Some(parts[2].to_string());
             let kind = if name.starts_with("origin/") {
                 SourceControlRefKind::Remote
             } else {
@@ -89,64 +101,65 @@ pub fn list_refs(checkout_path: String) -> Result<Vec<SourceControlRefSummary>, 
             });
         }
     }
-    let current_branch = run_ref_op(
-        &SystemGitProcess,
-        path,
-        &["rev-parse", "--abbrev-ref", "HEAD"],
-    )
-    .map(|stdout| String::from_utf8_lossy(&stdout).trim().to_string())
-    .ok();
-    if let Some(ref cur) = current_branch {
-        for r in &mut refs {
-            r.is_current = r.name == *cur;
+    let current_branch = run_ref_op(process, path, &["rev-parse", "--abbrev-ref", "HEAD"])
+        .map(|stdout| String::from_utf8_lossy(&stdout).trim().to_string())
+        .ok();
+    if let Some(cur) = current_branch {
+        for item in &mut refs {
+            item.is_current = item.name == cur;
         }
     }
     Ok(refs)
 }
 
-pub fn mutate_ref(input: SourceControlRefMutationInput) -> Result<SourceControlRefMutationResult, PublicSourceControlError> {
-    let path = Path::new(&input.checkout_path);
+pub fn mutate_ref(
+    input: SourceControlRefMutationInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlRefMutationResult, PublicSourceControlError> {
+    mutate_ref_with(&SystemGitProcess, input, scope)
+}
+
+pub fn mutate_ref_with(
+    process: &impl SourceControlProcess,
+    input: SourceControlRefMutationInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlRefMutationResult, PublicSourceControlError> {
+    let path = scope.checkout_path.as_path();
     match input.action.as_str() {
         "checkout" => {
-            run_ref_op(&SystemGitProcess, path, &["checkout", &input.name])?;
+            run_ref_op(process, path, &["checkout", &input.name])?;
             Ok(SourceControlRefMutationResult {
                 message: format!("Checked out {}", input.name),
             })
         }
         "create-branch" => {
-            let mut args = vec!["branch", &input.name];
-            if let Some(ref target) = input.target {
+            let mut args = vec!["branch", input.name.as_str()];
+            if let Some(target) = &input.target {
                 args.push(target);
             }
-            run_ref_op(&SystemGitProcess, path, &args)?;
+            run_ref_op(process, path, &args)?;
             Ok(SourceControlRefMutationResult {
                 message: format!("Created branch {}", input.name),
             })
         }
         "delete-branch" => {
-            let mut args = vec!["branch"];
-            if input.force {
-                args.push("-D");
-            } else {
-                args.push("-d");
-            }
-            args.push(&input.name);
-            run_ref_op(&SystemGitProcess, path, &args)?;
+            let args = vec![
+                "branch",
+                if input.force { "-D" } else { "-d" },
+                input.name.as_str(),
+            ];
+            run_ref_op(process, path, &args)?;
             Ok(SourceControlRefMutationResult {
                 message: format!("Deleted branch {}", input.name),
             })
         }
         "rename-branch" => {
-            if let Some(ref target) = input.target {
-                run_ref_op(
-                    &SystemGitProcess,
-                    path,
-                    &["branch", "-m", &input.name, target],
-                )?;
+            if let Some(target) = &input.target {
+                run_ref_op(process, path, &["branch", "-m", &input.name, target])?;
             }
             Ok(SourceControlRefMutationResult {
                 message: format!(
-                    "Renamed branch {} → {}",
+                    "Renamed branch {} -> {}",
                     input.name,
                     input.target.unwrap_or_default()
                 ),
@@ -203,7 +216,17 @@ mod tests {
             .status()
             .unwrap();
 
-        let refs = list_refs(dir.path().to_string_lossy().into()).unwrap();
+        let scope = SourceControlScopeRecord {
+            scope_id: "scope-1".into(),
+            project_id: "p".into(),
+            trunk_id: "t".into(),
+            project_root: dir.path().to_path_buf(),
+            checkout_path: dir.path().to_path_buf(),
+            checkout_identity: "checkout-1".into(),
+            repository_identity: None,
+            managed_by_app: false,
+        };
+        let refs = list_refs(&scope).unwrap();
         let branches: Vec<_> = refs
             .iter()
             .filter(|r| matches!(r.kind, SourceControlRefKind::Branch))

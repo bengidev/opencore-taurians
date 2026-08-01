@@ -1,9 +1,13 @@
-use crate::source_control::contracts::{
-    SourceControlCheckoutInvalidReason, SourceControlCheckoutRestore, SourceControlResolveCheckoutInput,
-    SourceControlResolveCheckoutResult, ResolvedSourceControlCheckout, ResolvedSourceControlCheckoutKind,
-};
-use crate::source_control::process::{SourceControlCommandSpec, SourceControlProcess, SystemGitProcess};
 use crate::path_scope::normalize_path;
+use crate::source_control::contracts::{
+    ResolvedSourceControlCheckout, ResolvedSourceControlCheckoutKind,
+    SourceControlCheckoutInvalidReason, SourceControlCheckoutRestore,
+    SourceControlResolveCheckoutInput, SourceControlResolveCheckoutResult,
+};
+use crate::source_control::process::{
+    SourceControlCommandSpec, SourceControlProcess, SystemGitProcess,
+};
+use crate::source_control::scope_registry::{SourceControlScopeRecord, SourceControlScopeRegistry};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,13 +18,25 @@ pub struct RepositoryScope {
     pub ref_name: Option<String>,
 }
 
-pub fn resolve_checkout(input: SourceControlResolveCheckoutInput) -> SourceControlResolveCheckoutResult {
-    resolve_checkout_with(&SystemGitProcess, input)
+#[allow(dead_code)]
+pub fn resolve_checkout(
+    input: SourceControlResolveCheckoutInput,
+) -> SourceControlResolveCheckoutResult {
+    let registry = SourceControlScopeRegistry::default();
+    resolve_checkout_with_registry(&SystemGitProcess, input, &registry)
 }
 
-pub fn resolve_checkout_with(
+pub fn resolve_checkout_in_registry(
+    input: SourceControlResolveCheckoutInput,
+    registry: &SourceControlScopeRegistry,
+) -> SourceControlResolveCheckoutResult {
+    resolve_checkout_with_registry(&SystemGitProcess, input, registry)
+}
+
+pub fn resolve_checkout_with_registry(
     process: &impl SourceControlProcess,
     input: SourceControlResolveCheckoutInput,
+    registry: &SourceControlScopeRegistry,
 ) -> SourceControlResolveCheckoutResult {
     let project_path = normalize_path(Path::new(&input.project_folder_path));
     let (kind, checkout_path, expected_identity, saved_ref_name, managed_by_app) =
@@ -112,24 +128,45 @@ pub fn resolve_checkout_with(
         .as_ref()
         .and_then(|scope| scope.ref_name.clone())
         .or(saved_ref_name);
+    let resolved_checkout_path = checkout_scope
+        .as_ref()
+        .map(|scope| scope.checkout_path.clone())
+        .unwrap_or_else(|| checkout_path.clone());
     let normalized_restore = match kind {
-        ResolvedSourceControlCheckoutKind::ProjectRoot => SourceControlCheckoutRestore::ProjectRoot {
-            repository_identity: repository_identity.clone(),
-            saved_ref_name: resolved_ref.clone(),
-        },
+        ResolvedSourceControlCheckoutKind::ProjectRoot => {
+            SourceControlCheckoutRestore::ProjectRoot {
+                repository_identity: repository_identity.clone(),
+                saved_ref_name: resolved_ref.clone(),
+            }
+        }
         ResolvedSourceControlCheckoutKind::Worktree => SourceControlCheckoutRestore::Worktree {
-            worktree_path: checkout_path.to_string_lossy().into_owned(),
+            worktree_path: resolved_checkout_path.to_string_lossy().into_owned(),
             repository_identity: repository_identity.clone().unwrap_or_default(),
             saved_ref_name: resolved_ref.clone(),
             managed_by_app,
         },
     };
+    let resolved_checkout_identity = checkout_scope
+        .as_ref()
+        .map(|scope| scope.checkout_identity.clone())
+        .unwrap_or_else(|| checkout_identity(&resolved_checkout_path));
+    let scope_id = registry.register(SourceControlScopeRecord {
+        scope_id: String::new(),
+        project_id: input.project_id.clone(),
+        trunk_id: input.trunk_id.clone(),
+        project_root: project_path,
+        checkout_path: resolved_checkout_path.clone(),
+        checkout_identity: resolved_checkout_identity.clone(),
+        repository_identity: repository_identity.clone(),
+        managed_by_app,
+    });
 
     SourceControlResolveCheckoutResult::Ready {
         checkout: ResolvedSourceControlCheckout {
+            scope_id,
             kind,
-            checkout_path: checkout_path.to_string_lossy().into_owned(),
-            checkout_identity: checkout_identity(&checkout_path),
+            checkout_path: resolved_checkout_path.to_string_lossy().into_owned(),
+            checkout_identity: resolved_checkout_identity,
             repository_identity,
             saved_ref_name: resolved_ref,
             managed_by_app,
@@ -178,7 +215,9 @@ fn run_line<const N: usize>(
     args: [&str; N],
 ) -> Result<String, ()> {
     let output = process
-        .run(SourceControlCommandSpec::parsed_read(checkout, operation, args))
+        .run(SourceControlCommandSpec::parsed_read(
+            checkout, operation, args,
+        ))
         .map_err(|_| ())?;
     let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if value.is_empty() {
@@ -243,8 +282,51 @@ mod tests {
         let SourceControlResolveCheckoutResult::Ready { checkout } = result else {
             panic!("expected ready")
         };
-        assert_eq!(checkout.repository_identity, None);
-        assert_eq!(checkout.kind, ResolvedSourceControlCheckoutKind::ProjectRoot);
+        assert!(!checkout.scope_id.is_empty());
+        assert!(!checkout.scope_id.contains('/'));
+        assert!(!checkout.scope_id.contains(std::path::MAIN_SEPARATOR));
+        assert_ne!(checkout.scope_id, checkout.checkout_path);
+        assert_eq!(
+            checkout.kind,
+            ResolvedSourceControlCheckoutKind::ProjectRoot
+        );
+    }
+
+    #[test]
+    fn registers_repository_root_for_nested_project_path() {
+        let repository = tempdir().unwrap();
+        init(repository.path());
+        let nested = repository.path().join("nested");
+        fs::create_dir_all(&nested).unwrap();
+        let registry = SourceControlScopeRegistry::default();
+        let result = resolve_checkout_with_registry(
+            &SystemGitProcess,
+            SourceControlResolveCheckoutInput {
+                project_id: "p".into(),
+                trunk_id: "t".into(),
+                project_folder_path: nested.to_string_lossy().into_owned(),
+                git_checkout: SourceControlCheckoutRestore::ProjectRoot {
+                    repository_identity: None,
+                    saved_ref_name: None,
+                },
+            },
+            &registry,
+        );
+        let SourceControlResolveCheckoutResult::Ready { checkout } = result else {
+            panic!("expected ready")
+        };
+        let expected_root = normalize_path(repository.path());
+        assert_eq!(
+            checkout.checkout_path,
+            expected_root.to_string_lossy().into_owned()
+        );
+        assert_eq!(
+            checkout.checkout_identity,
+            format!("checkout:{}", expected_root.to_string_lossy())
+        );
+        let record = registry.resolve(&checkout.scope_id, "test").unwrap();
+        assert_eq!(record.checkout_path, expected_root);
+        assert_eq!(record.checkout_identity, checkout.checkout_identity);
     }
 
     #[test]

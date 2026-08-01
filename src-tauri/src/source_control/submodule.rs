@@ -1,5 +1,8 @@
 use crate::source_control::contracts::PublicSourceControlError;
-use crate::source_control::process::{SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess};
+use crate::source_control::process::{
+    SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
+};
+use crate::source_control::scope_registry::SourceControlScopeRecord;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::path::Path;
@@ -11,7 +14,7 @@ const LIMIT: usize = 128 * 1024;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlSubmoduleInput {
-    pub checkout_path: String,
+    pub scope_id: String,
     pub action: SourceControlSubmoduleAction,
     pub recursive: bool,
 }
@@ -43,8 +46,19 @@ fn run_sm(
     process.run(spec).map(|o| o.stdout)
 }
 
-pub fn submodule_action(input: SourceControlSubmoduleInput) -> Result<String, PublicSourceControlError> {
-    let path = Path::new(&input.checkout_path);
+pub fn submodule_action(
+    input: SourceControlSubmoduleInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<String, PublicSourceControlError> {
+    submodule_action_with(&SystemGitProcess, input, scope)
+}
+
+pub fn submodule_action_with(
+    process: &impl SourceControlProcess,
+    input: SourceControlSubmoduleInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<String, PublicSourceControlError> {
+    let path = scope.checkout_path.as_path();
     let action = match input.action {
         SourceControlSubmoduleAction::Init => "init",
         SourceControlSubmoduleAction::Update => "update",
@@ -56,6 +70,6 @@ pub fn submodule_action(input: SourceControlSubmoduleInput) -> Result<String, Pu
     if input.recursive {
         args.push("--recursive");
     }
-    let stdout = run_sm(&SystemGitProcess, path, &args)?;
+    let stdout = run_sm(process, path, &args)?;
     Ok(String::from_utf8_lossy(&stdout).to_string())
 }

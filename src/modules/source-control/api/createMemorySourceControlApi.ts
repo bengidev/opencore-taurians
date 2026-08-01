@@ -1,24 +1,11 @@
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { SourceControlApi } from "./sourceControlApi";
 import type {
-  SourceControlCommitInput,
-  SourceControlCompareInput,
-  SourceControlCompareResult,
-  SourceControlDiscardInput,
-  SourceControlFetchInput,
-  SourceControlLogEntry,
-  SourceControlLogInput,
-  SourceControlMutationResult,
+  SourceControlCloneResult,
+  SourceControlHookInfo,
   SourceControlOperationEvent,
-  SourceControlPullInput,
-  SourceControlPushInput,
-  SourceControlRefMutationInput,
-  SourceControlRefMutationResult,
-  SourceControlRefSummary,
   SourceControlRepositorySnapshot,
   SourceControlResolveCheckoutResult,
-  SourceControlStageInput,
-  SourceControlStashInput,
 } from "./sourceControlContracts";
 
 export interface MemorySourceControlSeed {
@@ -64,127 +51,69 @@ export function createMemorySourceControlApi(seed: MemorySourceControlSeed = {})
     calls,
     resolveCheckout: async (input) => {
       record("resolveCheckout", input);
-      return (
-        seed.resolveByTrunkId?.[input.trunkId] ?? {
-          status: "invalid",
-          reason: "unknown",
-          message: `No checkout seeded for trunk: ${input.trunkId}`,
-          worktreePath: null,
-          repositoryIdentity: null,
-          savedRefName: null,
-        }
-      );
+      return seed.resolveByTrunkId?.[input.trunkId] ?? {
+        status: "invalid",
+        reason: "unknown",
+        message: `No checkout seeded for trunk: ${input.trunkId}`,
+        worktreePath: null,
+        repositoryIdentity: null,
+        savedRefName: null,
+      };
     },
     getSnapshot: async (input) => {
       record("getSnapshot", input);
-      return getSnapshot(input.checkout.checkoutIdentity);
+      const seeded = [...snapshots.values()].find((item) => item.scopeId === input.scopeId);
+      return seeded ? structuredClone(seeded) : missingSnapshot(input.scopeId);
     },
     refreshLocal: async (input) => {
       record("refreshLocal", input);
-      const current = getSnapshot(input.checkout.checkoutIdentity);
+      const current = [...snapshots.values()].find((item) => item.scopeId === input.scopeId);
+      if (!current) return missingSnapshot(input.scopeId);
       const next = { ...current, revision: current.revision + 1 };
-      snapshots.set(input.checkout.checkoutIdentity, next);
+      snapshots.set(next.checkoutIdentity, next);
       return structuredClone(next);
     },
     initialize: async (input) => {
       record("initialize", input);
-      const current = [...snapshots.values()].find(
-        (item) => item.checkoutPath === input.checkoutPath,
-      );
-      if (!current) return missingSnapshot(input.checkoutPath);
-      const next = {
-        ...current,
-        repositoryState: "unborn" as const,
-        revision: current.revision + 1,
-      };
+      const current = [...snapshots.values()].find((item) => item.scopeId === input.scopeId);
+      if (!current) return missingSnapshot(input.scopeId);
+      const next = { ...current, repositoryState: "unborn" as const, revision: current.revision + 1 };
       snapshots.set(next.checkoutIdentity, next);
       return structuredClone(next);
     },
     getDiff: async (input) => {
       record("getDiff", input);
-      return {
-        source: structuredClone(input.source),
-        patch: "",
-        files: [],
-        additions: 0,
-        deletions: 0,
-        binary: false,
-        truncated: false,
-      };
+      return { source: structuredClone(input.source), patch: "", files: [], additions: 0, deletions: 0, binary: false, truncated: false };
     },
-    stage: async (input: SourceControlStageInput): Promise<SourceControlMutationResult> => {
-      record("stage", input);
-      return { message: "Staged" };
+    stage: async (input) => { record("stage", input); return { message: "Staged" }; },
+    discard: async (input) => { record("discard", input); return { message: "Discarded" }; },
+    commit: async (input) => { record("commit", input); return { message: "Committed" }; },
+    stash: async (input) => { record("stash", input); return { message: "Stashed" }; },
+    fetch: async (input) => { record("fetch", input); return { message: "Fetched" }; },
+    pull: async (input) => { record("pull", input); return { message: "Pulled" }; },
+    push: async (input) => { record("push", input); return { message: "Pushed" }; },
+    listRefs: async (input) => { record("listRefs", input); return []; },
+    mutateRef: async (input) => { record("mutateRef", input); return { message: "Ref mutated" }; },
+    log: async (input) => { record("log", input); return []; },
+    compare: async (input) => { record("compare", input); return { ahead: 0, behind: 0, commits: [] }; },
+    submodule: async (input) => { record("submodule", input); return ""; },
+    lfs: async (input) => { record("lfs", input); return ""; },
+    clone: async (input): Promise<SourceControlCloneResult> => {
+      record("clone", input);
+      return { path: input.destinationName, message: "Cloned successfully" };
     },
-    discard: async (input: SourceControlDiscardInput): Promise<SourceControlMutationResult> => {
-      record("discard", input);
-      return { message: "Discarded" };
-    },
-    commit: async (input: SourceControlCommitInput): Promise<SourceControlMutationResult> => {
-      record("commit", input);
-      return { message: "Committed" };
-    },
-    stash: async (input: SourceControlStashInput): Promise<SourceControlMutationResult> => {
-      record("stash", input);
-      return { message: "Stashed" };
-    },
-    fetch: async (input: SourceControlFetchInput): Promise<SourceControlMutationResult> => {
-      record("fetch", input);
-      return { message: "Fetched" };
-    },
-    pull: async (input: SourceControlPullInput): Promise<SourceControlMutationResult> => {
-      record("pull", input);
-      return { message: "Pulled" };
-    },
-    push: async (input: SourceControlPushInput): Promise<SourceControlMutationResult> => {
-      record("push", input);
-      return { message: "Pushed" };
-    },
-    listRefs: async (checkoutPath: string): Promise<SourceControlRefSummary[]> => {
-      record("listRefs", checkoutPath);
-      return [];
-    },
-    mutateRef: async (input: SourceControlRefMutationInput): Promise<SourceControlRefMutationResult> => {
-      record("mutateRef", input);
-      return { message: "Ref mutated" };
-    },
-    log: async (input: SourceControlLogInput): Promise<SourceControlLogEntry[]> => {
-      record("log", input);
-      return [];
-    },
-    compare: async (input: SourceControlCompareInput): Promise<SourceControlCompareResult> => {
-      record("compare", input);
-      return { ahead: 0, behind: 0, commits: [] };
-    },
-    createWorktree: async (input) => {
-      record("createWorktree", input);
-      throw new Error("No worktree creation result seeded");
-    },
-    attachWorktree: async (input) => {
-      record("attachWorktree", input);
-      throw new Error("No worktree attachment result seeded");
-    },
-    repairWorktree: async (input) => {
-      record("repairWorktree", input);
-      throw new Error("No worktree repair result seeded");
-    },
-    inspectWorktreeRemoval: async (input) => {
-      record("inspectWorktreeRemoval", input);
-      throw new Error("No worktree removal inspection seeded");
-    },
-    removeWorktree: async (input) => {
-      record("removeWorktree", input);
-    },
-    cancelOperation: async (operationId) => {
-      record("cancelOperation", { operationId });
-    },
+    enumerateHooks: async (input): Promise<SourceControlHookInfo[]> => { record("enumerateHooks", input); return []; },
+    createWorktree: async (input) => { record("createWorktree", input); throw new Error("No worktree creation result seeded"); },
+    attachWorktree: async (input) => { record("attachWorktree", input); throw new Error("No worktree attachment result seeded"); },
+    repairWorktree: async (input) => { record("repairWorktree", input); throw new Error("No worktree repair result seeded"); },
+    inspectWorktreeRemoval: async (input) => { record("inspectWorktreeRemoval", input); throw new Error("No worktree removal inspection seeded"); },
+    removeWorktree: async (input) => { record("removeWorktree", input); },
+    cancelOperation: async (operationId) => { record("cancelOperation", { operationId }); },
     onOperationEvent: async (callback) => {
       record("onOperationEvent", null);
       listeners.add(callback);
       return (() => listeners.delete(callback)) satisfies UnlistenFn;
     },
-    emitOperationEvent: (event) => {
-      for (const callback of listeners) callback(structuredClone(event));
-    },
+    emitOperationEvent: (event) => { for (const callback of listeners) callback(structuredClone(event)); },
   };
 }

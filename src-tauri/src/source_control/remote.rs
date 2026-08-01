@@ -1,5 +1,8 @@
 use crate::source_control::contracts::PublicSourceControlError;
-use crate::source_control::process::{SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess};
+use crate::source_control::process::{
+    SourceControlCommandSpec, SourceControlExecutionPolicy, SourceControlProcess, SystemGitProcess,
+};
+use crate::source_control::scope_registry::SourceControlScopeRecord;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::path::Path;
@@ -17,7 +20,7 @@ const READ_LIMIT: usize = 256 * 1024;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlFetchInput {
-    pub checkout_path: String,
+    pub scope_id: String,
     pub prune: bool,
     pub remote: Option<String>,
 }
@@ -25,7 +28,7 @@ pub struct SourceControlFetchInput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceControlPullInput {
-    pub checkout_path: String,
+    pub scope_id: String,
     pub strategy: SourceControlPullStrategy,
     pub rebase: bool,
 }
@@ -39,14 +42,12 @@ pub enum SourceControlPullStrategy {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-// Fields are camelCase to match the JSON boundary with the Tauri/JS layer.
-#[allow(non_snake_case)]
 pub struct SourceControlPushInput {
-    pub checkout_path: String,
+    pub scope_id: String,
     pub remote: Option<String>,
     pub refspec: Option<String>,
-    pub setUpstream: bool,
-    pub forceWithLease: Option<String>,
+    pub set_upstream: bool,
+    pub force_with_lease: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -91,71 +92,108 @@ fn run_read(
     process.run(spec).map(|o| o.stdout)
 }
 
-pub fn git_fetch(input: SourceControlFetchInput) -> Result<SourceControlRemoteResult, PublicSourceControlError> {
-    let path = Path::new(&input.checkout_path);
+pub fn git_fetch(
+    input: SourceControlFetchInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlRemoteResult, PublicSourceControlError> {
+    git_fetch_with(&SystemGitProcess, input, scope)
+}
+
+pub fn git_fetch_with(
+    process: &impl SourceControlProcess,
+    input: SourceControlFetchInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlRemoteResult, PublicSourceControlError> {
+    let path = scope.checkout_path.as_path();
     let mut args = vec!["fetch"];
     if input.prune {
         args.push("--prune");
     }
-    if let Some(ref remote) = input.remote {
+    if let Some(remote) = &input.remote {
         args.push(remote);
     }
-    run_remote(&SystemGitProcess, path, &args)?;
+    run_remote(process, path, &args)?;
     Ok(SourceControlRemoteResult {
         message: "Fetched".into(),
     })
 }
 
-pub fn git_pull(input: SourceControlPullInput) -> Result<SourceControlRemoteResult, PublicSourceControlError> {
-    let path = Path::new(&input.checkout_path);
+pub fn git_pull(
+    input: SourceControlPullInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlRemoteResult, PublicSourceControlError> {
+    git_pull_with(&SystemGitProcess, input, scope)
+}
+
+pub fn git_pull_with(
+    process: &impl SourceControlProcess,
+    input: SourceControlPullInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlRemoteResult, PublicSourceControlError> {
+    let path = scope.checkout_path.as_path();
     let mut args = vec!["pull"];
-    match input.strategy {
-        SourceControlPullStrategy::FfOnly => {
-            args.push("--ff-only");
-        }
-        SourceControlPullStrategy::Merge => {}
+    if matches!(input.strategy, SourceControlPullStrategy::FfOnly) {
+        args.push("--ff-only");
     }
     if input.rebase {
         args.push("--rebase");
     }
-    run_remote(&SystemGitProcess, path, &args)?;
+    run_remote(process, path, &args)?;
     Ok(SourceControlRemoteResult {
         message: "Pulled".into(),
     })
 }
 
-pub fn git_push(input: SourceControlPushInput) -> Result<SourceControlRemoteResult, PublicSourceControlError> {
-    let path = Path::new(&input.checkout_path);
+pub fn git_push(
+    input: SourceControlPushInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlRemoteResult, PublicSourceControlError> {
+    git_push_with(&SystemGitProcess, input, scope)
+}
+
+pub fn git_push_with(
+    process: &impl SourceControlProcess,
+    input: SourceControlPushInput,
+    scope: &SourceControlScopeRecord,
+) -> Result<SourceControlRemoteResult, PublicSourceControlError> {
+    let path = scope.checkout_path.as_path();
     let mut args = vec!["push"];
-    if input.setUpstream {
+    if input.set_upstream {
         args.push("--set-upstream");
     }
-    if let Some(ref expected_oid) = input.forceWithLease {
+    if let Some(expected_oid) = &input.force_with_lease {
         args.push("--force-with-lease");
         if !expected_oid.is_empty() {
             args.push(expected_oid);
         }
     }
-    if let Some(ref remote) = input.remote {
+    if let Some(remote) = &input.remote {
         args.push(remote);
     }
-    if let Some(ref refspec) = input.refspec {
+    if let Some(refspec) = &input.refspec {
         args.push(refspec);
     }
-    run_remote(&SystemGitProcess, path, &args)?;
+    run_remote(process, path, &args)?;
     Ok(SourceControlRemoteResult {
         message: "Pushed".into(),
     })
 }
-
-// Scaffolding for the read-remote track; not yet wired into lib.rs.
 #[allow(dead_code)]
-pub fn list_remotes(checkout_path: String) -> Result<Vec<String>, PublicSourceControlError> {
-    let path = Path::new(&checkout_path);
-    let stdout = run_read(&SystemGitProcess, path, &["remote"])?;
+pub fn list_remotes(
+    scope: &SourceControlScopeRecord,
+) -> Result<Vec<String>, PublicSourceControlError> {
+    list_remotes_with(&SystemGitProcess, scope)
+}
+
+#[allow(dead_code)]
+pub fn list_remotes_with(
+    process: &impl SourceControlProcess,
+    scope: &SourceControlScopeRecord,
+) -> Result<Vec<String>, PublicSourceControlError> {
+    let stdout = run_read(process, scope.checkout_path.as_path(), &["remote"])?;
     Ok(String::from_utf8_lossy(&stdout)
         .lines()
-        .map(|l| l.trim().to_string())
-        .filter(|l| !l.is_empty())
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
         .collect())
 }

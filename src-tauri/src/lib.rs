@@ -1,9 +1,9 @@
 mod editor;
 mod explorer;
-mod source_control;
 mod path_scope;
 mod provider;
 mod quit;
+mod source_control;
 mod watch;
 
 use explorer::ExplorerWatchState;
@@ -42,6 +42,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(ExplorerWatchState::default())
         .manage(source_control::repository::SourceControlRepositoryState::default())
+        .manage(source_control::scope_registry::SourceControlScopeRegistry::default())
         .manage(watch::WatchBroker::default())
         .manage(quit::QuitGuard::default())
         .invoke_handler(tauri::generate_handler![
