@@ -1,12 +1,14 @@
 import { useEffect, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { ResolvedSourceControlCheckout } from "../api/sourceControlContracts";
+import type { WatchChangeEvent } from "../../explorer/api/explorerApi";
 import { useSourceControlStore } from "./sourceControlStore";
 
-export interface WatchChangeEvent {
-  root: string;
-  revision: number;
-  kinds: string[];
+export type { WatchChangeEvent };
+
+function sourceControlWatchIdentity(scopeId: string): string {
+  return `source-control:${scopeId}`;
 }
 
 export function useSourceControlWatchLifecycle(
@@ -18,6 +20,7 @@ export function useSourceControlWatchLifecycle(
   useEffect(() => {
     if (!trunkId || !checkout) return;
 
+    const identity = sourceControlWatchIdentity(checkout.scopeId);
     let cancelled = false;
     let unlisten: (() => void) | null = null;
 
@@ -29,6 +32,24 @@ export function useSourceControlWatchLifecycle(
     };
 
     void (async () => {
+      await invoke("watch_subscribe", {
+        input: {
+          scopeId: checkout.scopeId,
+          mode: "live",
+          identity,
+        },
+      });
+
+      if (cancelled) {
+        await invoke("watch_unsubscribe", {
+          input: {
+            scopeId: checkout.scopeId,
+            identity,
+          },
+        });
+        return;
+      }
+
       unlisten = await listen<WatchChangeEvent>("watch://changed", (event) => {
         if (cancelled) return;
         if (event.payload.root !== checkout.checkoutPath) return;
@@ -47,6 +68,12 @@ export function useSourceControlWatchLifecycle(
         unlisten();
         unlisten = null;
       }
+      void invoke("watch_unsubscribe", {
+        input: {
+          scopeId: checkout.scopeId,
+          identity,
+        },
+      });
     };
   }, [trunkId, checkout]);
 }

@@ -1,11 +1,10 @@
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import type { ExplorerApi } from "./explorerApi";
+import type { ExplorerApi, WatchSubscribeInput, WatchUnsubscribeInput } from "./explorerApi";
 import {
   DEFAULT_NEW_FILE_NAME,
   DEFAULT_NEW_FOLDER_NAME,
 } from "../domain/explorerDefaults";
 import type {
-  ExplorerAutoRefresh,
   ExplorerDropPayload,
   ExplorerEntry,
 } from "../domain/explorerTypes";
@@ -149,8 +148,8 @@ export function createMemoryExplorerApi(seed: MemoryExplorerSeed = {}): Explorer
       }
       return copied;
     },
-    watch: async (_projectRoot, _mode: ExplorerAutoRefresh) => {},
-    unwatch: async (_projectRoot) => {},
+    watchSubscribe: async (_input: WatchSubscribeInput) => {},
+    watchUnsubscribe: async (_input: WatchUnsubscribeInput) => {},
     reveal: async (_path) => {},
     onChanged: async (_callback) => (() => {}) satisfies UnlistenFn,
     onDrop: async (_callback: (payload: ExplorerDropPayload) => void) =>
