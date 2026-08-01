@@ -195,6 +195,7 @@ mod tests {
     use super::*;
     use crate::source_control::scope_registry::SourceControlScopeRecord;
     use std::fs;
+    use std::path::PathBuf;
     use tempfile::tempdir;
 
     fn register_scope(registry: &SourceControlScopeRegistry, checkout_path: PathBuf) -> String {
