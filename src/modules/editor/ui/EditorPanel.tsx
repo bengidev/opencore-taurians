@@ -71,7 +71,7 @@ export function EditorPanel() {
   }
 
   return (
-    <div className="mt-2 flex min-h-0 flex-1 flex-col">
+    <div className="mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-md">
       {openBatchError ? (
         <p className="mb-1 font-mono text-sm text-destructive">{openBatchError}</p>
       ) : null}
