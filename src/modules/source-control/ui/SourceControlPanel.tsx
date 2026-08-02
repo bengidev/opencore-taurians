@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowUp,
@@ -55,7 +55,7 @@ export interface SourceControlPanelProps {
   sourceControlApi?: SourceControlApi;
 }
 
-export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceControlPanelProps) {
+function SourceControlPanelRaw({ sourceControlApi = defaultApi }: SourceControlPanelProps) {
   const activeTrunkId = useProjectStore((s) => s.activeTrunkId);
   const activeTrunk = useProjectStore((s) =>
     activeTrunkId ? s.trunks.find((t) => t.id === activeTrunkId) : null,
@@ -710,6 +710,8 @@ export function SourceControlPanel({ sourceControlApi = defaultApi }: SourceCont
     </PanelShell>
   );
 }
+
+export const SourceControlPanel = memo(SourceControlPanelRaw);
 
 function GraphRow({
   entry,
