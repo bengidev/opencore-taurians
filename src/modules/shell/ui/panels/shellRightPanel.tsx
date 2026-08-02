@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { ExplorerPanel } from "../../../explorer";
 import { SOURCE_CONTROL_SUITE_RELEASE_ENABLED } from "../../../source-control/domain/sourceControlFeatureAvailability";
 import { SourceControlPanel } from "../../../source-control/ui/SourceControlPanel";
@@ -17,7 +17,7 @@ export interface ShellRightPanelProps {
 
 const FEATURE_ENTER_OFFSET_PX = 10;
 
-export function ShellRightPanel({
+function ShellRightPanelRaw({
   sourceControlEnabled = SOURCE_CONTROL_SUITE_RELEASE_ENABLED,
 }: ShellRightPanelProps) {
   const feature = useProjectStore((state) =>
@@ -90,3 +90,5 @@ export function ShellRightPanel({
     </aside>
   );
 }
+
+export const ShellRightPanel = memo(ShellRightPanelRaw);

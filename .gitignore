@@ -55,11 +55,11 @@ coverage/
 # Local agent planning docs (not for version control)
 superpowers/
 .superpowers/
+docs/superpowers/
 docs/specs/
 docs/plans/
 impeccable/
 .impeccable/
 
 # Git worktrees
-.worktrees/
 .worktrees/
