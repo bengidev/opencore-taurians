@@ -26,7 +26,7 @@ export function MonacoEditorHost() {
     <Editor
       key={activeTabId}
       path={activeTabId}
-      className="min-h-0 flex-1"
+      className="min-h-0 flex-1 overflow-hidden rounded-md"
       height="100%"
       language={language}
       theme={theme}
