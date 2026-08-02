@@ -81,7 +81,7 @@ export function ShellMainPanel() {
           key={card}
           hidden={activeMainCard !== card}
           aria-hidden={activeMainCard !== card}
-          className="absolute inset-0 flex flex-col p-3"
+          className="absolute inset-0 flex flex-col overflow-hidden rounded-md p-3"
         >
           {card === "editor" ? (
             <EditorDropZone>
