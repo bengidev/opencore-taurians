@@ -89,16 +89,16 @@ export function ShellMainPanel() {
               <EditorCardHeader />
               <EditorPanel />
             </EditorDropZone>
+          ) : card === "terminal" ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-card p-3">
+              <TerminalCard />
+            </div>
           ) : (
             <>
               <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                 {card}
               </p>
-              {card === "chat" ? (
-                <ChatCard />
-              ) : (
-                <TerminalCard />
-              )}
+              <ChatCard />
             </>
           )}
         </section>
