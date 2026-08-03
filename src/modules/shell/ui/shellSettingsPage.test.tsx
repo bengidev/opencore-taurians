@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
@@ -12,6 +12,11 @@ import {
   EDITOR_FONT_SIZE_MAX,
   EDITOR_FONT_SIZE_MIN,
 } from "../../editor/domain/editorFontScale";
+import {
+  TERMINAL_FONT_SIZE_DEFAULT,
+  TERMINAL_FONT_SIZE_MAX,
+  TERMINAL_FONT_SIZE_MIN,
+} from "../../terminal/domain/terminalFontSize";
 import { useShellStore } from "../state/shellStore";
 import { ShellScreen } from "./shellScreen";
 
@@ -72,6 +77,7 @@ describe("ShellSettingsPage", () => {
       rightPanelWidth: 320,
       explorerAutoRefresh: "live",
       editorFontSize: EDITOR_FONT_SIZE_DEFAULT,
+      terminalFontSize: TERMINAL_FONT_SIZE_DEFAULT,
     });
     useThemeStore.setState({ mode: "light" });
     useSessionStore.setState({ guiScale: GUI_SCALE_DEFAULT, hasHydrated: true });
@@ -250,7 +256,8 @@ describe("ShellSettingsPage", () => {
     expect(slider).toHaveAttribute("min", String(EDITOR_FONT_SIZE_MIN));
     expect(slider).toHaveAttribute("max", String(EDITOR_FONT_SIZE_MAX));
     expect(slider).toHaveAttribute("step", "1");
-    expect(screen.getByText("13 px")).toBeInTheDocument();
+    const valueRow = slider.closest("div");
+    expect(within(valueRow as HTMLElement).getByText("13 px")).toBeInTheDocument();
   });
 
   it("updates editor font size from settings slider", async () => {
@@ -269,8 +276,47 @@ describe("ShellSettingsPage", () => {
     render(<ShellScreen />);
     await user.click(screen.getByRole("button", { name: "Settings" }));
     expect(screen.getByText("24 px")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Reset to default" }));
+    const card = screen.getByText("Editor font size").closest("div");
+    await user.click(within(card as HTMLElement).getByRole("button", { name: "Reset to default" }));
     expect(useShellStore.getState().editorFontSize).toBe(EDITOR_FONT_SIZE_DEFAULT);
-    expect(screen.getByText("13 px")).toBeInTheDocument();
+    const valueRow = screen.getByRole("slider", { name: "Editor font size" }).closest("div");
+    expect(within(valueRow as HTMLElement).getByText("13 px")).toBeInTheDocument();
+  });
+
+  it("renders terminal font size setting", async () => {
+    const user = userEvent.setup();
+    render(<ShellScreen />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    const slider = screen.getByRole("slider", { name: "Terminal font size" });
+    expect(slider).toBeInTheDocument();
+    expect(slider).toHaveAttribute("min", String(TERMINAL_FONT_SIZE_MIN));
+    expect(slider).toHaveAttribute("max", String(TERMINAL_FONT_SIZE_MAX));
+    expect(slider).toHaveAttribute("step", "1");
+    const valueRow = slider.closest("div");
+    expect(within(valueRow as HTMLElement).getByText("13 px")).toBeInTheDocument();
+  });
+
+  it("updates terminal font size from settings slider", async () => {
+    const user = userEvent.setup();
+    render(<ShellScreen />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    const slider = screen.getByRole("slider", { name: "Terminal font size" });
+    fireEvent.change(slider, { target: { value: "16" } });
+    await waitFor(() => {
+      expect(useShellStore.getState().terminalFontSize).toBe(16);
+    });
+  });
+
+  it("resets terminal font size to default", async () => {
+    useShellStore.setState({ terminalFontSize: 24 });
+    const user = userEvent.setup();
+    render(<ShellScreen />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByText("24 px")).toBeInTheDocument();
+    const card = screen.getByText("Terminal font size").closest("div");
+    await user.click(within(card as HTMLElement).getByRole("button", { name: "Reset to default" }));
+    expect(useShellStore.getState().terminalFontSize).toBe(TERMINAL_FONT_SIZE_DEFAULT);
+    const valueRow = screen.getByRole("slider", { name: "Terminal font size" }).closest("div");
+    expect(within(valueRow as HTMLElement).getByText("13 px")).toBeInTheDocument();
   });
 });
