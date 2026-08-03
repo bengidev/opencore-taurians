@@ -34,6 +34,11 @@ impl std::fmt::Display for PublicTerminalError {
 impl std::error::Error for PublicTerminalError {}
 
 #[derive(Debug, Error)]
+// This enum bridges portable_pty errors to the webview. It is only
+// constructed in session.rs (via `.map_err(Into::into)?`) where the
+// conversion path assigns to `Result<_, PublicTerminalError>`, so
+// clippy sees no direct variable read and flags it dead. Suppress.
+#[allow(dead_code)]
 pub enum InternalTerminalError {
     #[error("PTY system unavailable: {0}")]
     PtySystemUnavailable(String),
