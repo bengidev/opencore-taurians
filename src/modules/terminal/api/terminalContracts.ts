@@ -50,12 +50,10 @@ export type TerminalChannelMessage =
   | { kind: "Output"; payload: TerminalOutputChunk }
   | { kind: "Exit"; payload: TerminalExitEvent };
 
-export interface PublicTerminalError {
-  error:
-    | "ShellNotFound"
-    | { InvalidWorkingDirectory: { path: string } }
-    | { SpawnFailed: { message: string } }
-    | { SessionNotFound: { session_id: string } }
-    | { WriteFailed: { message: string } }
-    | { ResizeFailed: { message: string } };
-}
+export type PublicTerminalError =
+  | { error: "ShellNotFound" }
+  | { error: "InvalidWorkingDirectory"; path: string }
+  | { error: "SpawnFailed"; message: string }
+  | { error: "SessionNotFound"; sessionId: string }
+  | { error: "WriteFailed"; message: string }
+  | { error: "ResizeFailed"; message: string };

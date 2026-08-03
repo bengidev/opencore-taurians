@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TerminalSpawnInput {
     pub cwd: String,
     pub cols: u16,
@@ -9,6 +10,7 @@ pub struct TerminalSpawnInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TerminalSessionInfo {
     pub session_id: String,
     pub shell: String,
@@ -18,12 +20,14 @@ pub struct TerminalSessionInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TerminalWriteInput {
     pub session_id: String,
     pub data: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TerminalResizeInput {
     pub session_id: String,
     pub cols: u16,
@@ -31,27 +35,32 @@ pub struct TerminalResizeInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TerminalGetSizeInput {
     pub session_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TerminalGetSizeResult {
     pub cols: u16,
     pub rows: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TerminalKillInput {
     pub session_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TerminalOutputChunk {
     pub data: String, // base64
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TerminalExitEvent {
     pub session_id: String,
     pub exit_code: Option<i32>,

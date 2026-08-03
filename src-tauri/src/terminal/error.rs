@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "error")]
+#[serde(tag = "error", rename_all_fields = "camelCase")]
 pub enum PublicTerminalError {
     ShellNotFound,
     InvalidWorkingDirectory { path: String },
