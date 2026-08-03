@@ -7,6 +7,11 @@ import * as sessionWorkArea from "../../session/infrastructure/sessionWorkArea";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useSessionStore } from "../../session/state/sessionStore";
 import { DEFAULT_SHELL_PANEL_WIDTH } from "../state/shellPanelSizing";
+import {
+  EDITOR_FONT_SIZE_DEFAULT,
+  EDITOR_FONT_SIZE_MAX,
+  EDITOR_FONT_SIZE_MIN,
+} from "../../editor/domain/editorFontScale";
 import { useShellStore } from "../state/shellStore";
 import { ShellScreen } from "./shellScreen";
 
@@ -66,6 +71,7 @@ describe("ShellSettingsPage", () => {
       leftPanelWidth: 320,
       rightPanelWidth: 320,
       explorerAutoRefresh: "live",
+      editorFontSize: EDITOR_FONT_SIZE_DEFAULT,
     });
     useThemeStore.setState({ mode: "light" });
     useSessionStore.setState({ guiScale: GUI_SCALE_DEFAULT, hasHydrated: true });
@@ -233,5 +239,38 @@ describe("ShellSettingsPage", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
     });
+  });
+
+  it("shows editor font size slider and default label", async () => {
+    const user = userEvent.setup();
+    render(<ShellScreen />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    const slider = screen.getByRole("slider", { name: "Editor font size" });
+    expect(slider).toBeInTheDocument();
+    expect(slider).toHaveAttribute("min", String(EDITOR_FONT_SIZE_MIN));
+    expect(slider).toHaveAttribute("max", String(EDITOR_FONT_SIZE_MAX));
+    expect(slider).toHaveAttribute("step", "1");
+    expect(screen.getByText("13 px")).toBeInTheDocument();
+  });
+
+  it("updates editor font size from settings slider", async () => {
+    const user = userEvent.setup();
+    render(<ShellScreen />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    const slider = screen.getByRole("slider", { name: "Editor font size" });
+    fireEvent.change(slider, { target: { value: "20" } });
+    expect(useShellStore.getState().editorFontSize).toBe(20);
+    expect(screen.getByText("20 px")).toBeInTheDocument();
+  });
+
+  it("resets editor font size to default", async () => {
+    useShellStore.setState({ editorFontSize: 24 });
+    const user = userEvent.setup();
+    render(<ShellScreen />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByText("24 px")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Reset to default" }));
+    expect(useShellStore.getState().editorFontSize).toBe(EDITOR_FONT_SIZE_DEFAULT);
+    expect(screen.getByText("13 px")).toBeInTheDocument();
   });
 });
