@@ -41,10 +41,9 @@ impl TerminalSessionState {
     /// Kill every live session and join its reader thread. Used on app shutdown.
     pub fn kill_all(&self) {
         let mut sessions = self.sessions.lock();
-        for (_id, mut session) in sessions.drain() {
-            if let Ok(mut killer) = session.killer.lock() {
-                let _ = killer.kill();
-            }
+        for (_id, session) in sessions.drain() {
+            let mut killer = session.killer.lock();
+            let _ = killer.kill();
             if let Some(handle) = session.reader_thread.lock().take() {
                 let _ = handle.join();
             }
