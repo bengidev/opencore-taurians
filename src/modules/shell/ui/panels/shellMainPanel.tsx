@@ -3,6 +3,7 @@ import { useChatStore } from "../../../chat/state/chatStore";
 import { EditorCardHeader } from "../../../editor/ui/EditorCardHeader";
 import { EditorDropZone } from "../../../editor/ui/EditorDropZone";
 import { EditorPanel } from "../../../editor/ui/EditorPanel";
+import { TerminalCard } from "../../../terminal";
 import { appendTrunkMessage } from "../../../project/state/projectChat";
 import { useProjectStore } from "../../../project/state/projectStore";
 import { useShellStore, type ShellMainCard } from "../../state/shellStore";
@@ -96,10 +97,7 @@ export function ShellMainPanel() {
               {card === "chat" ? (
                 <ChatCard />
               ) : (
-                <input
-                  aria-label={`${card}-dummy-note`}
-                  className="mt-2 w-full rounded-[6px] border border-border bg-transparent px-2 py-1 text-sm"
-                />
+                <TerminalCard />
               )}
             </>
           )}

@@ -60,12 +60,15 @@ describe("ShellScreen", () => {
   it("keeps inactive main cards mounted while swapping", async () => {
     const user = userEvent.setup();
     render(<ShellScreen />);
-    const terminalInput = screen.getByLabelText("terminal-dummy-note");
-    await user.type(terminalInput, "kept");
     await user.click(screen.getByRole("tab", { name: "Terminal" }));
+    const placeholder = screen.getByText(
+      /Select a project to open a terminal/i,
+    );
     await user.click(screen.getByRole("tab", { name: "Editor" }));
+    // The inactive terminal card stays mounted while another card is shown.
+    expect(placeholder).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "Terminal" }));
-    expect(terminalInput).toHaveValue("kept");
+    expect(placeholder).toBeInTheDocument();
   });
 
   it("hides left and right panels independently", async () => {
