@@ -4,6 +4,7 @@ use tauri::State;
 
 use super::error::PublicTerminalError;
 use super::registry::TerminalSessionState;
+use super::session::TerminalSession;
 use super::types::{
     TerminalChannel, TerminalGetSizeInput, TerminalGetSizeResult, TerminalKillInput,
     TerminalResizeInput, TerminalSessionInfo, TerminalSpawnInput, TerminalWriteInput,
