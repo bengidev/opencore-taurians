@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "../../project/state/projectStore";
+import { PanelTooltip } from "../../project";
 import { createTauriSourceControlApi, type SourceControlApi } from "../api/sourceControlApi";
 import type {
   SourceControlFileStatus,
@@ -927,28 +928,29 @@ function ToolbarButton({
   disabled?: boolean;
 }) {
   return (
-    <Button
-      variant="ghost"
-      size="icon-xs"
-      aria-label={label}
-      title={label}
-      aria-busy={busy || undefined}
-      disabled={disabled || busy || !onClick}
-      onClick={onClick}
-      className={cn(
-        "text-muted-foreground transition-[color,background-color,transform] duration-[var(--duration-ui-fast)] ease-[var(--ease-out)] hover:bg-secondary/50 hover:text-foreground",
-        busy && "text-foreground",
-        success && "text-[var(--git-added)]",
-      )}
-    >
-      {busy ? (
-        <Loader2 className="size-3 animate-spin" />
-      ) : success ? (
-        <Check className="size-3" />
-      ) : (
-        icon
-      )}
-    </Button>
+    <PanelTooltip label={label}>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        aria-label={label}
+        aria-busy={busy || undefined}
+        disabled={disabled || busy || !onClick}
+        onClick={onClick}
+        className={cn(
+          "text-muted-foreground transition-[color,background-color,transform] duration-[var(--duration-ui-fast)] ease-[var(--ease-out)] hover:bg-secondary/50 hover:text-foreground",
+          busy && "text-foreground",
+          success && "text-[var(--git-added)]",
+        )}
+      >
+        {busy ? (
+          <Loader2 className="size-3 animate-spin" />
+        ) : success ? (
+          <Check className="size-3" />
+        ) : (
+          icon
+        )}
+      </Button>
+    </PanelTooltip>
   );
 }
 
@@ -1133,22 +1135,23 @@ function IconButton({
   disabled?: boolean;
 }) {
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-xs"
-      aria-label={label}
-      title={label}
-      aria-busy={busy || undefined}
-      disabled={disabled || busy || !onClick}
-      className={cn(
-        "text-muted-foreground transition-[color,transform] duration-[var(--duration-ui-fast)] ease-[var(--ease-out)] hover:text-foreground",
-        busy && "text-foreground",
-      )}
-      onClick={onClick}
-    >
-      {busy ? <Loader2 className="size-3 animate-spin" /> : children}
-    </Button>
+    <PanelTooltip label={label}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        aria-label={label}
+        aria-busy={busy || undefined}
+        disabled={disabled || busy || !onClick}
+        className={cn(
+          "text-muted-foreground transition-[color,transform] duration-[var(--duration-ui-fast)] ease-[var(--ease-out)] hover:text-foreground",
+          busy && "text-foreground",
+        )}
+        onClick={onClick}
+      >
+        {busy ? <Loader2 className="size-3 animate-spin" /> : children}
+      </Button>
+    </PanelTooltip>
   );
 }
 
