@@ -4,10 +4,12 @@ mod path_scope;
 mod provider;
 mod quit;
 mod source_control;
+mod terminal;
 mod watch;
 
 use source_control::scope_registry::SourceControlScopeRegistry;
-use tauri::{Emitter, State};
+use tauri::{Emitter, Manager, RunEvent, State};
+use terminal::registry::TerminalSessionState;
 
 use watch::{WatchBroker, WatchSubscribeInput, WatchUnsubscribeInput};
 
@@ -38,6 +40,10 @@ fn watch_unsubscribe(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let terminal_state = TerminalSessionState::default();
+    let quit_guard = quit::QuitGuard::default();
+    quit_guard.register_terminal_state(terminal_state.clone());
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -46,7 +52,8 @@ pub fn run() {
         .manage(source_control::scope_registry::SourceControlScopeRegistry::default())
         .manage(source_control::coordinator::SourceControlOperationCoordinatorState::default())
         .manage(watch::WatchBroker::default())
-        .manage(quit::QuitGuard::default())
+        .manage(quit_guard)
+        .manage(terminal_state)
         .invoke_handler(tauri::generate_handler![
             greet,
             editor::read::editor_read_file,
@@ -91,6 +98,11 @@ pub fn run() {
             source_control::coordinator::git_operation_cancel,
             watch_subscribe,
             watch_unsubscribe,
+            terminal::commands::terminal_spawn,
+            terminal::commands::terminal_write,
+            terminal::commands::terminal_resize,
+            terminal::commands::terminal_get_size,
+            terminal::commands::terminal_kill,
             provider::keychain::keychain_save,
             provider::keychain::keychain_read,
             provider::keychain::keychain_delete,
@@ -157,6 +169,14 @@ pub fn run() {
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let RunEvent::Exit = event {
+                // Kill all live terminal sessions before the process exits so no
+                // shell/PTY child processes are orphaned.
+                let quit = app.state::<quit::QuitGuard>();
+                quit.kill_all_terminal_sessions();
+            }
+        });
 }

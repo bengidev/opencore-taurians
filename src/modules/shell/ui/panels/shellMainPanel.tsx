@@ -3,6 +3,7 @@ import { useChatStore } from "../../../chat/state/chatStore";
 import { EditorCardHeader } from "../../../editor/ui/EditorCardHeader";
 import { EditorDropZone } from "../../../editor/ui/EditorDropZone";
 import { EditorPanel } from "../../../editor/ui/EditorPanel";
+import { TerminalCard } from "../../../terminal";
 import { appendTrunkMessage } from "../../../project/state/projectChat";
 import { useProjectStore } from "../../../project/state/projectStore";
 import { useShellStore, type ShellMainCard } from "../../state/shellStore";
@@ -88,19 +89,16 @@ export function ShellMainPanel() {
               <EditorCardHeader />
               <EditorPanel />
             </EditorDropZone>
+          ) : card === "terminal" ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-card p-3">
+              <TerminalCard />
+            </div>
           ) : (
             <>
               <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                 {card}
               </p>
-              {card === "chat" ? (
-                <ChatCard />
-              ) : (
-                <input
-                  aria-label={`${card}-dummy-note`}
-                  className="mt-2 w-full rounded-[6px] border border-border bg-transparent px-2 py-1 text-sm"
-                />
-              )}
+              <ChatCard />
             </>
           )}
         </section>

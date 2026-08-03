@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
+import { TERMINAL_FONT_SIZE_DEFAULT } from "../../terminal/domain/terminalFontSize";
 import { DEFAULT_SHELL_PANEL_WIDTH } from "./shellPanelSizing";
 import { useShellStore } from "./shellStore";
 
@@ -46,6 +47,14 @@ describe("shellStore", () => {
     expect(useShellStore.getState().bottomVisible).toBe(false);
     useShellStore.getState().setBottomVisible(true);
     expect(useShellStore.getState().bottomVisible).toBe(true);
+  });
+
+  it("defaults terminalFontSize and allows updates", () => {
+    expect(useShellStore.getState().terminalFontSize).toBe(
+      TERMINAL_FONT_SIZE_DEFAULT,
+    );
+    useShellStore.getState().setTerminalFontSize(18);
+    expect(useShellStore.getState().terminalFontSize).toBe(18);
   });
 
   it("resetPanelWidths restores defaults without touching visibility or main card", () => {

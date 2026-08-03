@@ -1,0 +1,4 @@
+export const TERMINAL_FONT_SIZE_MIN = 8;
+export const TERMINAL_FONT_SIZE_MAX = 24;
+export const TERMINAL_FONT_SIZE_DEFAULT = 13;
+export const TERMINAL_FONT_SIZE_STEP = 1;

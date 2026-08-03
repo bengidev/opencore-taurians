@@ -21,6 +21,11 @@ import {
   EDITOR_FONT_SIZE_MAX,
   EDITOR_FONT_SIZE_MIN,
 } from "../../editor/domain/editorFontScale";
+import {
+  TERMINAL_FONT_SIZE_DEFAULT,
+  TERMINAL_FONT_SIZE_MAX,
+  TERMINAL_FONT_SIZE_MIN,
+} from "../../terminal/domain/terminalFontSize";
 import { useShellStore } from "../state/shellStore";
 import {
   SHELL_EASE_DRAWER,
@@ -214,6 +219,52 @@ export function ShellEditorFontSizeSetting() {
   );
 }
 
+export function ShellTerminalFontSizeSetting() {
+  const terminalFontSize = useShellStore((s) => s.terminalFontSize);
+  const setTerminalFontSize = useShellStore((s) => s.setTerminalFontSize);
+  const label = `${terminalFontSize} px`;
+
+  return (
+    <div className="mt-2 flex min-w-0 flex-col gap-3 rounded-[6px] border border-border p-4">
+      <div className="flex min-w-0 items-center justify-between gap-4">
+        <Label
+          htmlFor="settings-terminal-font-size"
+          className="font-mono text-[11px] uppercase tracking-[0.08em]"
+        >
+          Terminal font size
+        </Label>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="font-mono text-[11px] uppercase tracking-[0.08em]"
+          onClick={() => setTerminalFontSize(TERMINAL_FONT_SIZE_DEFAULT)}
+        >
+          Reset to default
+        </Button>
+      </div>
+      <div className="flex min-w-0 items-center gap-4">
+        <Slider
+          id="settings-terminal-font-size"
+          aria-label="Terminal font size"
+          className="min-w-0 flex-1"
+          min={TERMINAL_FONT_SIZE_MIN}
+          max={TERMINAL_FONT_SIZE_MAX}
+          step={1}
+          value={[terminalFontSize]}
+          onValueChange={(value) => {
+            const next = Array.isArray(value) ? value[0] : value;
+            if (typeof next === "number") setTerminalFontSize(next);
+          }}
+        />
+        <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+          {label}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function ShellSettingsPage({ open }: { open: boolean }) {
   const setSettingsOpen = useShellStore((s) => s.setSettingsOpen);
   const mode = useThemeStore((s) => s.mode);
@@ -347,6 +398,15 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
             Adjust the code editor font size.
           </p>
           <ShellEditorFontSizeSetting />
+        </section>
+        <section className="flex min-w-0 flex-col gap-3">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+            Terminal
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Adjust the integrated terminal font size.
+          </p>
+          <ShellTerminalFontSizeSetting />
         </section>
         <section className="flex min-w-0 flex-col gap-3">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
