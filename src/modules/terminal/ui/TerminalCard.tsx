@@ -86,7 +86,7 @@ export function TerminalCard() {
 
     const pending = useTerminalStore.getState().drainPendingMessages(activeTrunkId);
     for (const message of pending) {
-      handleMessage(terminal, message);
+      handleMessage(activeTrunkId, terminal, message);
     }
 
     tauriTerminalApi
@@ -95,7 +95,7 @@ export function TerminalCard() {
           useTerminalStore.getState().appendPendingMessage(activeTrunkId, message);
           return;
         }
-        handleMessage(terminalRef.current, message);
+        handleMessage(activeTrunkId, terminalRef.current, message);
       })
       .then((info) => {
         useTerminalStore.getState().setReady(activeTrunkId, info);
@@ -206,17 +206,22 @@ function TerminalSessionBanner({ entry, onRestart }: TerminalSessionBannerProps)
   );
 }
 
-function handleMessage(terminal: Terminal, message: TerminalChannelMessage) {
+function handleMessage(trunkId: string, terminal: Terminal, message: TerminalChannelMessage) {
   if (message.kind === "Output") {
     // atob yields a Latin-1 binary string, corrupting UTF-8 output; decode to
     // bytes and let xterm handle the UTF-8 decoding itself.
     const bytes = Uint8Array.from(atob(message.payload.data), (c) => c.charCodeAt(0));
     terminal.write(bytes);
   } else if (message.kind === "Exit") {
-    const trunkId = Object.entries(useTerminalStore.getState().sessionsByTrunkId).find(
-      ([, entry]) => entry.info?.sessionId === message.payload.sessionId,
-    )?.[0];
-    if (trunkId) {
+    const entry = useTerminalStore.getState().sessionsByTrunkId[trunkId];
+    // If the session is already known (spawn resolved), only honor an Exit
+    // whose sessionId matches, so a stale Exit from a killed previous PTY
+    // (after restart / trunk re-switch) can't flip the fresh session. If
+    // `info` is still null (spawn hasn't resolved yet, e.g. a shell that
+    // crashes instantly), fall back to routing by the closure's trunkId —
+    // the sessionId match would be impossible and the session would
+    // otherwise stay stuck in "spawning" forever.
+    if (!entry?.info || entry.info.sessionId === message.payload.sessionId) {
       useTerminalStore.getState().setExited(trunkId, message.payload.exitCode);
     }
   }

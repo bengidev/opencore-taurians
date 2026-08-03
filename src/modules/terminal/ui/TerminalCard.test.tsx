@@ -171,6 +171,67 @@ describe("TerminalCard", () => {
     expect(Array.from(written as Uint8Array)).toEqual(Array.from(utf8Bytes));
   });
 
+  it("marks the session exited when Exit arrives before spawn resolves", async () => {
+    const { trunk } = seedActiveTrunk();
+    // Keep the spawn promise pending so `entry.info` is never set: an Exit
+    // that arrives in that window (e.g. a shell that crashes instantly) must
+    // still transition the session out of "spawning" instead of being
+    // dropped by the sessionId lookup.
+    mockTerminalApi.spawn.mockReturnValueOnce(new Promise<never>(() => {}));
+    render(<TerminalCard />);
+    await waitFor(() => {
+      expect(mockTerminalClass.instances).toHaveLength(1);
+    });
+
+    const onMessage = mockTerminalApi.spawn.mock.calls[0]?.[1];
+    expect(onMessage).toBeTypeOf("function");
+    onMessage?.({
+      kind: "Exit",
+      payload: { sessionId: "sess-1", exitCode: 1, signal: null },
+    });
+
+    const session = useTerminalStore.getState().sessionsByTrunkId[trunk.id];
+    expect(session?.info).toBeNull();
+    expect(session?.status).toBe("exited");
+  });
+
+  it("ignores a stale Exit from a previous session after a restart", async () => {
+    const { trunk } = seedActiveTrunk();
+    render(<TerminalCard />);
+    await waitFor(() => {
+      expect(mockTerminalClass.instances).toHaveLength(1);
+    });
+
+    // The fresh session is ready with its own sessionId.
+    useTerminalStore.getState().setReady(trunk.id, {
+      sessionId: "sess-1",
+      shell: "/bin/sh",
+      cwd: "/work",
+      cols: 80,
+      rows: 24,
+    });
+
+    // A late Exit from the killed previous PTY (different sessionId) must
+    // not flip the fresh session out of "ready".
+    const onMessage = mockTerminalApi.spawn.mock.calls[0]?.[1];
+    expect(onMessage).toBeTypeOf("function");
+    onMessage?.({
+      kind: "Exit",
+      payload: { sessionId: "sess-stale", exitCode: 1, signal: null },
+    });
+
+    const session = useTerminalStore.getState().sessionsByTrunkId[trunk.id];
+    expect(session?.info?.sessionId).toBe("sess-1");
+    expect(session?.status).toBe("ready");
+
+    // An Exit for the current session still transitions it to "exited".
+    onMessage?.({
+      kind: "Exit",
+      payload: { sessionId: "sess-1", exitCode: 0, signal: null },
+    });
+    expect(useTerminalStore.getState().sessionsByTrunkId[trunk.id]?.status).toBe("exited");
+  });
+
   it("shows an error banner when spawn fails", () => {
     const { trunk } = seedActiveTrunk();
     useTerminalStore.getState().setError(trunk.id, "Spawn failed: boom");
