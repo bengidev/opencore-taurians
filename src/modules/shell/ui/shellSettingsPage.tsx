@@ -111,7 +111,6 @@ function ShellPanelSettingRow({
 }
 
 export function ShellGuiScaleSetting({ open }: { open: boolean }) {
-
   const guiScale = useSessionStore((s) => s.guiScale);
   const setGuiScale = useSessionStore((s) => s.setGuiScale);
   const [maxFit, setMaxFit] = useState(GUI_SCALE_MAX);
