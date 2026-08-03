@@ -1,10 +1,13 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Terminal } from "@xterm/xterm";
 import { TerminalCard } from "./TerminalCard";
+import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
 import { useTerminalStore } from "../state/terminalStore";
 import { useProjectStore } from "../../project/state/projectStore";
+import { useShellStore } from "../../shell/state/shellStore";
+import { TERMINAL_FONT_SIZE_DEFAULT } from "../domain/terminalFontSize";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 
 const { mockTerminalApi } = vi.hoisted(() => ({
@@ -27,6 +30,7 @@ vi.mock("@xterm/xterm", () => {
   class MockTerminal {
     static instances: MockTerminal[] = [];
     writes: Array<string | Uint8Array> = [];
+    options: { theme?: object; fontSize?: number } = {};
     loadAddon() {}
     open() {}
     onData() {
@@ -39,8 +43,9 @@ vi.mock("@xterm/xterm", () => {
     write(data: string | Uint8Array) {
       this.writes.push(data);
     }
-    constructor() {
+    constructor(options?: { theme?: object; fontSize?: number }) {
       MockTerminal.instances.push(this);
+      if (options) this.options = options;
     }
   }
   return { Terminal: MockTerminal };
@@ -71,10 +76,11 @@ class RO {
 
 interface MockTerminalShape {
   writes: Array<string | Uint8Array>;
+  options: { theme?: object; fontSize?: number };
   dispose(): void;
 }
 const mockTerminalClass = vi.mocked(Terminal) as unknown as {
-  new (): MockTerminalShape;
+  new (options?: { theme?: object; fontSize?: number }): MockTerminalShape;
   instances: MockTerminalShape[];
 };
 
@@ -114,6 +120,8 @@ describe("TerminalCard", () => {
   beforeEach(() => {
     vi.stubGlobal("ResizeObserver", RO);
     mockTerminalClass.instances = [];
+    useThemeStore.getState().resetTheme();
+    useShellStore.setState({ terminalFontSize: TERMINAL_FONT_SIZE_DEFAULT });
   });
 
   it("shows placeholder when no trunk is active", () => {
@@ -212,6 +220,64 @@ describe("TerminalCard", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(mockTerminalClass.instances).toEqual(initialInstances);
     expect(mockTerminalClass.instances).toHaveLength(1);
+    expect(mockTerminalApi.spawn).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the light theme by default", async () => {
+    seedActiveTrunk();
+    render(<TerminalCard />);
+    await waitFor(() => {
+      expect(mockTerminalClass.instances).toHaveLength(1);
+    });
+    expect(mockTerminalClass.instances[0].options).toEqual(
+      expect.objectContaining({
+        theme: expect.objectContaining({ background: "#f5f5f5", foreground: "#1a1a1a" }),
+      }),
+    );
+  });
+
+  it("switches to dark theme when theme mode is dark", async () => {
+    await act(() => useThemeStore.getState().setMode("dark"));
+    seedActiveTrunk();
+    render(<TerminalCard />);
+    await waitFor(() => {
+      expect(mockTerminalClass.instances).toHaveLength(1);
+    });
+    expect(mockTerminalClass.instances[0].options).toEqual(
+      expect.objectContaining({
+        theme: expect.objectContaining({ background: "#000000", foreground: "#e8e8e8" }),
+      }),
+    );
+  });
+
+  it("applies terminal font size from settings", async () => {
+    await act(() => useShellStore.getState().setTerminalFontSize(20));
+    seedActiveTrunk();
+    render(<TerminalCard />);
+    await waitFor(() => {
+      expect(mockTerminalClass.instances).toHaveLength(1);
+    });
+    expect(mockTerminalClass.instances[0].options).toEqual(
+      expect.objectContaining({ fontSize: 20 }),
+    );
+  });
+
+  it("live-updates theme and font size on an existing terminal", async () => {
+    seedActiveTrunk();
+    render(<TerminalCard />);
+    await waitFor(() => {
+      expect(mockTerminalClass.instances).toHaveLength(1);
+    });
+
+    await act(() => useThemeStore.getState().setMode("dark"));
+    await act(() => useShellStore.getState().setTerminalFontSize(18));
+
+    const terminal = mockTerminalClass.instances[0];
+    expect(terminal.options.theme).toEqual(
+      expect.objectContaining({ background: "#000000", foreground: "#e8e8e8" }),
+    );
+    expect(terminal.options.fontSize).toBe(18);
+    // The live PTY must not respawn on appearance-only changes.
     expect(mockTerminalApi.spawn).toHaveBeenCalledTimes(1);
   });
 });

@@ -5,32 +5,23 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 
 import { Button } from "../../../components/ui/button";
+import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
 import { useProjectStore } from "../../project/state/projectStore";
+import { useShellStore } from "../../shell/state/shellStore";
 import { useTerminalStore, type TerminalSessionEntry } from "../state/terminalStore";
 import { createTauriTerminalApi } from "../api/terminalApi";
 import type { TerminalChannelMessage } from "../api/terminalContracts";
 import { TerminalPlaceholder } from "./TerminalPlaceholder";
+import { getTerminalTheme } from "./terminalTheme";
 
 const tauriTerminalApi = createTauriTerminalApi();
-
-/**
- * Shadcn semantic tokens used for the xterm theme. xterm v6 resolves theme
- * colors through a canvas `fillStyle` probe, so CSS variables (`var(--…)`)
- * silently fall back to xterm defaults; literal hex keeps the theme in sync
- * with the app palette (light: --background #f5f5f5, --foreground #1a1a1a;
- * dark: #000000 / #e8e8e8) without depending on the renderer resolving vars.
- */
-const TERMINAL_THEME = {
-  background: "#f5f5f5",
-  foreground: "#1a1a1a",
-  cursor: "#1a1a1a",
-  selectionBackground: "#ffffff",
-};
 
 export function TerminalCard() {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const mode = useThemeStore((s) => s.mode);
+  const terminalFontSize = useShellStore((s) => s.terminalFontSize);
   const activeTrunkId = useProjectStore((s) => s.activeTrunkId);
   const activeRuntimeStatus = useProjectStore((s) =>
     s.activeTrunkId ? s.checkoutRuntimeByTrunkId[s.activeTrunkId]?.status : undefined,
@@ -75,8 +66,8 @@ export function TerminalCard() {
     const terminal = new Terminal({
       scrollback: 50000,
       fontFamily: '"Space Mono", "JetBrains Mono", "SF Mono", monospace',
-      fontSize: 13,
-      theme: TERMINAL_THEME,
+      fontSize: terminalFontSize,
+      theme: getTerminalTheme(mode),
       cursorBlink: true,
     });
 
@@ -152,6 +143,21 @@ export function TerminalCard() {
     // when the active trunk's runtime readiness actually changes; `resetSignal`
     // lets the banner restart a dead session via the effect.
   }, [activeTrunkId, activeRuntimeStatus, resetSignal]);
+
+  // Live-update the existing xterm instance when the theme mode or terminal
+  // font size changes, without respawning the PTY (the main effect above
+  // deliberately does not depend on these values).
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.options.theme = getTerminalTheme(mode);
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.options.fontSize = terminalFontSize;
+    }
+  }, [terminalFontSize]);
 
   if (!activeTrunkId) {
     return <TerminalPlaceholder />;
