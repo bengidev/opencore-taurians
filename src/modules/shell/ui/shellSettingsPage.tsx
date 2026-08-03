@@ -16,6 +16,11 @@ import {
 import { readLogicalWorkArea } from "../../session/infrastructure/sessionWorkArea";
 import { SHELL_WINDOW_SIZE } from "../../session/infrastructure/sessionWindowController";
 import { useSessionStore } from "../../session/state/sessionStore";
+import {
+  EDITOR_FONT_SIZE_DEFAULT,
+  EDITOR_FONT_SIZE_MAX,
+  EDITOR_FONT_SIZE_MIN,
+} from "../../editor/domain/editorFontScale";
 import { useShellStore } from "../state/shellStore";
 import {
   SHELL_EASE_DRAWER,
@@ -106,6 +111,7 @@ function ShellPanelSettingRow({
 }
 
 export function ShellGuiScaleSetting({ open }: { open: boolean }) {
+
   const guiScale = useSessionStore((s) => s.guiScale);
   const setGuiScale = useSessionStore((s) => s.setGuiScale);
   const [maxFit, setMaxFit] = useState(GUI_SCALE_MAX);
@@ -157,6 +163,52 @@ export function ShellGuiScaleSetting({ open }: { open: boolean }) {
         />
         <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
           {percent}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export function ShellEditorFontSizeSetting() {
+  const editorFontSize = useShellStore((s) => s.editorFontSize);
+  const setEditorFontSize = useShellStore((s) => s.setEditorFontSize);
+  const label = `${editorFontSize} px`;
+
+  return (
+    <div className="mt-2 flex min-w-0 flex-col gap-3 rounded-[6px] border border-border p-4">
+      <div className="flex min-w-0 items-center justify-between gap-4">
+        <Label
+          htmlFor="settings-editor-font-size"
+          className="font-mono text-[11px] uppercase tracking-[0.08em]"
+        >
+          Editor font size
+        </Label>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="font-mono text-[11px] uppercase tracking-[0.08em]"
+          onClick={() => setEditorFontSize(EDITOR_FONT_SIZE_DEFAULT)}
+        >
+          Reset to default
+        </Button>
+      </div>
+      <div className="flex min-w-0 items-center gap-4">
+        <Slider
+          id="settings-editor-font-size"
+          aria-label="Editor font size"
+          className="min-w-0 flex-1"
+          min={EDITOR_FONT_SIZE_MIN}
+          max={EDITOR_FONT_SIZE_MAX}
+          step={1}
+          value={[editorFontSize]}
+          onValueChange={(value) => {
+            const next = Array.isArray(value) ? value[0] : value;
+            if (typeof next === "number") setEditorFontSize(next);
+          }}
+        />
+        <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+          {label}
         </span>
       </div>
     </div>
@@ -287,6 +339,15 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
             ))}
           </div>
           <ShellGuiScaleSetting open={open} />
+        </section>
+        <section className="flex min-w-0 flex-col gap-3">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+            Editor
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Adjust the code editor font size.
+          </p>
+          <ShellEditorFontSizeSetting />
         </section>
         <section className="flex min-w-0 flex-col gap-3">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
