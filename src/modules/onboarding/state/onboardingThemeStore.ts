@@ -10,6 +10,8 @@ import { THEME_STORAGE_KEY } from "../infrastructure/onboardingThemeConstants";
 import { createSessionPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { SESSION_PERSIST_KEYS } from "../../session/infrastructure/sessionPersistKeys";
 
+export type { ThemeMode };
+
 function mirrorLocalStorage(mode: ThemeMode): void {
   localStorage.setItem(THEME_STORAGE_KEY, mode);
   applyThemeToDocument(mode);
