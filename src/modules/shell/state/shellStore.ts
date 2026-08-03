@@ -4,6 +4,10 @@ import type { ExplorerAutoRefresh } from "../../explorer/domain/explorerTypes";
 import { createSessionPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { SESSION_PERSIST_KEYS } from "../../session/infrastructure/sessionPersistKeys";
 import {
+  clampEditorFontSize,
+  EDITOR_FONT_SIZE_DEFAULT,
+} from "../../editor/domain/editorFontScale";
+import {
   clampShellPanelWidth,
   DEFAULT_SHELL_PANEL_WIDTH,
 } from "./shellPanelSizing";
@@ -19,6 +23,7 @@ export interface ShellState {
   leftPanelWidth: number;
   rightPanelWidth: number;
   explorerAutoRefresh: ExplorerAutoRefresh;
+  editorFontSize: number;
   setActiveMainCard: (card: ShellMainCard) => void;
   toggleLeft: () => void;
   toggleRight: () => void;
@@ -29,6 +34,7 @@ export interface ShellState {
   setLeftPanelWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
   setExplorerAutoRefresh: (mode: ExplorerAutoRefresh) => void;
+  setEditorFontSize: (size: number) => void;
   resetPanelWidths: () => void;
   resetShellUi: () => void;
 }
@@ -42,6 +48,7 @@ const DEFAULT_SHELL_UI = {
   leftPanelWidth: DEFAULT_SHELL_PANEL_WIDTH,
   rightPanelWidth: DEFAULT_SHELL_PANEL_WIDTH,
   explorerAutoRefresh: "live" as ExplorerAutoRefresh,
+  editorFontSize: EDITOR_FONT_SIZE_DEFAULT,
 };
 
 export const useShellStore = create<ShellState>()(
@@ -60,6 +67,8 @@ export const useShellStore = create<ShellState>()(
       setRightPanelWidth: (width) =>
         set({ rightPanelWidth: clampShellPanelWidth(width) }),
       setExplorerAutoRefresh: (mode) => set({ explorerAutoRefresh: mode }),
+      setEditorFontSize: (size) =>
+        set({ editorFontSize: clampEditorFontSize(size) }),
       resetPanelWidths: () =>
         set({
           leftPanelWidth: DEFAULT_SHELL_PANEL_WIDTH,
@@ -78,6 +87,7 @@ export const useShellStore = create<ShellState>()(
         leftPanelWidth: state.leftPanelWidth,
         rightPanelWidth: state.rightPanelWidth,
         explorerAutoRefresh: state.explorerAutoRefresh,
+        editorFontSize: state.editorFontSize,
       }),
     },
   ),
