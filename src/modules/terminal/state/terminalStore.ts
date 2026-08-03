@@ -23,6 +23,24 @@ export interface TerminalState {
   killSession(trunkId: string): void;
 }
 
+function createDefaultEntry(trunkId: string, status: TerminalSessionStatus = "idle"): TerminalSessionEntry {
+  return { trunkId, info: null, status, error: null, pendingMessages: [] };
+}
+
+/**
+ * Returns the existing entry for `trunkId`, or a complete default entry with
+ * the given `status`. Every setter must be able to run before `ensureSession`
+ * (e.g. the appendPendingMessage buffer-before-ready path), so a missing key
+ * never leaves a partial entry behind.
+ */
+function getEntry(
+  sessions: Record<string, TerminalSessionEntry>,
+  trunkId: string,
+  status: TerminalSessionStatus,
+): TerminalSessionEntry {
+  return sessions[trunkId] ?? createDefaultEntry(trunkId, status);
+}
+
 export const useTerminalStore = create<TerminalState>((set, get) => ({
   sessionsByTrunkId: {},
 
@@ -32,73 +50,73 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       return {
         sessionsByTrunkId: {
           ...state.sessionsByTrunkId,
-          [trunkId]: {
-            trunkId,
-            info: null,
-            status: "idle",
-            error: null,
-            pendingMessages: [],
-          },
+          [trunkId]: createDefaultEntry(trunkId),
         },
       };
     });
   },
 
   setSpawning(trunkId) {
-    set((state) => ({
-      sessionsByTrunkId: {
-        ...state.sessionsByTrunkId,
-        [trunkId]: { ...state.sessionsByTrunkId[trunkId], status: "spawning", error: null },
-      },
-    }));
+    set((state) => {
+      const entry = getEntry(state.sessionsByTrunkId, trunkId, "spawning");
+      return {
+        sessionsByTrunkId: {
+          ...state.sessionsByTrunkId,
+          [trunkId]: { ...entry, status: "spawning", error: null },
+        },
+      };
+    });
   },
 
   setReady(trunkId, info) {
-    set((state) => ({
-      sessionsByTrunkId: {
-        ...state.sessionsByTrunkId,
-        [trunkId]: { ...state.sessionsByTrunkId[trunkId], info, status: "ready", error: null },
-      },
-    }));
+    set((state) => {
+      const entry = getEntry(state.sessionsByTrunkId, trunkId, "ready");
+      return {
+        sessionsByTrunkId: {
+          ...state.sessionsByTrunkId,
+          [trunkId]: { ...entry, info, status: "ready", error: null },
+        },
+      };
+    });
   },
 
   setError(trunkId, error) {
-    set((state) => ({
-      sessionsByTrunkId: {
-        ...state.sessionsByTrunkId,
-        [trunkId]: { ...state.sessionsByTrunkId[trunkId], status: "error", error },
-      },
-    }));
+    set((state) => {
+      const entry = getEntry(state.sessionsByTrunkId, trunkId, "error");
+      return {
+        sessionsByTrunkId: {
+          ...state.sessionsByTrunkId,
+          [trunkId]: { ...entry, status: "error", error },
+        },
+      };
+    });
   },
 
   setExited(trunkId, exitCode) {
-    set((state) => ({
-      sessionsByTrunkId: {
-        ...state.sessionsByTrunkId,
-        [trunkId]: {
-          ...state.sessionsByTrunkId[trunkId],
-          status: "exited",
-          error: exitCode != null ? `Process exited with code ${exitCode}` : "Process exited",
+    set((state) => {
+      const entry = getEntry(state.sessionsByTrunkId, trunkId, "exited");
+      const error = exitCode != null && exitCode !== 0 ? `Process exited with code ${exitCode}` : null;
+      return {
+        sessionsByTrunkId: {
+          ...state.sessionsByTrunkId,
+          [trunkId]: { ...entry, status: "exited", error },
         },
-      },
-    }));
+      };
+    });
   },
 
   appendPendingMessage(trunkId, message) {
     set((state) => {
-      const current = state.sessionsByTrunkId[trunkId]?.pendingMessages ?? [];
+      const entry = getEntry(state.sessionsByTrunkId, trunkId, "idle");
       const MAX_PENDING_CHUNKS = 2000;
       const next =
-        current.length >= MAX_PENDING_CHUNKS
-          ? [...current.slice(1), message]
-          : [...current, message];
+        entry.pendingMessages.length >= MAX_PENDING_CHUNKS
+          ? [...entry.pendingMessages.slice(1), message]
+          : [...entry.pendingMessages, message];
       return {
         sessionsByTrunkId: {
           ...state.sessionsByTrunkId,
-          [trunkId]: {
-            ...state.sessionsByTrunkId[trunkId],
-            pendingMessages: next,
-          },
+          [trunkId]: { ...entry, pendingMessages: next },
         },
       };
     });

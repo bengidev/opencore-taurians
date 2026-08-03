@@ -39,4 +39,37 @@ describe("terminalStore", () => {
     useTerminalStore.getState().setExited("trunk-3", 1);
     expect(useTerminalStore.getState().sessionsByTrunkId["trunk-3"].status).toBe("exited");
   });
+
+  it("buffers output before ensureSession", () => {
+    useTerminalStore
+      .getState()
+      .appendPendingMessage("trunk-5", { kind: "Output", payload: { data: "aGVsbG8=" } });
+    const entry = useTerminalStore.getState().sessionsByTrunkId["trunk-5"];
+    expect(entry).toBeDefined();
+    expect(entry.status).toBe("idle");
+    expect(entry.error).toBeNull();
+    expect(entry.pendingMessages).toHaveLength(1);
+  });
+
+  it("leaves error null when process exits with code 0", () => {
+    useTerminalStore.getState().ensureSession("trunk-6");
+    useTerminalStore.getState().setExited("trunk-6", 0);
+    const entry = useTerminalStore.getState().sessionsByTrunkId["trunk-6"];
+    expect(entry.status).toBe("exited");
+    expect(entry.error).toBeNull();
+  });
+
+  it("sets error only for non-zero exit codes", () => {
+    useTerminalStore.getState().ensureSession("trunk-7");
+    useTerminalStore.getState().setExited("trunk-7", 1);
+    const entry = useTerminalStore.getState().sessionsByTrunkId["trunk-7"];
+    expect(entry.status).toBe("exited");
+    expect(entry.error).toBe("Process exited with code 1");
+  });
+
+  it("removes the session entry on killSession", () => {
+    useTerminalStore.getState().ensureSession("trunk-8");
+    useTerminalStore.getState().killSession("trunk-8");
+    expect(useTerminalStore.getState().sessionsByTrunkId["trunk-8"]).toBeUndefined();
+  });
 });
