@@ -160,5 +160,5 @@ fn resolve_default_shell() -> String {
 
 #[cfg(not(target_os = "windows"))]
 fn resolve_default_shell() -> String {
-    std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string())
+    std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string())
 }

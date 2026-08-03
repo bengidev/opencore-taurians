@@ -1,11 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 
+import { Button } from "../../../components/ui/button";
 import { useProjectStore } from "../../project/state/projectStore";
-import { useTerminalStore } from "../state/terminalStore";
+import { useTerminalStore, type TerminalSessionEntry } from "../state/terminalStore";
 import { createTauriTerminalApi } from "../api/terminalApi";
 import type { TerminalChannelMessage } from "../api/terminalContracts";
 import { TerminalPlaceholder } from "./TerminalPlaceholder";
@@ -31,8 +32,19 @@ export function TerminalCard() {
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const activeTrunkId = useProjectStore((s) => s.activeTrunkId);
-  const projects = useProjectStore((s) => s.projects);
-  const checkoutRuntimeByTrunkId = useProjectStore((s) => s.checkoutRuntimeByTrunkId);
+  const activeRuntimeStatus = useProjectStore((s) =>
+    s.activeTrunkId ? s.checkoutRuntimeByTrunkId[s.activeTrunkId]?.status : undefined,
+  );
+  // Respawn the terminal after the user resets a dead session from the banner.
+  const [resetSignal, setResetSignal] = useState(0);
+  const activeSession = useTerminalStore((s) =>
+    activeTrunkId ? s.sessionsByTrunkId[activeTrunkId] : null,
+  );
+  const bannerEntry =
+    activeSession &&
+    (activeSession.status === "error" || activeSession.status === "exited")
+      ? activeSession
+      : null;
 
   useEffect(() => {
     if (!activeTrunkId) return;
@@ -42,12 +54,15 @@ export function TerminalCard() {
       .trunks.find((t) => t.id === activeTrunkId);
     if (!trunk) return;
 
-    const runtime = checkoutRuntimeByTrunkId[activeTrunkId];
+    // Read volatile slices imperatively so unrelated project-store updates
+    // (pinning, lastOpenedAt, other checkouts) never respawn the live PTY.
+    const state = useProjectStore.getState();
+    const runtime = state.checkoutRuntimeByTrunkId[activeTrunkId];
     if (!runtime || runtime.status !== "ready") {
       return;
     }
 
-    const project = projects.find((p) => p.id === trunk.projectId);
+    const project = state.projects.find((p) => p.id === trunk.projectId);
     const cwd = runtime.checkout.checkoutPath ?? project?.folderPath ?? "";
 
     useTerminalStore.getState().ensureSession(activeTrunkId);
@@ -130,7 +145,13 @@ export function TerminalCard() {
       }
       useTerminalStore.getState().killSession(activeTrunkId);
     };
-  }, [activeTrunkId, projects, checkoutRuntimeByTrunkId]);
+    // Deliberately NOT depending on `projects` / `checkoutRuntimeByTrunkId`
+    // (their identities change on unrelated project-store updates and would
+    // kill the live terminal); both are read imperatively inside the effect.
+    // `activeRuntimeStatus` is the narrow signal that re-runs the effect only
+    // when the active trunk's runtime readiness actually changes; `resetSignal`
+    // lets the banner restart a dead session via the effect.
+  }, [activeTrunkId, activeRuntimeStatus, resetSignal]);
 
   if (!activeTrunkId) {
     return <TerminalPlaceholder />;
@@ -139,14 +160,52 @@ export function TerminalCard() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div ref={containerRef} className="min-h-0 flex-1 overflow-hidden p-2" />
+      {bannerEntry ? (
+        <TerminalSessionBanner
+          entry={bannerEntry}
+          onRestart={() => {
+            useTerminalStore.getState().killSession(activeTrunkId);
+            setResetSignal((n) => n + 1);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+interface TerminalSessionBannerProps {
+  entry: TerminalSessionEntry;
+  onRestart: () => void;
+}
+
+function TerminalSessionBanner({ entry, onRestart }: TerminalSessionBannerProps) {
+  const isError = entry.status === "error";
+  const message =
+    entry.error ??
+    (isError
+      ? "The terminal failed to start."
+      : "The terminal session ended.");
+  return (
+    <div
+      role="alert"
+      className="flex items-center gap-3 border-t border-border bg-muted/60 px-4 py-2"
+    >
+      <p className="min-w-0 flex-1 truncate font-mono text-sm text-foreground">
+        {message}
+      </p>
+      <Button size="sm" variant="secondary" onClick={onRestart}>
+        Restart terminal
+      </Button>
     </div>
   );
 }
 
 function handleMessage(terminal: Terminal, message: TerminalChannelMessage) {
   if (message.kind === "Output") {
-    const decoded = atob(message.payload.data);
-    terminal.write(decoded);
+    // atob yields a Latin-1 binary string, corrupting UTF-8 output; decode to
+    // bytes and let xterm handle the UTF-8 decoding itself.
+    const bytes = Uint8Array.from(atob(message.payload.data), (c) => c.charCodeAt(0));
+    terminal.write(bytes);
   } else if (message.kind === "Exit") {
     const trunkId = Object.entries(useTerminalStore.getState().sessionsByTrunkId).find(
       ([, entry]) => entry.info?.sessionId === message.payload.sessionId,
