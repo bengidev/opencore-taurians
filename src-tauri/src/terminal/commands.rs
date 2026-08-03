@@ -26,11 +26,12 @@ pub fn terminal_write(
     input: TerminalWriteInput,
     state: State<'_, TerminalSessionState>,
 ) -> Result<(), PublicTerminalError> {
-    let session = state
-        .get(&input.session_id)
-        .ok_or_else(|| PublicTerminalError::SessionNotFound {
-            session_id: input.session_id.clone(),
-        })?;
+    let session =
+        state
+            .get(&input.session_id)
+            .ok_or_else(|| PublicTerminalError::SessionNotFound {
+                session_id: input.session_id.clone(),
+            })?;
 
     let mut writer = session.writer.lock();
     writer
@@ -38,9 +39,11 @@ pub fn terminal_write(
         .map_err(|e| PublicTerminalError::WriteFailed {
             message: e.to_string(),
         })?;
-    writer.flush().map_err(|e| PublicTerminalError::WriteFailed {
-        message: e.to_string(),
-    })?;
+    writer
+        .flush()
+        .map_err(|e| PublicTerminalError::WriteFailed {
+            message: e.to_string(),
+        })?;
 
     Ok(())
 }
@@ -50,11 +53,12 @@ pub fn terminal_resize(
     input: TerminalResizeInput,
     state: State<'_, TerminalSessionState>,
 ) -> Result<(), PublicTerminalError> {
-    let session = state
-        .get(&input.session_id)
-        .ok_or_else(|| PublicTerminalError::SessionNotFound {
-            session_id: input.session_id.clone(),
-        })?;
+    let session =
+        state
+            .get(&input.session_id)
+            .ok_or_else(|| PublicTerminalError::SessionNotFound {
+                session_id: input.session_id.clone(),
+            })?;
 
     session
         .master
@@ -77,11 +81,12 @@ pub fn terminal_get_size(
     input: TerminalGetSizeInput,
     state: State<'_, TerminalSessionState>,
 ) -> Result<TerminalGetSizeResult, PublicTerminalError> {
-    let session = state
-        .get(&input.session_id)
-        .ok_or_else(|| PublicTerminalError::SessionNotFound {
-            session_id: input.session_id.clone(),
-        })?;
+    let session =
+        state
+            .get(&input.session_id)
+            .ok_or_else(|| PublicTerminalError::SessionNotFound {
+                session_id: input.session_id.clone(),
+            })?;
 
     let size = session
         .master

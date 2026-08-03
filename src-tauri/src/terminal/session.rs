@@ -75,27 +75,29 @@ impl TerminalSession {
         let mut cmd = CommandBuilder::new(&shell);
         cmd.cwd(cwd);
 
-        let mut child = pair
-            .slave
-            .spawn_command(cmd)
-            .map_err(|e| PublicTerminalError::SpawnFailed {
-                message: e.to_string(),
-            })?;
+        let mut child =
+            pair.slave
+                .spawn_command(cmd)
+                .map_err(|e| PublicTerminalError::SpawnFailed {
+                    message: e.to_string(),
+                })?;
 
         let killer: Arc<Mutex<Box<dyn ChildKiller + Send + Sync>>> =
             Arc::new(Mutex::new(child.clone_killer()));
 
-        let reader = pair.master.try_clone_reader().map_err(|e| {
-            PublicTerminalError::SpawnFailed {
-                message: e.to_string(),
-            }
-        })?;
+        let reader =
+            pair.master
+                .try_clone_reader()
+                .map_err(|e| PublicTerminalError::SpawnFailed {
+                    message: e.to_string(),
+                })?;
 
-        let writer = pair.master.take_writer().map_err(|e| {
-            PublicTerminalError::SpawnFailed {
+        let writer = pair
+            .master
+            .take_writer()
+            .map_err(|e| PublicTerminalError::SpawnFailed {
                 message: e.to_string(),
-            }
-        })?;
+            })?;
 
         let master: Box<dyn MasterPty + Send> = pair.master;
 
@@ -110,9 +112,10 @@ impl TerminalSession {
                     Ok(0) => break,
                     Ok(n) => {
                         let data = STANDARD.encode(&buf[..n]);
-                        let _ = channel.send(TerminalChannelMessageKind::Output(
-                            TerminalOutputChunk { data },
-                        ));
+                        let _ =
+                            channel.send(TerminalChannelMessageKind::Output(TerminalOutputChunk {
+                                data,
+                            }));
                     }
                     Err(_e) => break,
                 }
