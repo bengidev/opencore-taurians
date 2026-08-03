@@ -1,5 +1,6 @@
 import Editor from "@monaco-editor/react";
 import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
+import { useShellStore } from "../../shell/state/shellStore";
 import { editorLanguageFromPath } from "../domain/editorLanguage";
 import { useEditorStore } from "../state/editorStore";
 import "./monacoSetup";
@@ -15,6 +16,7 @@ export function MonacoEditorHost() {
   );
   const mode = useThemeStore((s) => s.mode);
   const theme = mode === "dark" ? "vs-dark" : "vs";
+  const editorFontSize = useShellStore((s) => s.editorFontSize);
 
   if (!activeTabId) {
     return null;
@@ -35,7 +37,7 @@ export function MonacoEditorHost() {
       options={{
         minimap: { enabled: false },
         automaticLayout: true,
-        fontSize: 13,
+        fontSize: editorFontSize,
         readOnly,
       }}
     />
