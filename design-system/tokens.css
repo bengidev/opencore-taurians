@@ -78,11 +78,11 @@
   --ds-action-foreground: var(--ds-paper-muted);
 
   /* Git semantic tokens — derived from palette anchors */
-  --git-added: oklch(0.65 0.14 145);
+  --git-added: oklch(0.5 0.17 145);
   --git-added-bg: oklch(0.95 0.03 145 / 0.18);
   --git-modified: oklch(0.68 0.12 85);
   --git-modified-bg: oklch(0.95 0.04 85 / 0.18);
-  --git-deleted: oklch(0.52 0.21 27);
+  --git-deleted: oklch(0.44 0.25 27);
   --git-deleted-bg: oklch(0.95 0.04 27 / 0.18);
   --git-untracked: oklch(0.55 0.08 280);
   --git-untracked-bg: oklch(0.95 0.03 280 / 0.18);
@@ -94,8 +94,8 @@
   --git-badge: var(--ds-accent);
   --git-badge-foreground: var(--ds-paper-muted);
   --git-diff-header: oklch(0.95 0.01 260);
-  --git-diff-addition: oklch(0.95 0.03 145 / 0.25);
-  --git-diff-deletion: oklch(0.95 0.04 27 / 0.18);
+  --git-diff-addition: oklch(0.88 0.09 145 / 0.65);
+  --git-diff-deletion: oklch(0.86 0.11 27 / 0.6);
 
   /* Shadcn semantic tokens (Nothing monochrome + accent red destructive) */
   --background: oklch(0.97 0 0);
@@ -144,11 +144,11 @@
   --ds-action-foreground: var(--ds-ink);
 
   /* Git — dark mode */
-  --git-added: oklch(0.62 0.13 145);
+  --git-added: oklch(0.78 0.16 145);
   --git-added-bg: oklch(0.25 0.04 145 / 0.25);
   --git-modified: oklch(0.65 0.12 85);
   --git-modified-bg: oklch(0.25 0.05 85 / 0.25);
-  --git-deleted: oklch(0.55 0.2 27);
+  --git-deleted: oklch(0.75 0.22 27);
   --git-deleted-bg: oklch(0.25 0.05 27 / 0.25);
   --git-untracked: oklch(0.58 0.1 280);
   --git-untracked-bg: oklch(0.25 0.04 280 / 0.25);
@@ -157,8 +157,8 @@
   --git-conflict: oklch(0.62 0.16 40);
   --git-conflict-bg: oklch(0.25 0.06 40 / 0.3);
   --git-diff-header: oklch(0.22 0.02 260);
-  --git-diff-addition: oklch(0.22 0.04 145 / 0.3);
-  --git-diff-deletion: oklch(0.22 0.05 27 / 0.25);
+  --git-diff-addition: oklch(0.4 0.11 145 / 0.55);
+  --git-diff-deletion: oklch(0.4 0.13 27 / 0.5);
 
   --background: oklch(0 0 0);
   --foreground: oklch(0.93 0 0);
