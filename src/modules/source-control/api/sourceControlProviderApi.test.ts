@@ -6,12 +6,12 @@ const { invokeMock } = vi.hoisted(() => ({
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
-import { createTauriProviderApi } from "./providerApi";
+import { createTauriProviderApi } from "./sourceControlProviderApi";
 import type {
   ProviderCredentialSaveResult,
   ProviderCredentialStatus,
   ProviderReleaseCapability,
-} from "./providerContracts";
+} from "./sourceControlProviderContracts";
 
 describe("createTauriProviderApi", () => {
   beforeEach(() => {

@@ -15,8 +15,8 @@ import type {
   SourceControlLogEntry,
   SourceControlLogInput,
 } from "../api/sourceControlContracts";
-import { toPublicSourceControlError } from "./parsePublicSourceControlError";
-import { invalidateCheckoutRuntimeOnScopeError } from "./invalidateCheckoutRuntimeOnScopeError";
+import { toPublicSourceControlError } from "./sourceControlErrorParsing";
+import { invalidateCheckoutRuntimeOnScopeError } from "./sourceControlCheckoutRuntimeInvalidation";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
 export type { DiffKind, DiffKey } from "./sourceControlDiffKey";

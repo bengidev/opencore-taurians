@@ -1,6 +1,6 @@
 import { useProjectStore } from "../../project/state/projectStore";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
-import { parsePublicSourceControlError } from "./parsePublicSourceControlError";
+import { parsePublicSourceControlError } from "./sourceControlErrorParsing";
 
 export function invalidateCheckoutRuntimeOnScopeError(
   trunkId: string,

@@ -103,5 +103,5 @@ export function createTauriSourceControlApi(): SourceControlApi {
   };
 }
 
-export { createMemorySourceControlApi } from "./createMemorySourceControlApi";
-export type { MemorySourceControlApi, MemorySourceControlSeed } from "./createMemorySourceControlApi";
+export { createMemorySourceControlApi } from "./sourceControlMemoryApi";
+export type { MemorySourceControlApi, MemorySourceControlSeed } from "./sourceControlMemoryApi";

@@ -3,7 +3,7 @@ import {
   type SourceControlApi,
   type SourceControlResolveCheckoutResult,
 } from "../../source-control";
-import { parsePublicSourceControlError } from "../../source-control/state/parsePublicSourceControlError";
+import { parsePublicSourceControlError } from "../../source-control/state/sourceControlErrorParsing";
 import { useShellStore } from "../../shell/state/shellStore";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import type { ProjectActivationResult } from "../domain/projectCheckout";

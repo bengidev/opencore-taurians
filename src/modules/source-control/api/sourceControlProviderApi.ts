@@ -16,7 +16,7 @@ import type {
   ProviderRelease,
   ProviderReleaseCapability,
   ProviderRepository,
-} from "./providerContracts";
+} from "./sourceControlProviderContracts";
 
 export interface ProviderApi {
   saveCredential(input: ProviderCredentialSaveInput): Promise<ProviderCredentialSaveResult>;

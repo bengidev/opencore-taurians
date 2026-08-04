@@ -34,8 +34,8 @@ import type {
 import { resolveSourceControlBadge } from "../domain/sourceControlIconBadge";
 import { useSourceControlStore } from "../state/sourceControlStore";
 import { sourceControlDiffKey, type DiffKey, type DiffKind } from "../state/sourceControlDiffKey";
-import { invalidateCheckoutRuntimeOnScopeError } from "../state/invalidateCheckoutRuntimeOnScopeError";
-import { parsePublicSourceControlError } from "../state/parsePublicSourceControlError";
+import { invalidateCheckoutRuntimeOnScopeError } from "../state/sourceControlCheckoutRuntimeInvalidation";
+import { parsePublicSourceControlError } from "../state/sourceControlErrorParsing";
 import { useSourceControlWatchLifecycle } from "../state/useSourceControlWatchLifecycle";
 import { SourceControlDiffPreview } from "./SourceControlDiffPreview";
 import { SourceControlIconBadge } from "./SourceControlIconBadge";

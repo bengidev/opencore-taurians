@@ -10,7 +10,7 @@ const { invokeMock, listenMock } = vi.hoisted(() => ({
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
 
-import { createMemorySourceControlApi } from "./createMemorySourceControlApi";
+import { createMemorySourceControlApi } from "./sourceControlMemoryApi";
 import { createTauriSourceControlApi } from "./sourceControlApi";
 import type {
   SourceControlOperationEvent,

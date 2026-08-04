@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useProjectStore } from "../../project/state/projectStore";
 import { useSourceControlStore } from "../state/sourceControlStore";
-import { createMemorySourceControlApi } from "../api/createMemorySourceControlApi";
+import { createMemorySourceControlApi } from "../api/sourceControlMemoryApi";
 import type {
   SourceControlFileStatus,
   SourceControlRepositorySnapshot,
