@@ -154,8 +154,23 @@ export function TerminalCard() {
   }, [mode]);
 
   useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.options.fontSize = terminalFontSize;
+    const terminal = terminalRef.current;
+    const fitAddon = fitAddonRef.current;
+    if (!terminal || !fitAddon || !activeTrunkId) return;
+
+    terminal.options.fontSize = terminalFontSize;
+    // xterm sizes its viewport inline to the rendered grid (rows × cell
+    // height). Shrinking the font without refitting leaves the viewport
+    // shorter than the container, exposing the card's background below the
+    // terminal. Refit so the grid fills the container, and tell the PTY so
+    // its line count matches the new viewport.
+    fitAddon.fit();
+    const dims = fitAddon.proposeDimensions();
+    const info = useTerminalStore.getState().sessionsByTrunkId[activeTrunkId]?.info;
+    if (info && dims) {
+      tauriTerminalApi
+        .resize({ sessionId: info.sessionId, cols: dims.cols, rows: dims.rows })
+        .catch(() => {});
     }
   }, [terminalFontSize]);
 
