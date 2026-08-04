@@ -334,7 +334,7 @@ describe("SourceControlPanel", () => {
     expect(pathButtons[1]).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("clears cached diffs when snapshot revision changes", async () => {
+  it("keeps cached diffs when snapshot revision changes", async () => {
     const snapshot = makeSnapshot({
       files: [changedFile],
       sectionCounts: { ...makeSnapshot().sectionCounts, changes: 1 },
@@ -349,6 +349,7 @@ describe("SourceControlPanel", () => {
       expect(sourceControlApi.calls.filter((c) => c.method === "getDiff")).toHaveLength(1);
     });
 
+    // Bump revision (simulating a background refresh) — the diff stays open.
     useSourceControlStore.setState((state) => ({
       snapshotsByTrunkId: {
         ...state.snapshotsByTrunkId,
@@ -360,10 +361,54 @@ describe("SourceControlPanel", () => {
       },
     }));
 
+    // The diff row should still be expanded.
+    expect(pathButton).toHaveAttribute("aria-expanded", "true");
+
+    // Clicking again toggles the diff closed without a new getDiff call.
     await user.click(pathButton);
+    expect(pathButton).toHaveAttribute("aria-expanded", "false");
+    expect(sourceControlApi.calls.filter((c) => c.method === "getDiff")).toHaveLength(1);
+  });
+
+  it("collapses the diff when the file disappears from the changed list", async () => {
+    const snapshot = makeSnapshot({
+      files: [changedFile],
+      sectionCounts: { ...makeSnapshot().sectionCounts, changes: 1 },
+    });
+    const { sourceControlApi, trunk } = setupTrunk(snapshot);
+    const user = userEvent.setup();
+    render(<SourceControlPanel sourceControlApi={sourceControlApi} />);
+
+    const pathButton = screen.getByRole("button", { name: "src/a.ts" });
     await user.click(pathButton);
     await waitFor(() => {
-      expect(sourceControlApi.calls.filter((c) => c.method === "getDiff")).toHaveLength(2);
+      expect(sourceControlApi.calls.filter((c) => c.method === "getDiff")).toHaveLength(1);
+    });
+    expect(pathButton).toHaveAttribute("aria-expanded", "true");
+
+    // Simulate staging the file — it vanishes from changedFiles and moves to stagedFiles.
+    useSourceControlStore.setState((state) => ({
+      snapshotsByTrunkId: {
+        ...state.snapshotsByTrunkId,
+        [trunk.id]: {
+          ...snapshot,
+          revision: snapshot.revision + 1,
+          files: [{ ...changedFile, indexStatus: "modified", worktreeStatus: null }],
+          sectionCounts: { ...snapshot.sectionCounts, changes: 0, stagedChanges: 1 },
+        },
+      },
+      lastRevisionByTrunkId: {
+        ...state.lastRevisionByTrunkId,
+        [trunk.id]: snapshot.revision + 1,
+      },
+    }));
+
+    // Wait for the effect to fire and collapse the diff.
+    await waitFor(() => {
+      // After state update, the old button is removed. Query for the new one in Staged.
+      // The diff should be collapsed (aria-expanded=false) in its new location.
+      const stagedButton = screen.getByRole("button", { name: "src/a.ts" });
+      expect(stagedButton).toHaveAttribute("aria-expanded", "false");
     });
   });
 

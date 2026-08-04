@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "../../project/state/projectStore";
-import { PanelTooltip } from "../../project";
+import { PanelToolButton, PanelTooltip } from "../../project";
 import { createTauriSourceControlApi, type SourceControlApi } from "../api/sourceControlApi";
 import type {
   SourceControlFileStatus,
@@ -137,15 +137,37 @@ function SourceControlPanelRaw({ sourceControlApi = defaultApi }: SourceControlP
   // Live watch refresh.
   useSourceControlWatchLifecycle(activeTrunkId, checkout);
 
+  // Collapse diff when the user navigates to a different scope.
   useEffect(() => {
     setExpandedDiffKey(null);
     setDiffByKey({});
-  }, [checkout?.scopeId, snapshot?.revision]);
+  }, [checkout?.scopeId]);
 
   const badge = useMemo(() => resolveSourceControlBadge(snapshot ?? null), [snapshot]);
 
   const stagedFiles = useMemo(() => filesWithIndexStatus(snapshot), [snapshot]);
   const changedFiles = useMemo(() => filesWithWorktreeChanges(snapshot), [snapshot]);
+
+  // Close the open diff only when its file disappears from the visible lists
+  // (staged, discarded, or committed away), not on every snapshot revision bump.
+  useEffect(() => {
+    if (expandedDiffKey === null) return;
+    const colonIndex = expandedDiffKey.indexOf(":");
+    if (colonIndex === -1) return;
+    const kind = expandedDiffKey.slice(0, colonIndex) as DiffKind;
+    const path = expandedDiffKey.slice(colonIndex + 1);
+    const stillVisible =
+      kind === "working-tree"
+        ? changedFiles.some((f) => f.path === path)
+        : stagedFiles.some((f) => f.path === path);
+    if (!stillVisible) {
+      setExpandedDiffKey(null);
+      setDiffByKey((prev) => {
+        const { [expandedDiffKey]: _gone, ...rest } = prev;
+        return rest;
+      });
+    }
+  }, [expandedDiffKey, changedFiles, stagedFiles]);
 
   const canCommit = message.trim().length > 0 && busyAction === null;
 
@@ -645,11 +667,8 @@ function SourceControlPanelRaw({ sourceControlApi = defaultApi }: SourceControlP
         expanded={graphExpanded}
         onToggle={() => setGraphExpanded((prev) => !prev)}
         action={
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label="Refresh graph"
-            title="Refresh graph"
+          <PanelToolButton
+            label="Refresh graph"
             aria-busy={busyAction === "refresh-log"}
             disabled={busyAction !== null}
             onClick={refreshLog}
@@ -662,7 +681,7 @@ function SourceControlPanelRaw({ sourceControlApi = defaultApi }: SourceControlP
                 successAction === "refresh-log" && "text-[var(--git-added)]",
               )}
             />
-          </Button>
+          </PanelToolButton>
         }
       >
         {log && log.length > 0 ? (
