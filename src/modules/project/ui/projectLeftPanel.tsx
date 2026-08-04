@@ -31,8 +31,8 @@ import type { Project } from "../domain/projectTypes";
 import { projectMergeSearchResults } from "../domain/projectSearch";
 import { projectActivateTrunk } from "../state/projectActivation";
 import { useProjectStore } from "../state/projectStore";
-import { PanelToolButton } from "./panelToolButton";
-import { PanelTooltip } from "./panelTooltip";
+import { PanelToolButton } from "./projectPanelToolButton";
+import { PanelTooltip } from "./projectPanelTooltip";
 import {
   ProjectAddButton,
   projectRequestOpenFolder,

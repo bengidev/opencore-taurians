@@ -4,7 +4,7 @@ import {
   type FolderPicker,
 } from "../../workspace-popup/infrastructure/workspaceFolderPicker";
 import { projectOpenFolder } from "../state/projectActivation";
-import { PanelToolButton } from "./panelToolButton";
+import { PanelToolButton } from "./projectPanelToolButton";
 
 export interface ProjectAddButtonProps {
   onRequestOpenProject?: () => void;

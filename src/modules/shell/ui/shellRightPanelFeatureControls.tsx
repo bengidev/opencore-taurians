@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { SOURCE_CONTROL_SUITE_RELEASE_ENABLED } from "../../source-control/domain/sourceControlFeatureAvailability";
 import { useProjectStore } from "../../project/state/projectStore";
 import type { RightPanelFeature } from "../../project/domain/projectTypes";
-import { PanelToolButton } from "../../project/ui/panelToolButton";
+import { PanelToolButton } from "../../project/ui/projectPanelToolButton";
 import { useShellStore } from "../state/shellStore";
 
 export interface ShellRightPanelFeatureControlsProps {

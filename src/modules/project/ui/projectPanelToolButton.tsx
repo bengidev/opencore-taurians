@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { PanelTooltip } from "./panelTooltip";
+import { PanelTooltip } from "./projectPanelTooltip";
 
 type PanelToolButtonProps = Omit<
   ComponentProps<typeof Button>,

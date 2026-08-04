@@ -9,5 +9,5 @@ export { appendTrunkMessage } from "./state/projectChat";
 export { useProjectStore } from "./state/projectStore";
 export { ProjectAddButton } from "./ui/projectAddButton";
 export { ProjectLeftPanel } from "./ui/projectLeftPanel";
-export { PanelToolButton } from "./ui/panelToolButton";
-export { PanelTooltip } from "./ui/panelTooltip";
+export { PanelToolButton } from "./ui/projectPanelToolButton";
+export { PanelTooltip } from "./ui/projectPanelTooltip";

@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { beforeEach, vi } from "vitest";
-import { createMemoryEditorApi } from "../modules/editor/api/createMemoryEditorApi";
-import { createMemoryExplorerApi } from "../modules/explorer/api/createMemoryExplorerApi";
+import { createMemoryEditorApi } from "../modules/editor/api/editorMemoryApi";
+import { createMemoryExplorerApi } from "../modules/explorer/api/explorerMemoryApi";
 
 vi.mock("../modules/editor/api/editorApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../modules/editor/api/editorApi")>();
