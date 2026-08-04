@@ -4,7 +4,7 @@ import {
   promptCloseTab,
   registerCloseTabPromptHandler,
   type CloseTabPromptResult,
-} from "./closeTabPromptBridge";
+} from "./editorCloseTabPromptBridge";
 import { EditorCloseTabDialog } from "./EditorCloseTabDialog";
 import { EditorSaveAsDialog } from "./EditorSaveAsDialog";
 import { EditorTabStrip } from "./EditorTabStrip";
@@ -12,7 +12,7 @@ import {
   registerQuitUntitledHandler,
   registerSaveAsRequestHandler,
   type QuitUntitledResult,
-} from "./saveAsPromptBridge";
+} from "./editorSaveAsPromptBridge";
 
 export function EditorCardHeader() {
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);

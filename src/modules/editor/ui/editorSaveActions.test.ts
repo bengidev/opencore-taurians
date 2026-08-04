@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
+import { createMemoryEditorApi } from "../api/editorMemoryApi";
 import { useEditorStore } from "../state/editorStore";
-import * as saveAsPromptBridge from "./saveAsPromptBridge";
+import * as saveAsPromptBridge from "./editorSaveAsPromptBridge";
 import { performEditorSave, performEditorSaveAs } from "./editorSaveActions";
 
 function resetEditorStore(): void {

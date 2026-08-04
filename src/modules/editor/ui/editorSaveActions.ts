@@ -1,6 +1,6 @@
 import { isUntitledId } from "../state/editorTabId";
 import { useEditorStore } from "../state/editorStore";
-import { requestSaveAs } from "./saveAsPromptBridge";
+import { requestSaveAs } from "./editorSaveAsPromptBridge";
 
 export function performEditorSave(): void {
   const { activeTabId, buffers, save } = useEditorStore.getState();

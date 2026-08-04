@@ -1,10 +1,10 @@
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
+import { createMemoryEditorApi } from "../api/editorMemoryApi";
 import { useEditorStore } from "../state/editorStore";
 import { useShellStore } from "../../shell/state/shellStore";
-import * as saveAsPromptBridge from "./saveAsPromptBridge";
-import { registerSaveAsRequestHandler } from "./saveAsPromptBridge";
+import * as saveAsPromptBridge from "./editorSaveAsPromptBridge";
+import { registerSaveAsRequestHandler } from "./editorSaveAsPromptBridge";
 import { useEditorSaveTriggers } from "./useEditorSaveTriggers";
 
 const PROJECT_ROOT = "/proj";

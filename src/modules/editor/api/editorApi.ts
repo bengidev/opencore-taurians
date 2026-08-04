@@ -26,5 +26,5 @@ export function createTauriEditorApi(): EditorApi {
   };
 }
 
-export { createMemoryEditorApi } from "./createMemoryEditorApi";
-export type { MemoryEditorSeed } from "./createMemoryEditorApi";
+export { createMemoryEditorApi } from "./editorMemoryApi";
+export type { MemoryEditorSeed } from "./editorMemoryApi";

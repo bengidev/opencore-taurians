@@ -1,12 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
+import { createMemoryEditorApi } from "../api/editorMemoryApi";
 import type { EditorBuffer } from "../state/editorStore";
 import { useEditorStore } from "../state/editorStore";
-import { promptCloseTab } from "./closeTabPromptBridge";
+import { promptCloseTab } from "./editorCloseTabPromptBridge";
 import { EditorCardHeader } from "./EditorCardHeader";
-import { promptQuitUntitled } from "./saveAsPromptBridge";
+import { promptQuitUntitled } from "./editorSaveAsPromptBridge";
 
 const PROJECT_ROOT = "/proj";
 const FILE_A = "/proj/a.ts";

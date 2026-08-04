@@ -7,7 +7,7 @@ import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 const OPEN_BATCH_ERROR_DISMISS_MS = 3500;
 
 const MonacoEditorHost = lazy(() =>
-  import("./MonacoEditorHost").then((module) => ({ default: module.MonacoEditorHost })),
+  import("./EditorMonacoHost").then((module) => ({ default: module.MonacoEditorHost })),
 );
 
 export function EditorPanel() {

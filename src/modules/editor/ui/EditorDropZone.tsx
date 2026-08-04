@@ -11,7 +11,7 @@ import {
   clearExplorerFileDrag,
   getActiveExplorerFileDragPath,
   isExplorerFileDragActive,
-} from "../dnd/explorerFileDrag";
+} from "../dnd/editorFileDrag";
 import { useEditorStore } from "../state/editorStore";
 import { useEditorOsFileDrop } from "./useEditorOsFileDrop";
 

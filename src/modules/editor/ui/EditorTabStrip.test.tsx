@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
+import { createMemoryEditorApi } from "../api/editorMemoryApi";
 import type { EditorBuffer } from "../state/editorStore";
 import { useEditorStore } from "../state/editorStore";
 import { EditorTabStrip } from "./EditorTabStrip";

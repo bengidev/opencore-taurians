@@ -2,9 +2,9 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEditorStore } from "../state/editorStore";
 import { useShellStore } from "../../shell/state/shellStore";
-import { MonacoEditorHost } from "./MonacoEditorHost";
+import { MonacoEditorHost } from "./EditorMonacoHost";
 
-vi.mock("./monacoSetup", () => ({}));
+vi.mock("./editorMonacoSetup", () => ({}));
 
 vi.mock("@monaco-editor/react", () => ({
   default: (props: { options?: { fontSize?: number } }) => (

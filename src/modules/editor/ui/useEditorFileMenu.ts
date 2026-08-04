@@ -3,7 +3,7 @@ import type { EditorFilePicker } from "../infrastructure/editorFilePicker";
 import { createTauriEditorFilePicker } from "../infrastructure/editorFilePicker";
 import { useEditorStore } from "../state/editorStore";
 import { performEditorSave, performEditorSaveAs } from "./editorSaveActions";
-import { openEditorFilesFromPicker } from "./openEditorFiles";
+import { openEditorFilesFromPicker } from "./editorOpenFiles";
 
 export function useEditorFileMenu(picker?: EditorFilePicker) {
   const defaultPickerRef = useRef<EditorFilePicker | null>(null);

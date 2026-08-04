@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   beginExplorerFileDrag,
   clearExplorerFileDrag,
-} from "../dnd/explorerFileDrag";
+} from "../dnd/editorFileDrag";
 import { useEditorStore } from "../state/editorStore";
 import { useExplorerStore } from "../../explorer/state/explorerStore";
 import { useShellStore } from "../../shell/state/shellStore";

@@ -1,13 +1,13 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
+import { createMemoryEditorApi } from "../api/editorMemoryApi";
 import type { EditorBuffer } from "../state/editorStore";
 import { useEditorStore } from "../state/editorStore";
 import { useShellStore } from "../../shell/state/shellStore";
 import { EditorPanel } from "./EditorPanel";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 
-vi.mock("./MonacoEditorHost", () => ({
+vi.mock("./EditorMonacoHost", () => ({
   MonacoEditorHost: () => <div data-testid="monaco-host" />,
 }));
 

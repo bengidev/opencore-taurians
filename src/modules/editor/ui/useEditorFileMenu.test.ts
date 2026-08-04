@@ -1,9 +1,9 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createMemoryEditorApi } from "../api/createMemoryEditorApi";
+import { createMemoryEditorApi } from "../api/editorMemoryApi";
 import { createMemoryEditorFilePicker } from "../infrastructure/editorFilePicker";
 import { useEditorStore } from "../state/editorStore";
-import * as saveAsPromptBridge from "./saveAsPromptBridge";
+import * as saveAsPromptBridge from "./editorSaveAsPromptBridge";
 import { useEditorFileMenu } from "./useEditorFileMenu";
 
 type MenuItemOptions = {

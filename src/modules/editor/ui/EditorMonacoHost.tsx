@@ -3,7 +3,7 @@ import { useThemeStore } from "../../onboarding/state/onboardingThemeStore";
 import { useShellStore } from "../../shell/state/shellStore";
 import { editorLanguageFromPath } from "../domain/editorLanguage";
 import { useEditorStore } from "../state/editorStore";
-import "./monacoSetup";
+import "./editorMonacoSetup";
 
 export function MonacoEditorHost() {
   const activeTabId = useEditorStore((s) => s.activeTabId);

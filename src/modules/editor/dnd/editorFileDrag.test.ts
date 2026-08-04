@@ -8,7 +8,7 @@ import {
   getExplorerFileDragPath,
   isExplorerFileDragActive,
   setExplorerFileDragData,
-} from "./explorerFileDrag";
+} from "./editorFileDrag";
 
 afterEach(() => {
   clearExplorerFileDrag();

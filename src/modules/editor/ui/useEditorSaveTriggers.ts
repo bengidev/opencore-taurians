@@ -3,7 +3,7 @@ import { useShellStore } from "../../shell/state/shellStore";
 import { isUntitledId } from "../state/editorTabId";
 import { useEditorStore } from "../state/editorStore";
 import { performEditorSave } from "./editorSaveActions";
-import { promptQuitUntitled, requestSaveAs } from "./saveAsPromptBridge";
+import { promptQuitUntitled, requestSaveAs } from "./editorSaveAsPromptBridge";
 
 export function useEditorSaveTriggers(): void {
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditorBuffer } from "../state/editorStore";
-import { collectDirtyExplorerPaths } from "./collectDirtyExplorerPaths";
+import { collectDirtyExplorerPaths } from "./editorDirtyExplorerPaths";
 
 function buf(partial: Partial<EditorBuffer> & Pick<EditorBuffer, "dirty">): EditorBuffer {
   return {
