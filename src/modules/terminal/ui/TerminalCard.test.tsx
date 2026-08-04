@@ -26,6 +26,12 @@ const { mockTerminalApi } = vi.hoisted(() => ({
   },
 }));
 
+const { mockFitAddonClass } = vi.hoisted(() => ({
+  mockFitAddonClass: {
+    instances: [] as { fitCalls: number }[],
+  },
+}));
+
 vi.mock("@xterm/xterm", () => {
   class MockTerminal {
     static instances: MockTerminal[] = [];
@@ -53,7 +59,13 @@ vi.mock("@xterm/xterm", () => {
 
 vi.mock("@xterm/addon-fit", () => ({
   FitAddon: class {
-    fit() {}
+    fitCalls = 0;
+    constructor() {
+      mockFitAddonClass.instances.push(this);
+    }
+    fit() {
+      this.fitCalls += 1;
+    }
     proposeDimensions() {
       return { cols: 80, rows: 24 };
     }
@@ -120,6 +132,7 @@ describe("TerminalCard", () => {
   beforeEach(() => {
     vi.stubGlobal("ResizeObserver", RO);
     mockTerminalClass.instances = [];
+    mockFitAddonClass.instances = [];
     useThemeStore.getState().resetTheme();
     useShellStore.setState({ terminalFontSize: TERMINAL_FONT_SIZE_DEFAULT });
   });
@@ -339,6 +352,40 @@ describe("TerminalCard", () => {
     );
     expect(terminal.options.fontSize).toBe(18);
     // The live PTY must not respawn on appearance-only changes.
+    expect(mockTerminalApi.spawn).toHaveBeenCalledTimes(1);
+  });
+
+  it("refits and resizes the PTY when font size changes", async () => {
+    const { trunk } = seedActiveTrunk();
+    render(<TerminalCard />);
+    await waitFor(() => {
+      expect(mockTerminalClass.instances).toHaveLength(1);
+    });
+
+    // The initial spawn fits the terminal, and the font-size effect also
+    // runs once on mount (same size, idempotent refit).
+    expect(mockFitAddonClass.instances).toHaveLength(1);
+    const fitCallsAtStart = mockFitAddonClass.instances[0].fitCalls;
+
+    useTerminalStore.getState().setReady(trunk.id, {
+      sessionId: "sess-1",
+      shell: "/bin/sh",
+      cwd: "/work",
+      cols: 80,
+      rows: 24,
+    });
+
+    await act(() => useShellStore.getState().setTerminalFontSize(8));
+
+    // The live terminal refits so the viewport fills the container again,
+    // and reports the new geometry to the PTY.
+    expect(mockFitAddonClass.instances[0].fitCalls).toBe(fitCallsAtStart + 1);
+    expect(mockTerminalApi.resize).toHaveBeenCalledWith({
+      sessionId: "sess-1",
+      cols: 80,
+      rows: 24,
+    });
+    // The PTY must not respawn on font-size-only changes.
     expect(mockTerminalApi.spawn).toHaveBeenCalledTimes(1);
   });
 });
