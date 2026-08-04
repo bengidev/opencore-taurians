@@ -2,17 +2,17 @@ import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import { resolveExplorerIcon } from "@/lib/fileIcons";
 import { cn } from "@/lib/utils";
-import { collectDirtyExplorerPaths } from "../../editor/domain/collectDirtyExplorerPaths";
+import { collectDirtyExplorerPaths } from "../../editor/domain/editorDirtyExplorerPaths";
 import { useEditorStore } from "../../editor/state/editorStore";
 import {
   EXPLORER_FILE_DRAG_THRESHOLD_PX,
   beginExplorerFileDrag,
   clearExplorerFileDrag,
   isExplorerFileDragActive,
-} from "../../editor/dnd/explorerFileDrag";
+} from "../../editor/dnd/editorFileDrag";
 import { useShellStore } from "../../shell/state/shellStore";
 import type { ExplorerEntry } from "../domain/explorerTypes";
-import { filterExplorerTree } from "../domain/filterExplorerTree";
+import { filterExplorerTree } from "../domain/explorerFilterTree";
 import { useExplorerStore } from "../state/explorerStore";
 import {
   explorerChevronClassName,

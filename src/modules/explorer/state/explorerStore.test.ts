@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useProjectStore } from "../../project/state/projectStore";
-import { createMemoryExplorerApi } from "../api/createMemoryExplorerApi";
+import { createMemoryExplorerApi } from "../api/explorerMemoryApi";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
 import { useExplorerStore } from "./explorerStore";
 

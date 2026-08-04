@@ -1,18 +1,18 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createMemoryEditorApi } from "../../editor/api/createMemoryEditorApi";
+import { createMemoryEditorApi } from "../../editor/api/editorMemoryApi";
 import {
   clearExplorerFileDrag,
   getActiveExplorerFileDragPath,
   isExplorerFileDragActive,
-} from "../../editor/dnd/explorerFileDrag";
+} from "../../editor/dnd/editorFileDrag";
 import { useEditorStore } from "../../editor/state/editorStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useShellStore } from "../../shell/state/shellStore";
 import { useProjectStore } from "../../project/state/projectStore";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
-import { createMemoryExplorerApi } from "../api/createMemoryExplorerApi";
+import { createMemoryExplorerApi } from "../api/explorerMemoryApi";
 import { useExplorerStore } from "../state/explorerStore";
 import { ExplorerTree } from "./ExplorerTree";
 

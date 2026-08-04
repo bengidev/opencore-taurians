@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterExplorerTree } from "./filterExplorerTree";
+import { filterExplorerTree } from "./explorerFilterTree";
 import type { ExplorerEntry } from "./explorerTypes";
 
 const root = "/proj";

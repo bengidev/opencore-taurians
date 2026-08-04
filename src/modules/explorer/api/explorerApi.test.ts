@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createMemoryExplorerApi } from "./createMemoryExplorerApi";
+import { createMemoryExplorerApi } from "./explorerMemoryApi";
 
 describe("createMemoryExplorerApi", () => {
   it("lists seeded entries", async () => {

@@ -2,12 +2,12 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { createMemoryEditorApi } from "../../editor/api/createMemoryEditorApi";
+import { createMemoryEditorApi } from "../../editor/api/editorMemoryApi";
 import { useEditorStore } from "../../editor/state/editorStore";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
 import { useProjectStore } from "../../project/state/projectStore";
 import { useWorkspaceStore } from "../../workspace-popup/state/workspaceStore";
-import { createMemoryExplorerApi } from "../api/createMemoryExplorerApi";
+import { createMemoryExplorerApi } from "../api/explorerMemoryApi";
 import type { ExplorerApi } from "../api/explorerApi";
 import type { ExplorerDropPayload } from "../domain/explorerTypes";
 import { useExplorerStore } from "../state/explorerStore";

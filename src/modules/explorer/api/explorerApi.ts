@@ -75,5 +75,5 @@ export function createTauriExplorerApi(): ExplorerApi {
   };
 }
 
-export { createMemoryExplorerApi } from "./createMemoryExplorerApi";
-export type { MemoryExplorerSeed } from "./createMemoryExplorerApi";
+export { createMemoryExplorerApi } from "./explorerMemoryApi";
+export type { MemoryExplorerSeed } from "./explorerMemoryApi";
