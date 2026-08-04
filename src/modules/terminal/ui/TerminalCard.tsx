@@ -100,8 +100,8 @@ export function TerminalCard() {
       .then((info) => {
         useTerminalStore.getState().setReady(activeTrunkId, info);
       })
-      .catch((error) => {
-        useTerminalStore.getState().setError(activeTrunkId, String(error));
+      .catch((error: unknown) => {
+        useTerminalStore.getState().setError(activeTrunkId, describeSpawnError(error));
       });
 
     const onDataDisposable = terminal.onData((data) => {
@@ -165,7 +165,7 @@ export function TerminalCard() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div ref={containerRef} className="min-h-0 flex-1 overflow-hidden p-2" />
+      <div ref={containerRef} className="min-h-0 flex-1 overflow-hidden" />
       {bannerEntry ? (
         <TerminalSessionBanner
           entry={bannerEntry}
@@ -225,4 +225,35 @@ function handleMessage(trunkId: string, terminal: Terminal, message: TerminalCha
       useTerminalStore.getState().setExited(trunkId, message.payload.exitCode);
     }
   }
+}
+
+/**
+ * Tauri rejects `invoke` with the raw wrapper text of its internal
+ * `Error::InvalidArgs` (e.g. `invalid args 'input' for command
+ * 'terminal_spawn': missing field 'cwd'`). The `args` portion is the command
+ * argument that failed to deserialize, and the wrapper hides the underlying
+ * serde detail behind a colon. Decode the pieces into an actionable banner
+ * message instead of showing the opaque wrapper verbatim.
+ */
+function describeSpawnError(error: unknown): string {
+  const raw =
+    typeof error === "string"
+      ? error
+      : error && typeof error === "object" && "message" in error
+        ? String((error as { message: unknown }).message)
+        : String(error);
+
+  const invalidArgs = /invalid args `([^`]+)` for command `([^`]+)`(?::\s*(.*))?/.exec(raw);
+  if (invalidArgs) {
+    const [, arg, command, detail] = invalidArgs;
+    const hint =
+      arg === "input" && /missing field `?cwd`?/.test(detail ?? "")
+        ? " The working directory is not available yet."
+        : /missing field/.test(detail ?? "")
+          ? " The terminal arguments are incomplete."
+          : " The IPC payload could not be decoded; a full rebuild may be required (stale bundle).";
+    return `Failed to start terminal (${command}): ${arg}${detail ? ` — ${detail}` : ""}.${hint}`;
+  }
+
+  return `Failed to start terminal: ${raw}`;
 }
