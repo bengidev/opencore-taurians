@@ -15,16 +15,28 @@ export function WindowControls({ tag }: WindowControlsProps) {
   useEffect(() => {
     if (!USE_CUSTOM_WINDOW_CONTROLS(tag)) return;
     const w = getCurrentWindow();
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
-    void w.isMaximized().then(setMaximized);
+    void w.isMaximized().then((value) => {
+      if (!cancelled) setMaximized(value);
+    });
     void w
       .onResized(() => {
-        void w.isMaximized().then(setMaximized);
+        void w.isMaximized().then((value) => {
+          if (!cancelled) setMaximized(value);
+        });
       })
       .then((un) => {
-        unlisten = un;
+        if (cancelled) {
+          un(); // onResized resolved after unmount: release the listener.
+        } else {
+          unlisten = un;
+        }
       });
-    return () => unlisten?.();
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, [tag]);
 
   if (!USE_CUSTOM_WINDOW_CONTROLS(tag)) return null;
