@@ -40,9 +40,12 @@ describe("ShellWindowChrome", () => {
   it("renders leading icons + centered tabs on macOS, no window controls", async () => {
     resolvePlatformForTest("macos");
     render(<ShellWindowChrome />);
-    // usePlatform resolves via a promise microtask after mount; findByRole waits
-    // for the re-render so the absence assertions below are meaningful.
-    expect(await screen.findByRole("button", { name: "Hide left panel" })).toBeInTheDocument();
+    // usePlatform resolves via a promise microtask after mount; the tab renders
+    // unconditionally too, so gate the wait on a platform-dependent element
+    // (tabs, which re-render after platform resolution) to ensure the absence
+    // assertions below run against the resolved-macOS tree.
+    expect(await screen.findByRole("tab", { name: "Chat" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide left panel" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Files" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Chat" })).toBeInTheDocument();
