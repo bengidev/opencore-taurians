@@ -55,6 +55,7 @@ coverage/
 # Local agent planning docs (not for version control)
 superpowers/
 .superpowers/
+.pi-subagents/
 docs/superpowers/
 docs/specs/
 docs/plans/
