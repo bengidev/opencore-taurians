@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { usePlatform } from "@/lib/platform";
+import { usePlatform, IS_MAC } from "@/lib/platform";
 import { useShellStore, type ShellMainCard } from "../state/shellStore";
 import { ShellPanelToggle } from "./shellPanelToggle";
 import { ShellSettingsButton } from "./shellSettingsButton";
@@ -17,7 +17,7 @@ const MAIN_CARD_LABELS: Record<ShellMainCard, string> = {
 
 export function ShellWindowChrome() {
   const platform = usePlatform();
-  const isMac = platform === "macos";
+  const isMac = IS_MAC(platform);
   const activeMainCard = useShellStore((s) => s.activeMainCard);
   const setActiveMainCard = useShellStore((s) => s.setActiveMainCard);
 
