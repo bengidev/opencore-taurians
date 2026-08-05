@@ -7,14 +7,12 @@ import {
 } from "../state/shellColumnLayout";
 import { useShellStore } from "../state/shellStore";
 import { ShellLeftPanel } from "./panels/shellLeftPanel";
-import { ShellLeftPanelHeader } from "./panels/shellLeftPanelHeader";
 import { ShellRightPanel } from "./panels/shellRightPanel";
-import { ShellRightPanelHeader } from "./panels/shellRightPanelHeader";
 import { ShellCenterColumn } from "./shellCenterColumn";
-import { ShellMainCardTabs } from "./shellMainCardTabs";
 import { ShellPanelResizeHandle } from "./shellPanelResizeHandle";
 import { ShellPanelSlot } from "./shellPanelSlot";
 import { ShellSettingsPage } from "./shellSettingsPage";
+import { ShellWindowChrome } from "./shellWindowChrome";
 import { SHELL_EASE_OUT, SHELL_HIDE_MS, SHELL_SHOW_MS } from "./shellMotion";
 
 const RESIZE_HANDLE_WIDTH = 8;
@@ -117,16 +115,8 @@ export function ShellScreen() {
         data-shell-available-width={String(availableWidth)}
         className="relative flex h-full min-h-0 flex-col bg-background text-foreground"
       >
-        <div className="flex shrink-0 divide-x divide-border border-y border-border bg-background">
-          <ShellPanelSlot side="left" visible={leftVisible} width={columns.left}>
-            <ShellLeftPanelHeader />
-          </ShellPanelSlot>
-          <ShellMainCardTabs />
-          <ShellPanelSlot side="right" visible={rightVisible} width={columns.right}>
-            <ShellRightPanelHeader />
-          </ShellPanelSlot>
-        </div>
-        <div className="flex min-h-0 flex-1 divide-x divide-border bg-background">
+        <ShellWindowChrome />
+        <div className="flex min-h-0 flex-1 divide-x divide-border border-y border-border bg-background">
           <ShellPanelSlot side="left" visible={leftVisible} width={columns.left}>
             <ShellLeftPanel />
           </ShellPanelSlot>
