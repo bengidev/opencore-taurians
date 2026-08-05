@@ -21,6 +21,9 @@ export let platformPromise: Promise<PlatformTag> = createPlatformPromise();
 /**
  * Test helper: force a platform tag and reset the cached promise so the next
  * consumer sees the forced tag.
+ *
+ * Call this BEFORE components mount: `usePlatform` captures the promise at
+ * effect time, so forcing a tag after a component has mounted won't re-fire it.
  */
 export function resolvePlatformForTest(tag: PlatformTag): void {
   testTag = tag;
