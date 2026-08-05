@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
-export type PlatformTag = "" | "macos" | "windows" | "linux" | string;
+export type PlatformTag = "" | "macos" | "windows" | "linux";
 
 let testTag: PlatformTag | undefined;
 
@@ -9,7 +9,7 @@ function createPlatformPromise(): Promise<PlatformTag> {
   if (testTag !== undefined) {
     return Promise.resolve(testTag);
   }
-  return invoke<string>("app_platform").catch(() => "");
+  return invoke<PlatformTag>("app_platform").catch(() => "");
 }
 
 /**
