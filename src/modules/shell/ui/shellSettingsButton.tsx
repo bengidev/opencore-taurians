@@ -6,7 +6,11 @@ export function ShellSettingsButton() {
   const setSettingsOpen = useShellStore((s) => s.setSettingsOpen);
 
   return (
-    <PanelToolButton label="Settings" onClick={() => setSettingsOpen(true)}>
+    <PanelToolButton
+      label="Settings"
+      tooltipSide="bottom"
+      onClick={() => setSettingsOpen(true)}
+    >
       <Settings className="size-3.5" />
     </PanelToolButton>
   );

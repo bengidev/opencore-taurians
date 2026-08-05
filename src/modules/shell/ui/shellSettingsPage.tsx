@@ -26,6 +26,7 @@ import {
   TERMINAL_FONT_SIZE_MAX,
   TERMINAL_FONT_SIZE_MIN,
 } from "../../terminal/domain/terminalFontSize";
+import { usePlatform } from "@/lib/platform";
 import { useShellStore } from "../state/shellStore";
 import {
   SHELL_EASE_DRAWER,
@@ -266,6 +267,8 @@ export function ShellTerminalFontSizeSetting() {
 }
 
 export function ShellSettingsPage({ open }: { open: boolean }) {
+  const platform = usePlatform();
+  const isMac = platform === "macos";
   const setSettingsOpen = useShellStore((s) => s.setSettingsOpen);
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
@@ -337,7 +340,12 @@ export function ShellSettingsPage({ open }: { open: boolean }) {
       }}
     >
       <header
-        className="flex h-9 shrink-0 items-center border-b border-border"
+        className={cn(
+          "flex h-9 shrink-0 items-center border-b border-border",
+          // macOS overlay title bar: clear the traffic-light zone so the
+          // settings header's back button sits flush right of the lights.
+          isMac ? "pl-20 pr-2" : "pl-2 pr-2",
+        )}
         onClick={() => setSettingsOpen(false)}
       >
         <Button
