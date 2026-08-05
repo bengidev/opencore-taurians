@@ -8,6 +8,8 @@ type PanelToolButtonProps = Omit<
 > & {
   label: string;
   children: ReactNode;
+  /** Tooltip side; see PanelTooltip. Default "top". */
+  tooltipSide?: "top" | "bottom" | "left" | "right";
 };
 
 /** Compact icon control with a minimal rounded tooltip for panel chrome. */
@@ -15,10 +17,11 @@ export function PanelToolButton({
   label,
   children,
   className,
+  tooltipSide,
   ...props
 }: PanelToolButtonProps) {
   return (
-    <PanelTooltip label={label}>
+    <PanelTooltip label={label} side={tooltipSide}>
       <Button
         type="button"
         variant="ghost"

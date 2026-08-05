@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemoryPersistStorage } from "../../session/infrastructure/sessionPersistStorage";
+import { resolvePlatformForTest } from "@/lib/platform";
 import { SHELL_LAYOUT_REFERENCE_WIDTH } from "../state/shellColumnLayout";
 import { DEFAULT_SHELL_PANEL_WIDTH } from "../state/shellPanelSizing";
 import { useShellStore } from "../state/shellStore";
@@ -46,6 +47,9 @@ describe("ShellScreen", () => {
 
   beforeEach(() => {
     useMemoryPersistStorage();
+    // No custom window controls in shell tests: force the macOS platform tag
+    // so the chrome row renders deterministically (WindowControls = null).
+    resolvePlatformForTest("macos");
     useShellStore.setState({
       activeMainCard: "chat",
       leftVisible: true,

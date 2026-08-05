@@ -39,7 +39,7 @@ export function ShellPanelToggle({ side }: { side: ShellPanelSide }) {
     : PANEL_TOGGLE_META[side].OpenIcon;
 
   return (
-    <PanelToolButton label={label} onClick={toggle}>
+    <PanelToolButton label={label} tooltipSide="bottom" onClick={toggle}>
       <Icon className="size-3.5" />
     </PanelToolButton>
   );

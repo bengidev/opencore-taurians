@@ -1,6 +1,7 @@
 mod editor;
 mod explorer;
 mod path_scope;
+mod platform;
 mod provider;
 mod quit;
 mod source_control;
@@ -56,6 +57,7 @@ pub fn run() {
         .manage(terminal_state)
         .invoke_handler(tauri::generate_handler![
             greet,
+            platform::app_platform,
             editor::read::editor_read_file,
             editor::read_external::editor_read_external_file,
             editor::write::editor_write_file,
